@@ -39,6 +39,7 @@ data = dict(
                 meta_keys=[])
         ],
         mode='train'),
+        # limit_samples=10, 
     val=dict(
         type='opera.WifiPoseDataset',
         dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/test_data',
