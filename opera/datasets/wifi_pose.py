@@ -11,17 +11,6 @@ from .builder import DATASETS
 from mmdet.datasets.pipelines import Compose
 import h5py
 
-TARGET_BONES = [
-    (3, 2), (12, 6), (3, 5), (5, 7), (2, 4), (4, 8),
-    (12, 11), (11, 13), (6, 9), (9, 10)
-]
-
-JOINT_NAMES = [
-    'Head', 'Neck', 'R_Shoulder', 'L_Shoulder', 'R_Elbow', 'L_Elbow', 
-    'R_Hip', 'L_Wrist', 'R_Wrist', 'R_Knee', 'R_Ankle', 
-    'L_Knee', 'L_Hip', 'L_Ankle'
-]
-
 @DATASETS.register_module()
 class WifiPoseDataset(dataset):
     CLASSES = ('person', )
@@ -31,6 +20,24 @@ class WifiPoseDataset(dataset):
         self.pipeline = Compose(pipeline)
         self.filename_list = self.load_file_name_list(os.path.join(self.data_root, mode + '_data_list.txt'))
         self._set_group_flag()
+        self.JOINT_NAMES = [
+            'Head', 'Neck', 'R_Shoulder', 'L_Shoulder', 'R_Elbow', 'L_Elbow', 
+            'R_Hip', 'L_Wrist', 'R_Wrist', 'R_Knee', 'R_Ankle', 
+            'L_Knee', 'L_Hip', 'L_Ankle'
+        ]
+
+        self.TARGET_BONES = [
+            (3, 2),    # LShoulder <-> RShoulder
+            (12, 6),   # LHip <-> RHip
+            (3, 5),    # LShoulder -> LElbow (Tay Trái)
+            (5, 7),    # LElbow -> LWrist
+            (2, 4),    # RShoulder -> RElbow (Tay Phải)
+            (4, 8),    # RElbow -> RWrist
+            (12, 11),  # LHip -> LKnee (Chân Trái)
+            (11, 13),  # LKnee -> LAnkle
+            (6, 9),    # RHip -> RKnee (Chân Phải)
+            (9, 10),   # RKnee -> RAnkle
+        ]
         
     def pre_pipeline(self, results):
         results['seg_fields'] = []
