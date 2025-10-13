@@ -14,11 +14,14 @@ import h5py
 @DATASETS.register_module()
 class WifiPoseDataset(dataset):
     CLASSES = ('person', )
-    def __init__(self, dataset_root, pipeline, mode, **kwargs):
+    def __init__(self, dataset_root, pipeline, mode, limit_samples=None, **kwargs):
         
         self.data_root = dataset_root
         self.pipeline = Compose(pipeline)
         self.filename_list = self.load_file_name_list(os.path.join(self.data_root, mode + '_data_list.txt'))
+        if limit_samples is not None and limit_samples > 0:
+            print(f"\n!!! CHẾ ĐỘ DEBUG: Chỉ tải {limit_samples} mẫu dữ liệu cho mode='{mode}'.\n")
+            self.filename_list = self.filename_list[:limit_samples]
         self._set_group_flag()
         self.JOINT_NAMES = [
             'Head', 'Neck', 'R_Shoulder', 'L_Shoulder', 'R_Elbow', 'L_Elbow', 
