@@ -15,6 +15,7 @@ from opera.core.bbox import build_assigner, build_sampler
 from opera.core.keypoint import gaussian_radius, draw_umich_gaussian
 from opera.models.utils import build_positional_encoding, build_transformer
 from ..builder import HEADS, build_loss
+import json
 
 
 @HEADS.register_module()
@@ -75,6 +76,7 @@ class PETRHead(AnchorFreeHead):
                  loss_kpt=dict(type='L2Loss', loss_weight=70.0),
                  loss_oks=dict(type='OKSLoss', loss_weight=2.0),
                  loss_hm=dict(type='CenterFocalLoss', loss_weight=4.0),
+                 loss_bone=dict(type='BoneLengthLoss', loss_weight=10.0),
                  as_two_stage=True,
                  with_kpt_refine=True,
                  train_cfg=dict(
@@ -130,6 +132,7 @@ class PETRHead(AnchorFreeHead):
         self.loss_oks = build_loss(loss_oks)
         self.loss_oks_refine = build_loss(loss_oks_refine)
         self.loss_hm = build_loss(loss_hm)
+        self.loss_bone = build_loss(loss_bone)
         if self.loss_cls.use_sigmoid:
             self.cls_out_channels = num_classes
         else:
@@ -147,6 +150,14 @@ class PETRHead(AnchorFreeHead):
             f' be exactly 2 times of num_feats. Found {self.embed_dims}' \
             f' and {num_feats}.'
         self._init_layers()
+        try:
+            with open('gt_bone_stats.json', 'r') as f:
+                bone_stats = json.load(f)
+            self.register_buffer('gt_bone_lengths_mean', torch.tensor(bone_stats['mean']))
+            print("\nĐã tải và đăng ký 'gt_bone_stats.json' thành công vào buffer.\n")
+        except FileNotFoundError:
+            print("\n!!! CẢNH BÁO: Không tìm thấy file 'gt_bone_stats.json'. BoneLengthLoss sẽ không hoạt động.!!!\n")
+            self.register_buffer('gt_bone_lengths_mean', torch.zeros(15)) 
 
     def _init_layers(self):
         """Initialize classification branch and keypoint branch of head."""
@@ -492,6 +503,31 @@ class PETRHead(AnchorFreeHead):
         # loss from the last decoder layer
         loss_dict['loss_cls'] = losses_cls[-1]
         loss_dict['loss_kpt'] = losses_kpt[-1]
+        # ==========================================================
+        # == THÊM LOGIC TÍNH BONE LENGTH LOSS VÀO ĐÂY ==
+        # ==========================================================
+        # Lấy ra các kết quả từ lớp decoder cuối cùng
+        kpt_preds_last_layer = kpt_preds_list[-1]  # shape (bs * num_query, 42)
+        kpt_weights_last_layer = kpt_weights_list[-1] # shape (bs * num_query, 42)
+        
+        # Tìm các chỉ số của các mẫu dự đoán dương (positive predictions)
+        # Một mẫu là dương nếu bất kỳ trọng số keypoint nào của nó > 0
+        pos_inds = torch.any(kpt_weights_last_layer > 0, dim=1)
+        
+        pos_kpt_preds = kpt_preds_last_layer[pos_inds]
+        
+        # Chỉ tính loss nếu có ít nhất một mẫu dương trong batch
+        if pos_kpt_preds.numel() > 0:
+            # Reshape để có dạng (num_pos, num_keypoints, 3)
+            # self.num_keypoints là 14
+            pos_kpt_preds_reshaped = pos_kpt_preds.view(-1, self.num_keypoints, 3)
+            
+            # Tính loss
+            loss_bone = self.loss_bone(pos_kpt_preds_reshaped, self.gt_bone_lengths_mean)
+            loss_dict['loss_bone'] = loss_bone
+        else:
+            # Nếu không có mẫu dương nào, loss_bone = 0 để tránh lỗi
+            loss_dict['loss_bone'] = kpt_preds_last_layer.sum() * 0
         # loss from other decoder layers
         num_dec_layer = 0
         for loss_cls_i, loss_kpt_i in zip(

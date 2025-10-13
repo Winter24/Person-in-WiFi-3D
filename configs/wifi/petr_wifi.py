@@ -185,6 +185,7 @@ model = dict(
             alpha=0.25,
             loss_weight=4.0),
         loss_kpt=dict(type='mmdet.MSELoss', loss_weight=35.0), #70 -> 35
+        loss_bone=dict(type='BoneLengthLoss', loss_weight=10.0), # Thử với trọng số 10.0
         loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=35.0),
         loss_oks=dict(type='opera.OKSLoss', loss_weight=2.0),
         loss_hm=dict(type='opera.CenterFocalLoss', loss_weight=4.0),
