@@ -1,3 +1,4 @@
+import json
 import os
 from scipy import io
 import numpy as np
@@ -9,6 +10,17 @@ import scipy.fft as fft
 from .builder import DATASETS
 from mmdet.datasets.pipelines import Compose
 import h5py
+
+TARGET_BONES = [
+    (3, 2), (12, 6), (3, 5), (5, 7), (2, 4), (4, 8),
+    (12, 11), (11, 13), (6, 9), (9, 10)
+]
+
+JOINT_NAMES = [
+    'Head', 'Neck', 'R_Shoulder', 'L_Shoulder', 'R_Elbow', 'L_Elbow', 
+    'R_Hip', 'L_Wrist', 'R_Wrist', 'R_Knee', 'R_Ankle', 
+    'L_Knee', 'L_Hip', 'L_Ankle'
+]
 
 @DATASETS.register_module()
 class WifiPoseDataset(dataset):
@@ -208,41 +220,215 @@ class WifiPoseDataset(dataset):
         
         return np.array(keypoints_list)
     
+    # def evaluate(self,
+    #              results,
+    #              metric='keypoints',
+    #              logger=None,
+    #              jsonfile_prefix=None,
+    #              classwise=False,
+    #              proposal_nums=(100, 300, 1000),
+    #              iou_thrs=None,
+    #              metric_items=None):
+    #     mpjpe_3d_list = []
+    #     mpjpe_h_list = []
+    #     mpjpe_v_list = []
+    #     mpjpe_d_list = []
+    #     for i in range(len(results)):
+    #         info = self.get_item_single_frame(i)
+    #         gt_keypoints = info['gt_keypoints']
+    #         data_name = info['img_name']
+    #         det_bboxes, det_keypoints = results[i]
+    #         for label in range(len(det_keypoints)):
+    #             kpt_pred = det_keypoints[label]
+    #             kpt_pred = torch.tensor(kpt_pred, dtype=gt_keypoints.dtype, device=gt_keypoints.device)
+    #             #np.save('/home/yankangwei/opera-main/result/pose_o/%s.npy' %data_name, kpt_pred)
+    #             mpjpe_3d,mpjpeh,mpjpev,mpjped = self.calc_mpjpe(gt_keypoints, kpt_pred, data_name, root = [5,7])
+    #             mpjpe_3d_list.append(mpjpe_3d.numpy())
+    #             mpjpe_h_list.append(mpjpeh.numpy())
+    #             mpjpe_v_list.append(mpjpev.numpy())
+    #             mpjpe_d_list.append(mpjped.numpy())
+    #             #mpjpe_3d_list.append(np.array([0]))
+
+    #     mpjpe = np.array(mpjpe_3d_list).mean()   
+    #     mpjpeh = np.array(mpjpe_h_list).mean() 
+    #     mpjpev = np.array(mpjpe_v_list).mean() 
+    #     mpjped = np.array(mpjpe_d_list).mean() 
+    #     result = {'mpjpe':mpjpe, 'mpjpeh':mpjpeh, 'mpjpev':mpjpev, 'mpjped':mpjped}
+    #     return OrderedDict(result)
+    
     def evaluate(self,
-                 results,
-                 metric='keypoints',
-                 logger=None,
-                 jsonfile_prefix=None,
-                 classwise=False,
-                 proposal_nums=(100, 300, 1000),
-                 iou_thrs=None,
-                 metric_items=None):
-        mpjpe_3d_list = []
-        mpjpe_h_list = []
-        mpjpe_v_list = []
-        mpjpe_d_list = []
+                results,
+                metric='keypoints',
+                logger=None,
+                jsonfile_prefix=None,
+                classwise=False,
+                proposal_nums=(100, 300, 1000),
+                iou_thrs=None,
+                metric_items=None):
+        
+        # --- PHẦN KHỞI TẠO CÁC LIST ĐỂ LƯU KẾT QUẢ ---
+        all_mpjpe_metrics = [] # MPJPE, PJDLE_h, PJDLE_v, PJDLE_d cho từng mẫu
+        all_per_joint_mpjpe = [] # MPJPE cho từng khớp, shape (num_samples, 14)
+        all_bone_length_errors = [] # Sai số chiều dài xương, shape (num_samples, num_bones)
+
+        # Tải chiều dài xương ground-truth từ file JSON
+        try:
+            with open('gt_bone_stats.json', 'r') as f:
+                bone_stats = json.load(f)
+            gt_bone_lengths_mean = torch.tensor(bone_stats['mean'])
+            bones_definition_from_json = bone_stats['bones_definition']
+        except FileNotFoundError:
+            print("Lỗi: Không tìm thấy file 'gt_bone_stats.json'. Vui lòng chạy script phân tích trước.")
+            return {}
+
+        # Tạo mapping từ TARGET_BONES tới chỉ số trong gt_bone_lengths_mean
+        json_indices = []
+        for target_bone in self.TARGET_BONES:
+            for i, full_bone in enumerate(bones_definition_from_json):
+                if (target_bone[0] == full_bone[0] and target_bone[1] == full_bone[1]) or \
+                (target_bone[0] == full_bone[1] and target_bone[1] == full_bone[0]):
+                    json_indices.append(i)
+                    break
+        reliable_gt_lengths_mean = gt_bone_lengths_mean[json_indices]
+        
+        # --- VÒNG LẶP XỬ LÝ KẾT QUẢ ---
         for i in range(len(results)):
             info = self.get_item_single_frame(i)
             gt_keypoints = info['gt_keypoints']
-            data_name = info['img_name']
+            
+            # Bỏ qua nếu không có ground-truth
+            if gt_keypoints.shape[0] == 0:
+                continue
+                
             det_bboxes, det_keypoints = results[i]
-            for label in range(len(det_keypoints)):
-                kpt_pred = det_keypoints[label]
-                kpt_pred = torch.tensor(kpt_pred, dtype=gt_keypoints.dtype, device=gt_keypoints.device)
-                #np.save('/home/yankangwei/opera-main/result/pose_o/%s.npy' %data_name, kpt_pred)
-                mpjpe_3d,mpjpeh,mpjpev,mpjped = self.calc_mpjpe(gt_keypoints, kpt_pred, data_name, root = [5,7])
-                mpjpe_3d_list.append(mpjpe_3d.numpy())
-                mpjpe_h_list.append(mpjpeh.numpy())
-                mpjpe_v_list.append(mpjpev.numpy())
-                mpjpe_d_list.append(mpjped.numpy())
-                #mpjpe_3d_list.append(np.array([0]))
+            
+            # Chỉ xử lý lớp 'person' (label 0)
+            kpt_pred = det_keypoints[0]
+            
+            # Bỏ qua nếu không có dự đoán nào
+            if kpt_pred.shape[0] == 0:
+                # Nếu có ground-truth nhưng không có dự đoán, coi như sai số là rất lớn
+                # Hoặc đơn giản là bỏ qua để tính trên các mẫu có dự đoán
+                continue
+                
+            kpt_pred = torch.tensor(kpt_pred, dtype=gt_keypoints.dtype, device=gt_keypoints.device)
+            
+            # --- TÍNH TOÁN CÁC METRIC ---
+            # 1. Khớp cặp và tính toán MPJPE, PJDLE
+            matched_results = self.calc_mpjpe_and_match(gt_keypoints, kpt_pred)
+            
+            if matched_results:
+                # Nếu có ít nhất một cặp được khớp
+                mpjpe_metrics, per_joint_mpjpe, matched_pred_kpts, matched_gt_kpts = matched_results
+                all_mpjpe_metrics.append(mpjpe_metrics)
+                all_per_joint_mpjpe.append(per_joint_mpjpe)
+                
+                # 2. Tính toán sai số chiều dài xương trên các cặp đã khớp
+                bone_error = self.calc_bone_length_error(matched_pred_kpts, reliable_gt_lengths_mean)
+                all_bone_length_errors.append(bone_error)
 
-        mpjpe = np.array(mpjpe_3d_list).mean()   
-        mpjpeh = np.array(mpjpe_h_list).mean() 
-        mpjpev = np.array(mpjpe_v_list).mean() 
-        mpjped = np.array(mpjpe_d_list).mean() 
-        result = {'mpjpe':mpjpe, 'mpjpeh':mpjpeh, 'mpjpev':mpjpev, 'mpjped':mpjped}
-        return OrderedDict(result)
+        # --- TỔNG HỢP VÀ IN KẾT QUẢ ---
+        if not all_mpjpe_metrics:
+            print("Không có mẫu nào được đánh giá (có thể do không có dự đoán hoặc ground-truth).")
+            return {}
+
+        # Tính trung bình các metric MPJPE/PJDLE
+        avg_mpjpe_metrics = np.mean(all_mpjpe_metrics, axis=0)
+        
+        # Tính trung bình MPJPE trên từng khớp
+        avg_per_joint_mpjpe = np.mean(all_per_joint_mpjpe, axis=0)
+        
+        # Tính trung bình sai số chiều dài xương
+        avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
+        
+        # Tạo dictionary kết quả
+        result_dict = OrderedDict(
+            mpjpe=avg_mpjpe_metrics[0],
+            mpjpeh=avg_mpjpe_metrics[1],
+            mpjpev=avg_mpjpe_metrics[2],
+            mpjped=avg_mpjpe_metrics[3]
+        )
+
+        # In ra bảng kết quả chi tiết
+        print("\n" + "="*60)
+        print(" " * 15 + "BÁO CÁO ĐÁNH GIÁ CHI TIẾT")
+        print("="*60)
+        print(f"MPJPE Tổng thể: {result_dict['mpjpe']:.2f} mm")
+        print(f"PJDLE (ngang):   {result_dict['mpjpeh']:.2f} mm")
+        print(f"PJDLE (sâu):     {result_dict['mpjpev']:.2f} mm")
+        print(f"PJDLE (cao):     {result_dict['mpjped']:.2f} mm")
+        print("-"*60)
+        print(" " * 15 + "MPJPE TRUNG BÌNH TRÊN TỪNG KHỚP (mm)")
+        print("-"*60)
+        # Sắp xếp để dễ xem
+        sorted_joint_errors = sorted(zip(self.JOINT_NAMES, avg_per_joint_mpjpe), key=lambda item: item[1], reverse=True)
+        for joint_name, error in sorted_joint_errors:
+            print(f"{joint_name:<15} | {error:.2f}")
+        print("-"*60)
+        print(" " * 10 + "SAI SỐ CHIỀU DÀI XƯƠNG TRUNG BÌNH (mm)")
+        print("-"*60)
+        bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
+        sorted_bone_errors = sorted(zip(bone_names, avg_bone_length_error), key=lambda item: item[1], reverse=True)
+        for bone_name, error in sorted_bone_errors:
+            print(f"{bone_name:<25} | {error:.2f}")
+        print("="*60)
+        
+        return result_dict
+
+# THÊM 2 HÀM HELPER NÀY VÀO BÊN TRONG CLASS WifiPoseDataset
+def calc_bone_length_error(self, pred_kpts, gt_lengths_mean):
+    """Tính sai số L1 trung bình của chiều dài xương."""
+    if pred_kpts.numel() == 0:
+        return []
+    
+    bones_tensor = torch.tensor(self.TARGET_BONES, dtype=torch.long, device=pred_kpts.device)
+    
+    p1 = pred_kpts[:, bones_tensor[:, 0], :3]
+    p2 = pred_kpts[:, bones_tensor[:, 1], :3]
+    
+    pred_lengths = torch.norm(p1 - p2, p=2, dim=-1) # shape: (num_matched, num_bones)
+    
+    target_lengths = gt_lengths_mean.to(pred_kpts.device).expand_as(pred_lengths)
+    
+    error = torch.abs(pred_lengths - target_lengths) * 1000 # Chuyển sang mm
+    
+    return error.mean(dim=0).cpu().numpy() # Trả về sai số trung bình cho từng xương
+
+def calc_mpjpe_and_match(self, gt_kpts, pred_kpts):
+    """Khớp cặp GT và Pred, sau đó tính các loại MPJPE."""
+    n_gt, n_pred = gt_kpts.shape[0], pred_kpts.shape[0]
+    
+    # Tạo ma trận chi phí
+    cost_matrix = torch.cdist(gt_kpts.view(n_gt, -1), pred_kpts.view(n_pred, -1), p=2)
+    cost_matrix = cost_matrix.cpu().numpy()
+    
+    # Dùng thuật toán Hungary để khớp cặp
+    gt_indices, pred_indices = linear_sum_assignment(cost_matrix)
+    
+    # Lấy ra các cặp đã được khớp
+    matched_gt = gt_kpts[gt_indices]
+    matched_pred = pred_kpts[pred_indices]
+    
+    if matched_gt.numel() == 0:
+        return None
+
+    # Tính toán các metric trên các cặp đã khớp
+    # Sai số Euclid trên từng khớp
+    per_joint_error_3d = torch.norm(matched_gt - matched_pred, p=2, dim=-1) # shape: (num_matched, 14)
+    
+    # MPJPE tổng thể
+    mpjpe = per_joint_error_3d.mean() * 1000 # mm
+    
+    # PJDLE
+    per_joint_error_dim = torch.abs(matched_gt - matched_pred) # shape: (num_matched, 14, 3)
+    mpjpeh = per_joint_error_dim[..., 0].mean() * 1000 # mm
+    mpjpev = per_joint_error_dim[..., 1].mean() * 1000 # mm (đổi Y và Z để khớp với paper)
+    mpjped = per_joint_error_dim[..., 2].mean() * 1000 # mm
+    
+    mpjpe_metrics = [mpjpe.cpu().numpy(), mpjpeh.cpu().numpy(), mpjpev.cpu().numpy(), mpjped.cpu().numpy()]
+    per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000 # mm, shape (14,)
+    
+    return mpjpe_metrics, per_joint_mpjpe, matched_pred, matched_gt
     
     def calc_mpjpe(self, real, pred, no, root=0):
         n = real.shape[0]
