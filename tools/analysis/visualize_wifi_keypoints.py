@@ -1,4 +1,4 @@
-# tools/analysis/visualize_wifi_keypoints.py
+# tools/analysis/visualize_wifi_keypoints.py (PHIÊN BẢN NÂNG CẤP)
 
 import sys
 import os
@@ -6,66 +6,129 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.lines import Line2D
 from opera.datasets.wifi_pose import WifiPoseDataset
 
-def visualize_single_person(keypoints_3d, ax):
-    """Vẽ một bộ keypoints 3D lên một trục Axes3D."""
+# --- CẤU HÌNH ---
+# !!! QUAN TRỌNG: Thay đổi đường dẫn này cho đúng với máy của bạn !!!
+DATASET_ROOT = '/home/yankangwei/opera-main/data/wifipose/train_data'
+SAMPLE_INDEX_TO_VISUALIZE = 0  # Chọn một mẫu bất kỳ để xem
+
+# --- ĐỊNH NGHĨA CÁC ĐƯỜNG NỐI (LIMBS) ---
+# Đây là một giả định ban đầu dựa trên các bộ dữ liệu phổ biến. 
+# Chúng ta sẽ dùng nó để vẽ cho dễ nhìn, sau đó xác minh lại các chỉ số.
+# Giả định: 0:Vai T, 1:Vai P, 2:Khuỷu T, 3:Khuỷu P, 4:Cổ tay T, 5:Cổ tay P, 
+# 6:Hông T, 7:Hông P, 8:Đầu gối T, 9:Đầu gối P, 10:Mắt cá T, 11:Mắt cá P, 12:Đầu, 13:Cổ
+LIMBS_HYPOTHESIS = [
+    (12, 13),  # Đầu -> Cổ
+    (13, 0),   # Cổ -> Vai Trái
+    (13, 1),   # Cổ -> Vai Phải
+    (0, 1),    # Vai Trái -> Vai Phải
+    (0, 2),    # Vai Trái -> Khuỷu Trái
+    (2, 4),    # Khuỷu Trái -> Cổ Tay Trái
+    (1, 3),    # Vai Phải -> Khuỷu Phải
+    (3, 5),    # Khuỷu Phải -> Cổ Tay Phải
+    (13, 6),   # Cổ -> Hông Trái
+    (13, 7),   # Cổ -> Hông Phải
+    (6, 7),    # Hông Trái -> Hông Phải
+    (6, 8),    # Hông Trái -> Đầu Gối Trái
+    (8, 10),   # Đầu Gối Trái -> Mắt Cá Trái
+    (7, 9),    # Hông Phải -> Đầu Gối Phải
+    (9, 11)    # Đầu Gối Phải -> Mắt Cá Phải
+]
+
+def visualize_single_person_skeleton(keypoints_3d, ax, title=""):
+    """Vẽ bộ xương 3D và ghi chú chỉ số của từng khớp."""
     
-    # Tọa độ X, Y, Z
-    xs = keypoints_3d[:, 0]
-    ys = keypoints_3d[:, 1]
-    zs = keypoints_3d[:, 2]
+    ax.set_title(title, fontsize=14)
     
-    # Vẽ các điểm keypoint
-    ax.scatter(xs, ys, zs, c='r', marker='o')
+    # Vẽ các khớp (joints)
+    xs, ys, zs = keypoints_3d[:, 0], keypoints_3d[:, 1], keypoints_3d[:, 2]
+    ax.scatter(xs, ys, zs, c='red', marker='o', s=50, depthshade=True)
     
-    # Ghi chú chỉ số của từng điểm
+    # Ghi chú chỉ số của từng khớp
     for i in range(keypoints_3d.shape[0]):
-        ax.text(xs[i], ys[i], zs[i], f'{i}', color='blue', fontsize=12)
+        ax.text(xs[i], ys[i], zs[i], f'{i}', color='blue', fontsize=12, fontweight='bold')
+        
+    # Vẽ các xương (limbs) dựa trên giả định ban đầu
+    for start_idx, end_idx in LIMBS_HYPOTHESIS:
+        # Lấy tọa độ của 2 điểm
+        p1 = keypoints_3d[start_idx]
+        p2 = keypoints_3d[end_idx]
+        # Vẽ đường nối
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]], c='green', linewidth=2)
+        
+def set_axes_equal(ax):
+    """Làm cho các trục 3D có cùng tỷ lệ để hình người không bị méo."""
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    plot_radius = 0.5 * max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 def main():
-    # --- CẤU HÌNH ---
-    # !!! QUAN TRỌNG: Thay đổi đường dẫn này cho đúng với máy của bạn !!!
-    dataset_root = '/home/yankangwei/opera-main/data/wifipose/train_data'
-    sample_index_to_visualize = 0 # Chọn một mẫu bất kỳ để xem
+    print(f"Bắt đầu trực quan hóa dữ liệu ground-truth từ mẫu số {SAMPLE_INDEX_TO_VISUALIZE}...")
     
     # --- TẢI DỮ LIỆU ---
     try:
-        # Pipeline rỗng để lấy dữ liệu thô
-        dataset = WifiPoseDataset(dataset_root=dataset_root, pipeline=[], mode='train')
-        data_sample = dataset[sample_index_to_visualize]
+        dataset = WifiPoseDataset(dataset_root=DATASET_ROOT, pipeline=[], mode='train')
+        if SAMPLE_INDEX_TO_VISUALIZE >= len(dataset):
+            print(f"Lỗi: Chỉ số mẫu {SAMPLE_INDEX_TO_VISUALIZE} vượt quá kích thước dataset ({len(dataset)}).")
+            return
+        data_sample = dataset[SAMPLE_INDEX_TO_VISUALIZE]
     except Exception as e:
         print(f"Lỗi khi tải dữ liệu: {e}")
+        print(f"Vui lòng kiểm tra lại đường dẫn: '{DATASET_ROOT}'")
         return
         
-    gt_keypoints = data_sample['gt_keypoints'] # Shape: (num_persons, 14, 3)
+    gt_keypoints_all = data_sample['gt_keypoints']
+    num_people = gt_keypoints_all.shape[0]
     
-    if gt_keypoints.shape[0] == 0:
-        print(f"Mẫu dữ liệu {sample_index_to_visualize} không có người nào.")
+    if num_people == 0:
+        print(f"Mẫu dữ liệu {SAMPLE_INDEX_TO_VISUALIZE} không có người nào.")
         return
         
-    # Lấy keypoints của người đầu tiên để trực quan hóa
-    first_person_kpts = gt_keypoints[0]
-    
-    print(f"--- Tọa độ 3D của người đầu tiên trong mẫu {sample_index_to_visualize} ---")
-    print(first_person_kpts)
+    print(f"Tìm thấy {num_people} người trong mẫu. Sẽ trực quan hóa từng người.")
     
     # --- TRỰC QUAN HÓA ---
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_subplot(111, projection='3d')
+    # Tạo một figure với nhiều subplot nếu có nhiều người
+    fig = plt.figure(figsize=(8 * num_people, 8))
     
-    visualize_single_person(first_person_kpts.numpy(), ax)
-    
-    ax.set_xlabel('X (Chiều ngang)')
-    ax.set_ylabel('Y (Chiều sâu)')
-    ax.set_zlabel('Z (Chiều cao)')
-    ax.set_title(f'Trực quan hóa Keypoints 3D cho Mẫu {sample_index_to_visualize}')
-    
-    # Đảo ngược trục Y để góc nhìn trực quan hơn (tùy chọn)
-    ax.invert_yaxis()
-    
+    for i in range(num_people):
+        person_kpts = gt_keypoints_all[i].numpy()
+        
+        ax = fig.add_subplot(1, num_people, i + 1, projection='3d')
+        visualize_single_person_skeleton(person_kpts, ax, title=f"Người số {i+1}")
+        
+        ax.set_xlabel('X (ngang)')
+        ax.set_ylabel('Y (sâu)')
+        ax.set_zlabel('Z (cao)')
+        
+        # Đặt các trục có cùng tỷ lệ
+        set_axes_equal(ax)
+        
+        # Đảo trục Z để đầu hướng lên trên (matplotlib mặc định ngược)
+        ax.invert_zaxis()
+        
+        # Thiết lập góc nhìn
+        ax.view_init(elev=15, azim=-75)
+
+    fig.suptitle(f'Trực quan hóa Ground-Truth Keypoints cho Mẫu {SAMPLE_INDEX_TO_VISUALIZE}', fontsize=16)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 if __name__ == '__main__':
