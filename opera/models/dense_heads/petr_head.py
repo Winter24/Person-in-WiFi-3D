@@ -481,10 +481,10 @@ class PETRHead(AnchorFreeHead):
         img_metas_list = [img_metas for _ in range(num_dec_layers)]
 
         losses_cls, losses_kpt, kpt_preds_list, kpt_targets_list, \
-             kpt_weights_list = multi_apply(
+            kpt_weights_list = multi_apply(
                 self.loss_single, all_cls_scores, all_kpt_preds,
                 all_gt_labels_list, all_gt_keypoints_list,
-                all_gt_areas_list, img_metas_list )
+                all_gt_areas_list, img_metas_list)
 
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
@@ -503,15 +503,20 @@ class PETRHead(AnchorFreeHead):
         # loss from the last decoder layer
         loss_dict['loss_cls'] = losses_cls[-1]
         loss_dict['loss_kpt'] = losses_kpt[-1]
+        
+        # loss from other intermediate decoder layers
+        for i, (loss_cls_i, loss_kpt_i) in enumerate(zip(losses_cls[:-1], losses_kpt[:-1])):
+            loss_dict[f'd{i}.loss_cls'] = loss_cls_i
+            loss_dict[f'd{i}.loss_kpt'] = loss_kpt_i
+            
         # ==========================================================
-        # == THÊM LOGIC TÍNH BONE LENGTH LOSS VÀO ĐÂY ==
+        # == TÍNH TOÁN BONE LENGTH LOSS CHO LỚP DECODER CUỐI CÙNG ==
         # ==========================================================
         # Lấy ra các kết quả từ lớp decoder cuối cùng
         kpt_preds_last_layer = kpt_preds_list[-1]  # shape (bs * num_query, 42)
         kpt_weights_last_layer = kpt_weights_list[-1] # shape (bs * num_query, 42)
         
         # Tìm các chỉ số của các mẫu dự đoán dương (positive predictions)
-        # Một mẫu là dương nếu bất kỳ trọng số keypoint nào của nó > 0
         pos_inds = torch.any(kpt_weights_last_layer > 0, dim=1)
         
         pos_kpt_preds = kpt_preds_last_layer[pos_inds]
@@ -519,23 +524,18 @@ class PETRHead(AnchorFreeHead):
         # Chỉ tính loss nếu có ít nhất một mẫu dương trong batch
         if pos_kpt_preds.numel() > 0:
             # Reshape để có dạng (num_pos, num_keypoints, 3)
-            # self.num_keypoints là 14
             pos_kpt_preds_reshaped = pos_kpt_preds.view(-1, self.num_keypoints, 3)
             
             # Tính loss
             loss_bone = self.loss_bone(pos_kpt_preds_reshaped, self.gt_bone_lengths_mean)
             loss_dict['loss_bone'] = loss_bone
         else:
-            # Nếu không có mẫu dương nào, loss_bone = 0 để tránh lỗi
+            # Nếu không có mẫu dương nào, loss_bone = 0
             loss_dict['loss_bone'] = kpt_preds_last_layer.sum() * 0
-        # loss from other decoder layers
-        num_dec_layer = 0
-        for loss_cls_i, loss_kpt_i in zip(
-                losses_cls[:-1], losses_kpt[:-1]):
-            loss_dict[f'd{num_dec_layer}.loss_cls'] = loss_cls_i
-            loss_dict[f'd{num_dec_layer}.loss_kpt'] = loss_kpt_i
-            num_dec_layer += 1
-
+        # ==========================================================
+        # == KẾT THÚC LOGIC BONE LOSS ==
+        # ==========================================================
+        
         return loss_dict, (kpt_preds_list[-1], kpt_targets_list[-1],
                         kpt_weights_list[-1])
 
