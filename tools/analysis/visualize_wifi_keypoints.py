@@ -17,27 +17,23 @@ from opera.datasets.wifi_pose import WifiPoseDataset
 DATASET_ROOT = '/home/yankangwei/opera-main/data/wifipose/train_data'
 SAMPLE_INDEX_TO_VISUALIZE = 0  # Chọn một mẫu bất kỳ để xem
 
-# --- ĐỊNH NGHĨA CÁC ĐƯỜNG NỐI (LIMBS) ---
-# Đây là một giả định ban đầu dựa trên các bộ dữ liệu phổ biến. 
-# Chúng ta sẽ dùng nó để vẽ cho dễ nhìn, sau đó xác minh lại các chỉ số.
-# Giả định: 0:Vai T, 1:Vai P, 2:Khuỷu T, 3:Khuỷu P, 4:Cổ tay T, 5:Cổ tay P, 
-# 6:Hông T, 7:Hông P, 8:Đầu gối T, 9:Đầu gối P, 10:Mắt cá T, 11:Mắt cá P, 12:Đầu, 13:Cổ
+
 LIMBS_HYPOTHESIS = [
-    (12, 13),  # Đầu -> Cổ
-    (13, 0),   # Cổ -> Vai Trái
-    (13, 1),   # Cổ -> Vai Phải
-    (0, 1),    # Vai Trái -> Vai Phải
-    (0, 2),    # Vai Trái -> Khuỷu Trái
-    (2, 4),    # Khuỷu Trái -> Cổ Tay Trái
-    (1, 3),    # Vai Phải -> Khuỷu Phải
-    (3, 5),    # Khuỷu Phải -> Cổ Tay Phải
-    (13, 6),   # Cổ -> Hông Trái
-    (13, 7),   # Cổ -> Hông Phải
-    (6, 7),    # Hông Trái -> Hông Phải
-    (6, 8),    # Hông Trái -> Đầu Gối Trái
-    (8, 10),   # Đầu Gối Trái -> Mắt Cá Trái
-    (7, 9),    # Hông Phải -> Đầu Gối Phải
-    (9, 11)    # Đầu Gối Phải -> Mắt Cá Phải
+    (0, 1),  # Đầu -> Cổ
+    (0, 2),   # Cổ -> Vai Trái
+    (0, 3),   # Cổ -> Vai Phải
+    (2, 3),    # Vai Trái -> Vai Phải
+    (2, 4),    # Vai Trái -> Khuỷu Trái
+    (4, 8),    # Khuỷu Trái -> Cổ Tay Trái
+    (3, 6),    # Vai Phải -> Khuỷu Phải
+    (6, 10),    # Khuỷu Phải -> Cổ Tay Phải
+    (0, 5),   # Cổ -> Hông Trái
+    (0, 7),   # Cổ -> Hông Phải
+    (5, 7),    # Hông Trái -> Hông Phải
+    (5, 9),    # Hông Trái -> Đầu Gối Trái
+    (9, 12),   # Đầu Gối Trái -> Mắt Cá Trái
+    (7, 11),    # Hông Phải -> Đầu Gối Phải
+    (11, 13)    # Đầu Gối Phải -> Mắt Cá Phải
 ]
 
 def visualize_single_person_skeleton(keypoints_3d, ax, title=""):
