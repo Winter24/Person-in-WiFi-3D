@@ -385,60 +385,60 @@ class WifiPoseDataset(dataset):
         
         return result_dict
 
-# THÊM 2 HÀM HELPER NÀY VÀO BÊN TRONG CLASS WifiPoseDataset
-def calc_bone_length_error(self, pred_kpts, gt_lengths_mean):
-    """Tính sai số L1 trung bình của chiều dài xương."""
-    if pred_kpts.numel() == 0:
-        return []
-    
-    bones_tensor = torch.tensor(self.TARGET_BONES, dtype=torch.long, device=pred_kpts.device)
-    
-    p1 = pred_kpts[:, bones_tensor[:, 0], :3]
-    p2 = pred_kpts[:, bones_tensor[:, 1], :3]
-    
-    pred_lengths = torch.norm(p1 - p2, p=2, dim=-1) # shape: (num_matched, num_bones)
-    
-    target_lengths = gt_lengths_mean.to(pred_kpts.device).expand_as(pred_lengths)
-    
-    error = torch.abs(pred_lengths - target_lengths) * 1000 # Chuyển sang mm
-    
-    return error.mean(dim=0).cpu().numpy() # Trả về sai số trung bình cho từng xương
+    # THÊM 2 HÀM HELPER NÀY VÀO BÊN TRONG CLASS WifiPoseDataset
+    def calc_bone_length_error(self, pred_kpts, gt_lengths_mean):
+        """Tính sai số L1 trung bình của chiều dài xương."""
+        if pred_kpts.numel() == 0:
+            return []
+        
+        bones_tensor = torch.tensor(self.TARGET_BONES, dtype=torch.long, device=pred_kpts.device)
+        
+        p1 = pred_kpts[:, bones_tensor[:, 0], :3]
+        p2 = pred_kpts[:, bones_tensor[:, 1], :3]
+        
+        pred_lengths = torch.norm(p1 - p2, p=2, dim=-1) # shape: (num_matched, num_bones)
+        
+        target_lengths = gt_lengths_mean.to(pred_kpts.device).expand_as(pred_lengths)
+        
+        error = torch.abs(pred_lengths - target_lengths) * 1000 # Chuyển sang mm
+        
+        return error.mean(dim=0).cpu().numpy() # Trả về sai số trung bình cho từng xương
 
-def calc_mpjpe_and_match(self, gt_kpts, pred_kpts):
-    """Khớp cặp GT và Pred, sau đó tính các loại MPJPE."""
-    n_gt, n_pred = gt_kpts.shape[0], pred_kpts.shape[0]
-    
-    # Tạo ma trận chi phí
-    cost_matrix = torch.cdist(gt_kpts.view(n_gt, -1), pred_kpts.view(n_pred, -1), p=2)
-    cost_matrix = cost_matrix.cpu().numpy()
-    
-    # Dùng thuật toán Hungary để khớp cặp
-    gt_indices, pred_indices = linear_sum_assignment(cost_matrix)
-    
-    # Lấy ra các cặp đã được khớp
-    matched_gt = gt_kpts[gt_indices]
-    matched_pred = pred_kpts[pred_indices]
-    
-    if matched_gt.numel() == 0:
-        return None
+    def calc_mpjpe_and_match(self, gt_kpts, pred_kpts):
+        """Khớp cặp GT và Pred, sau đó tính các loại MPJPE."""
+        n_gt, n_pred = gt_kpts.shape[0], pred_kpts.shape[0]
+        
+        # Tạo ma trận chi phí
+        cost_matrix = torch.cdist(gt_kpts.view(n_gt, -1), pred_kpts.view(n_pred, -1), p=2)
+        cost_matrix = cost_matrix.cpu().numpy()
+        
+        # Dùng thuật toán Hungary để khớp cặp
+        gt_indices, pred_indices = linear_sum_assignment(cost_matrix)
+        
+        # Lấy ra các cặp đã được khớp
+        matched_gt = gt_kpts[gt_indices]
+        matched_pred = pred_kpts[pred_indices]
+        
+        if matched_gt.numel() == 0:
+            return None
 
-    # Tính toán các metric trên các cặp đã khớp
-    # Sai số Euclid trên từng khớp
-    per_joint_error_3d = torch.norm(matched_gt - matched_pred, p=2, dim=-1) # shape: (num_matched, 14)
-    
-    # MPJPE tổng thể
-    mpjpe = per_joint_error_3d.mean() * 1000 # mm
-    
-    # PJDLE
-    per_joint_error_dim = torch.abs(matched_gt - matched_pred) # shape: (num_matched, 14, 3)
-    mpjpeh = per_joint_error_dim[..., 0].mean() * 1000 # mm
-    mpjpev = per_joint_error_dim[..., 1].mean() * 1000 # mm (đổi Y và Z để khớp với paper)
-    mpjped = per_joint_error_dim[..., 2].mean() * 1000 # mm
-    
-    mpjpe_metrics = [mpjpe.cpu().numpy(), mpjpeh.cpu().numpy(), mpjpev.cpu().numpy(), mpjped.cpu().numpy()]
-    per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000 # mm, shape (14,)
-    
-    return mpjpe_metrics, per_joint_mpjpe, matched_pred, matched_gt
+        # Tính toán các metric trên các cặp đã khớp
+        # Sai số Euclid trên từng khớp
+        per_joint_error_3d = torch.norm(matched_gt - matched_pred, p=2, dim=-1) # shape: (num_matched, 14)
+        
+        # MPJPE tổng thể
+        mpjpe = per_joint_error_3d.mean() * 1000 # mm
+        
+        # PJDLE
+        per_joint_error_dim = torch.abs(matched_gt - matched_pred) # shape: (num_matched, 14, 3)
+        mpjpeh = per_joint_error_dim[..., 0].mean() * 1000 # mm
+        mpjpev = per_joint_error_dim[..., 1].mean() * 1000 # mm (đổi Y và Z để khớp với paper)
+        mpjped = per_joint_error_dim[..., 2].mean() * 1000 # mm
+        
+        mpjpe_metrics = [mpjpe.cpu().numpy(), mpjpeh.cpu().numpy(), mpjpev.cpu().numpy(), mpjped.cpu().numpy()]
+        per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000 # mm, shape (14,)
+        
+        return mpjpe_metrics, per_joint_mpjpe, matched_pred, matched_gt
     
     def calc_mpjpe(self, real, pred, no, root=0):
         n = real.shape[0]
