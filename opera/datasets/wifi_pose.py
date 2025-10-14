@@ -10,7 +10,10 @@ import scipy.fft as fft
 from .builder import DATASETS
 from mmdet.datasets.pipelines import Compose
 import h5py
-
+try:
+    from scipy.optimize import linear_sum_assignment
+except ImportError:
+    linear_sum_assignment = None
 @DATASETS.register_module()
 class WifiPoseDataset(dataset):
     CLASSES = ('person', )
