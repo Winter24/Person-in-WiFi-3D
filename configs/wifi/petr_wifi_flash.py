@@ -137,7 +137,7 @@ model = dict(
                     type='mmcv.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
-                            type='mmcv.MultiheadAttention',
+                            type='mmcv.FlashAttentionMMCV',
                             embed_dims=256,
                             num_heads=8,
                             dropout=0.1),
@@ -211,6 +211,6 @@ optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 lr_config = dict(policy='step', step=[450])
 runner = dict(type='EpochBasedRunner', max_epochs=5)
 find_unused_parameters = True
-work_dir = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result'
+work_dir = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/flash'
 auto_resume = False
 gpu_ids = range(0, 3)

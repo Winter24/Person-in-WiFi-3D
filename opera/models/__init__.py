@@ -10,6 +10,7 @@ from .losses import *
 from .necks import *
 from .roi_heads import *
 from .utils import *
+from .layers import *
 
 __all__ = [
     'BACKBONES', 'NECKS', 'ROI_EXTRACTORS', 'SHARED_HEADS', 'HEADS', 'LOSSES',

@@ -13,7 +13,6 @@ scipy
 scikit-learn
 xtcocotools
 matplotlib
-numpy
 pycocotools
 six
 terminaltables

@@ -7,7 +7,6 @@ Author: Opera Contributors
 Author-email: shidahu@hikvision.com; liliangqi@hikvision.com
 License: Apache License 2.0
 Keywords: computer vision,object perception
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -140,5 +139,4 @@ If you find our works useful in your research, please consider citing:
 ## License
 
 This project is released under the [Apache 2.0 license](LICENSE).
-
-
+# Person-in-WiFi-3D

@@ -14,11 +14,11 @@ from opera.datasets import build_dataset
 
 # --- CẤU HÌNH ---
 CONFIG_FILE = '/home/winter24/Person-in-WiFi-3D-repo/configs/wifi/petr_wifi.py'
-CHECKPOINT_FILE = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/epoch_47.pth'
+CHECKPOINT_FILE = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/bone_length_loss.pth'
 
 # --- CẤU HÌNH VISUALIZE VÀ PHÂN TÍCH ---
 MIN_NUM_PEOPLE = 2
-SCORE_THRESHOLD = 0.2
+SCORE_THRESHOLD = 0.3
 DEVICE = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # Tên các khớp theo thứ tự 14 điểm (dựa trên CrowdPose/WifiPose)

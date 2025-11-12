@@ -14,10 +14,10 @@ from opera.datasets import build_dataset
 # --- Cấu hình ---
 # !!! HÃY ĐẢM BẢO CÁC ĐƯỜNG DẪN NÀY CHÍNH XÁC TRÊN MÁY CỦA BẠN !!!
 CONFIG_FILE = '/home/winter24/Person-in-WiFi-3D-repo/configs/wifi/petr_wifi.py'
-CHECKPOINT_FILE = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/epoch_47.pth'
+CHECKPOINT_FILE = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/bone_length_loss.pth'
 
 # Ngưỡng điểm tin cậy để lọc kết quả
-SCORE_THRESHOLD = 0.1
+SCORE_THRESHOLD = 0.3
 
 # Chỉ số của mẫu dữ liệu trong tập test mà bạn muốn visualize
 SAMPLE_INDEX = 25

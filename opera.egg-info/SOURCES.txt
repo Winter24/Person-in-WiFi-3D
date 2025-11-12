@@ -49,6 +49,9 @@ opera/models/detectors/__init__.py
 opera/models/detectors/inspose.py
 opera/models/detectors/petr.py
 opera/models/detectors/soit.py
+opera/models/layers/__init__.py
+opera/models/layers/flash_attention.py
+opera/models/layers/linear_fast_attention.py
 opera/models/losses/__init__.py
 opera/models/losses/center_focal_loss.py
 opera/models/losses/limb_loss.py

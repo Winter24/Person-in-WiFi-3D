@@ -549,8 +549,7 @@ class MultiheadAttention(BaseModule):
             out = out.transpose(0, 1)
 
         return identity + self.dropout_layer(self.proj_drop(out))
-
-
+    
 @FEEDFORWARD_NETWORK.register_module()
 class FFN(BaseModule):
     """Implements feed-forward networks (FFNs) with identity connection.
