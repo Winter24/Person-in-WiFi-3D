@@ -72,6 +72,7 @@ data = dict(
                 ])
         ],
         mode='test'))
+#add
 fp16 = dict(loss_scale=512.)
 evaluation = dict(interval=1, metric='mpjpe')
 checkpoint_config = dict(interval=1, max_keep_ckpts=20)
