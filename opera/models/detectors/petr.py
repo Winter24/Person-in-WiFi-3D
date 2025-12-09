@@ -9,7 +9,7 @@ from mmdet.core.visualization import color_val_matplotlib
 from mmdet.core import bbox_mapping_back, multiclass_nms
 from mmdet.models.detectors.single_stage import SingleStageDetector
 from mmdet.models.detectors.detr import DETR
-
+from opera.models.utils.spectral_tokenizer import SpectralTokenizer
 from mmcv.cnn import Linear
 
 from opera.core.keypoint import bbox_kpt2result, kpt_mapping_back
@@ -24,8 +24,9 @@ class PETR(DETR):
     def __init__(self, *args, **kwargs):
         super(DETR, self).__init__(*args, **kwargs)
         #---------------------
-        self.head = Linear(60, 256)
-        
+        # self.head = Linear(60, 256)
+        self.head = SpectralTokenizer(in_channels=60, embed_dims=256)
+
         #--------only amp
         #self.head = Linear(30, 256)
         
