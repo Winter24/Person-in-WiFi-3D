@@ -1,3 +1,6 @@
+# %%writefile /content/Person-in-WiFi-3D/opera/models/dense_heads/petr_head.py
+# @title opera/models/dense_heads/petr_head.py
+
 # Copyright (c) Hikvision Research Institute. All rights reserved.
 import copy
 import numpy as np
@@ -157,7 +160,7 @@ class PETRHead(AnchorFreeHead):
             print("\nĐã tải và đăng ký 'gt_bone_stats.json' thành công vào buffer.\n")
         except FileNotFoundError:
             print("\n!!! CẢNH BÁO: Không tìm thấy file 'gt_bone_stats.json'. BoneLengthLoss sẽ không hoạt động.!!!\n")
-            self.register_buffer('gt_bone_lengths_mean', torch.zeros(15)) 
+            self.register_buffer('gt_bone_lengths_mean', torch.zeros(15))
 
     def _init_layers(self):
         """Initialize classification branch and keypoint branch of head."""
@@ -488,7 +491,29 @@ class PETRHead(AnchorFreeHead):
 
         loss_dict = dict()
         # loss of proposal generated from encode feature map.
+        # if enc_cls_scores is not None:
+        #     binary_labels_list = [
+        #         torch.zeros_like(gt_labels_list[i])
+        #         for i in range(len(img_metas))
+        #     ]
+        #     enc_loss_cls, enc_losses_kpt = \
+        #         self.loss_single_rpn(
+        #             enc_cls_scores, enc_kpt_preds, binary_labels_list,
+        #             gt_keypoints_list, gt_areas_list, img_metas)
+
+        #     loss_dict['enc_loss_cls'] = enc_loss_cls
+        #     loss_dict['enc_loss_kpt'] = enc_losses_kpt
+
+        # loss of proposal generated from encode feature map.
         if enc_cls_scores is not None:
+            # --- [FIX FP16 ERROR] ---
+            # Ép kiểu về float32 để khớp với Ground Truth và đảm bảo ổn định số học
+            if enc_cls_scores.dtype == torch.float16:
+                enc_cls_scores = enc_cls_scores.float()
+            if enc_kpt_preds.dtype == torch.float16:
+                enc_kpt_preds = enc_kpt_preds.float()
+            # ------------------------
+
             binary_labels_list = [
                 torch.zeros_like(gt_labels_list[i])
                 for i in range(len(img_metas))
@@ -497,35 +522,33 @@ class PETRHead(AnchorFreeHead):
                 self.loss_single_rpn(
                     enc_cls_scores, enc_kpt_preds, binary_labels_list,
                     gt_keypoints_list, gt_areas_list, img_metas)
-            loss_dict['enc_loss_cls'] = enc_loss_cls
-            loss_dict['enc_loss_kpt'] = enc_losses_kpt
 
         # loss from the last decoder layer
         loss_dict['loss_cls'] = losses_cls[-1]
         loss_dict['loss_kpt'] = losses_kpt[-1]
-        
+
         # loss from other intermediate decoder layers
         for i, (loss_cls_i, loss_kpt_i) in enumerate(zip(losses_cls[:-1], losses_kpt[:-1])):
             loss_dict[f'd{i}.loss_cls'] = loss_cls_i
             loss_dict[f'd{i}.loss_kpt'] = loss_kpt_i
-            
+
         # ==========================================================
         # == TÍNH TOÁN BONE LENGTH LOSS CHO LỚP DECODER CUỐI CÙNG ==
         # ==========================================================
         # Lấy ra các kết quả từ lớp decoder cuối cùng
         kpt_preds_last_layer = kpt_preds_list[-1]  # shape (bs * num_query, 42)
         kpt_weights_last_layer = kpt_weights_list[-1] # shape (bs * num_query, 42)
-        
+
         # Tìm các chỉ số của các mẫu dự đoán dương (positive predictions)
         pos_inds = torch.any(kpt_weights_last_layer > 0, dim=1)
-        
+
         pos_kpt_preds = kpt_preds_last_layer[pos_inds]
-        
+
         # Chỉ tính loss nếu có ít nhất một mẫu dương trong batch
         if pos_kpt_preds.numel() > 0:
             # Reshape để có dạng (num_pos, num_keypoints, 3)
             pos_kpt_preds_reshaped = pos_kpt_preds.view(-1, self.num_keypoints, 3)
-            
+
             # Tính loss
             loss_bone = self.loss_bone(pos_kpt_preds_reshaped, self.gt_bone_lengths_mean)
             loss_dict['loss_bone'] = loss_bone
@@ -535,7 +558,7 @@ class PETRHead(AnchorFreeHead):
         # ==========================================================
         # == KẾT THÚC LOGIC BONE LOSS ==
         # ==========================================================
-        
+
         return loss_dict, (kpt_preds_list[-1], kpt_targets_list[-1],
                         kpt_weights_list[-1])
 
@@ -610,7 +633,7 @@ class PETRHead(AnchorFreeHead):
         cls_reg_targets = self.get_targets(cls_scores_list, kpt_preds_list,
                                            gt_labels_list, gt_keypoints_list,
                                            gt_areas_list, img_metas)
-        
+
         (labels_list, label_weights_list, kpt_targets_list, kpt_weights_list,
          num_total_pos, num_total_neg) = cls_reg_targets
         labels = torch.cat(labels_list, 0)
@@ -649,7 +672,7 @@ class PETRHead(AnchorFreeHead):
             kpt_preds*weight_enhance, kpt_targets*weight_enhance, kpt_weights, avg_factor=num_valid_kpt)'''
         loss_kpt = self.loss_kpt(
             kpt_preds, kpt_targets, kpt_weights, avg_factor=num_valid_kpt)
-        
+
 
 
 
@@ -700,7 +723,7 @@ class PETRHead(AnchorFreeHead):
         """
         (labels_list, label_weights_list, kpt_targets_list, kpt_weights_list,
          pos_inds_list, neg_inds_list) = multi_apply(
-             self._get_target_single, cls_scores_list, kpt_preds_list, 
+             self._get_target_single, cls_scores_list, kpt_preds_list,
              gt_labels_list, gt_keypoints_list, gt_areas_list, img_metas)
         num_total_pos = sum((inds.numel() for inds in pos_inds_list))
         num_total_neg = sum((inds.numel() for inds in neg_inds_list))
@@ -997,7 +1020,7 @@ class PETRHead(AnchorFreeHead):
         #     (det_kpts, det_kpts.new_ones(det_kpts[..., :1].shape)), dim=2)
 
         return det_bboxes, det_labels, det_kpts
-    
+
     def simple_test_bboxes(self, feats, img_metas, rescale=False):
         """Test det bboxes without test-time augmentation.
 
