@@ -1,4 +1,3 @@
-# %%writefile /content/Person-in-WiFi-3D/opera/models/dense_heads/petr_head.py
 # @title opera/models/dense_heads/petr_head.py
 
 # Copyright (c) Hikvision Research Institute. All rights reserved.

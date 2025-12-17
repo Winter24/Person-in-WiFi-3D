@@ -1,4 +1,3 @@
-# %%writefile /content/Person-in-WiFi-3D/opera/core/bbox/match_costs/match_cost.py
 # @title opera/core/bbox/match_costs/match_cost.py
 
 import torch
