@@ -162,7 +162,7 @@ model = dict(
                 num_layers=2,
                 return_intermediate=True,
                 transformerlayers=dict(
-                    type='WiFiGraphLayer',
+                    type='mmcv.DetrTransformerDecoderLayer',
                     attn_cfgs=[
                         dict(
                             type='mmcv.MultiheadAttention',
@@ -177,7 +177,7 @@ model = dict(
                     ],
                     feedforward_channels=1024,
                     ffn_dropout=0.1,
-                    operation_order=('self_attn', 'graph', 'norm', 'cross_attn', 'norm',
+                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
                                      'ffn', 'norm')))),
         positional_encoding=dict(
             type='mmcv.SinePositionalEncoding',
