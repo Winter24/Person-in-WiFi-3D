@@ -1,3 +1,6 @@
+%%writefile /content/Person-in-WiFi-3D/streamlit/app.py
+# @title streamlit/app.py
+
 import streamlit as st
 import numpy as np
 import scipy.io as sio
@@ -10,11 +13,65 @@ import re
 import cv2
 import torch
 import sys
+import pywt
+import torch
+from mmcv.parallel import collate, scatter
 
+def preprocess_csi_for_ai(csi_raw_complex):
+    """
+    csi_raw_complex: [3, 3, 30, 20] (Rx, Tx, Sub, Pkt)
+    Tái lập chính xác logic trong WifiPoseDataset
+    """
+    # 1. DWT Amplitude
+    w = pywt.Wavelet('db11')
+    # Tính biên độ
+    csi_amp = np.abs(csi_raw_complex)
+    # Phân rã và tái cấu trúc bằng Wavelet để khử nhiễu
+    coeffs = pywt.wavedec(csi_amp, w, mode='symmetric')
+    csi_amp_denoised = pywt.waverec(coeffs, w)
+    
+    # 2. Phase Sanitization (Khử nhiễu pha - lược bỏ bớt logic phức tạp để tăng tốc)
+    csi_phase = np.angle(csi_raw_complex)
+    
+    # 3. Concatenate & Permute
+    # Kết hợp Biên độ và Pha: [3, 3, 60, 20]
+    csi_combined = np.concatenate((csi_amp_denoised, csi_phase), axis=2)
+    
+    # Chuyển về Tensor: [1, 3, 3, 20, 30] hoặc tương đương tùy config
+    # Dựa trên file petr_wifi.py: csi tensor: (3*3*20*30)
+    csi_tensor = torch.FloatTensor(csi_combined).permute(0, 1, 3, 2)
+    return csi_tensor.unsqueeze(0) # Thêm chiều Batch [1, 3, 3, 20, 30]
+
+def run_ai_inference(model, csi_tensor):
+    """Thực hiện suy luận qua mô hình PETR"""
+    device = next(model.parameters()).device
+    csi_tensor = csi_tensor.to(device)
+    
+    with torch.no_grad():
+        # Tạo img_metas giả lập cho PETRHead
+        img_metas = [{
+            'img_shape': (256, 256, 3), 
+            'scale_factor': np.array([1, 1, 1, 1], dtype=np.float32),
+            'flip': False,
+            'filename': 'live_stream.mat'
+        }]
+        
+        # Forward qua model (Sử dụng hàm simple_test của PETR)
+        # Kết quả: [ (bboxes, labels, keypoints) ]
+        result = model.simple_test(csi_tensor, img_metas, rescale=False)
+        
+        # Lấy keypoints của những người có score cao (>0.3)
+        det_bboxes, det_labels, det_kpts = result[0]
+        scores = det_bboxes[:, -1]
+        keep = scores > 0.3
+        
+        final_kpts = det_kpts[keep] # [Num_People, 14, 3]
+        
+    return final_kpts
 # =============================================================================
 # 0. SETUP MÔI TRƯỜNG & CUSTOM LAYERS
 # =============================================================================
-PROJECT_ROOT = "/root/Person-in-WiFi-3D" 
+PROJECT_ROOT = "/content/Person-in-WiFi-3D" 
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
@@ -27,10 +84,10 @@ except ImportError as e:
 # =============================================================================
 # 1. CẤU HÌNH ĐƯỜNG DẪN (ĐÃ FIX THEO YÊU CẦU MỚI)
 # =============================================================================
-DATA_ROOT = "/root/Person-in-WiFi-3D/data/wifipose"
+DATA_ROOT = "/content/Person-in-WiFi-3D/data/wifipose"
 VIDEO_ROOT = os.path.join(DATA_ROOT, "videos") 
 CONFIG_FILE = os.path.join(PROJECT_ROOT, "configs/wifi/petr_wifi.py")
-CHECKPOINT_DIR = "/root/Person-in-WiFi-3D/work_dirs/petr_wifi_fnet_graph"
+CHECKPOINT_DIR = "/content/drive/MyDrive/RESEARCH/RESFES2026/result_5e-60e_rtx4090_fnet_graph"
 
 # Phân mảng dữ liệu
 TRAIN_CSI = os.path.join(DATA_ROOT, "train_data/csi")
@@ -211,102 +268,118 @@ with col_3d:
 run_btn = st.sidebar.button("▶️ BẮT ĐẦU PHÂN TÍCH", use_container_width=True)
 stop_btn = st.sidebar.button("⏹️ DỪNG")
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ Settings")
+inference_mode = st.sidebar.radio(
+    "Chiến thuật xử lý:",
+    ["Mượt mà (Pre-compute)", "Tức thời (Async - Skip 5)"],
+    help="Pre-compute: Chạy AI trước rồi phát lại. Async: Chạy trực tiếp nhưng nhảy khung hình."
+)
+
 # =============================================================================
-# 5. EXECUTION LOOP
+# 2. HÀM INFERENCE THỰC TẾ (Tối ưu cho PETR)
 # =============================================================================
-# --- TRONG VÒNG LẶP CHÍNH ---
-if run_btn and selected_vid_id and selected_ckpt:
-    # 1. KHỞI TẠO MODEL VÀ DỮ LIỆU
+def run_real_inference(model, csi_frame_complex):
+    """
+    csi_frame_complex: Mảng [Rx, Tx, Subcarriers]
+    Trả về: Tọa độ người dự đoán (NumPeople, 14, 3)
+    """
+    try:
+        # Tiền xử lý theo chuẩn WifiPoseDataset
+        # 1. DWT & Sanitization (Mô phỏng nhanh)
+        csi_amp = np.abs(csi_frame_complex)
+        csi_phase = np.angle(csi_frame_complex)
+        csi_combined = np.concatenate((csi_amp, csi_phase), axis=2) # [3, 3, 60]
+        
+        # 2. Chuyển sang Tensor [1, 3, 3, 20, 30] - Kiểm tra lại shape khớp với config
+        input_tensor = torch.FloatTensor(csi_combined).permute(0, 1, 2).unsqueeze(0).unsqueeze(3)
+        device = next(model.parameters()).device
+        input_tensor = input_tensor.to(device)
+
+        with torch.no_grad():
+            img_metas = [{'img_shape': (256, 256, 3), 'scale_factor': np.array([1, 1, 1, 1])}]
+            # Chạy model PETR
+            result = model.simple_test(input_tensor, img_metas, rescale=False)
+            
+            # result[0] = (bboxes, labels, keypoints)
+            det_bboxes, det_labels, det_kpts = result[0]
+            # Lọc những người có score > 0.3
+            keep = det_bboxes[:, -1] > 0.3
+            return det_kpts[keep]
+    except Exception as e:
+        return None
+
+# =============================================================================
+# 3. VÒNG LẶP THỰC THI (LOGIC CHIẾN THUẬT)
+# =============================================================================
+if run_btn and selected_vid_id:
     model = get_ai_model(selected_ckpt)
     segments = library[selected_vid_id]
     
-    # Mở Video (.mkv) từ thư mục videos riêng
+    # Khởi tạo Video
     video_path = os.path.join(VIDEO_ROOT, f"{selected_vid_id}.mkv")
     cap = cv2.VideoCapture(video_path)
     
-    if not cap.isOpened():
-        st.sidebar.error(f"❌ Không mở được video: {video_path}")
-    else:
-        video_fps = cap.get(cv2.CAP_PROP_FPS)
-        total_video_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-    # Khởi tạo bộ đệm cho tín hiệu CSI (vẽ 5 subcarriers, lưu 60 điểm thời gian)
-    n_subcarriers = 5
-    window_size = 60
-    csi_rolling_buffer = np.zeros((window_size, n_subcarriers))
-    
-    # Biến tính FPS
-    prev_time = time.time()
-    
-    # 2. VÒNG LẶP QUA TỪNG SEGMENT (S11_01_10, _11, _12...)
     for seg in segments:
-        if stop_btn: break
+        # Nạp dữ liệu CSI Gốc (Số phức)
+        with h5py.File(seg['csi_path'], 'r') as f:
+            raw = f['csi_out'][()]
+            csi_full_complex = raw['real'] + 1j * raw['imag'] # [Tx, Rx, Sub, Pkt]
         
-        status_bar.info(f"🔄 Đang xử lý Segment: {seg['index']} | Nguồn: {seg['csi_path']}")
+        # Nạp GT để đối chiếu
+        gt_poses = np.load(seg['gt_path'], allow_pickle=True) if os.path.exists(seg['gt_path']) else None
+        num_frames = csi_full_complex.shape[3]
         
-        # Nạp CSI (Hàm nạp số phức đã fix lỗi absolute)
-        csi_amp_full = load_csi_and_preprocess(seg['csi_path']) # [Sub, Pkt]
-        
-        # Nạp Ground Truth (GT)
-        gt_poses = None
-        if seg['gt_path'] and os.path.exists(seg['gt_path']):
-            gt_poses = np.load(seg['gt_path'], allow_pickle=True)
-        
-        num_packets = csi_amp_full.shape[1]
+        # --- CHIẾN THUẬT 1: PRE-COMPUTE ---
+        precomputed_preds = []
+        if "Pre-compute" in inference_mode:
+            progress_bar = st.progress(0)
+            status_bar.warning(f"⌛ Đang chạy AI Inference cho Segment {seg['index']}...")
+            
+            for f_idx in range(num_frames):
+                # Lấy 1 frame CSI
+                frame_data = csi_full_complex[:, :, :, f_idx]
+                pred = run_real_inference(model, frame_data)
+                precomputed_preds.append(pred)
+                progress_bar.progress((f_idx + 1) / num_frames)
+            
+            status_bar.success(f"✅ AI đã xử lý xong {num_frames} frames!")
+            time.sleep(1) # Chờ 1 giây để người xem thấy thông báo thành công
 
-        # 3. VÒNG LẶP QUA TỪNG PACKET TRONG SEGMENT (REAL-TIME LOOP)
-        for f_idx in range(num_packets):
+        # --- VÒNG LẶP HIỂN THỊ (PLAYBACK) ---
+        last_pred = None
+        prev_time = time.time()
+
+        for f_idx in range(num_frames):
             if stop_btn: break
             
-            # --- A. CẬP NHẬT VIDEO (ĐỒNG BỘ KHUNG HÌNH) ---
-            if cap is not None and cap.isOpened():
-                # Tính toán frame video tương ứng (CSI freq thường cao hơn Video)
-                # Giả sử tỷ lệ là 1:1 hoặc bạn có thể chỉnh target_frame dựa trên timestamp
-                ret, frame = cap.read() 
-                if ret:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frame = cv2.resize(frame, (640, 360)) # Resize để web mượt hơn
-                    video_place.image(frame, use_column_width=True)
+            # A. Lấy kết quả AI theo chiến thuật
+            if "Pre-compute" in inference_mode:
+                current_pred = precomputed_preds[f_idx]
+            else:
+                # CHIẾN THUẬT 2: ASYNC (Chỉ chạy AI mỗi 5 frame)
+                if f_idx % 5 == 0:
+                    frame_data = csi_full_complex[:, :, :, f_idx]
+                    current_pred = run_real_inference(model, frame_data)
+                    last_pred = current_pred # Lưu lại để hiển thị cho các frame trung gian
                 else:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0) # Loop video nếu hết
+                    current_pred = last_pred
 
-            # --- B. TRỰC QUAN HÓA CSI (ROLLING WINDOW) ---
-            # Lấy giá trị biên độ của n subcarriers tại thời điểm f_idx
-            current_vals = csi_amp_full[:n_subcarriers, f_idx]
-            csi_rolling_buffer = np.roll(csi_rolling_buffer, -1, axis=0)
-            csi_rolling_buffer[-1, :] = current_vals
+            # B. Cập nhật Video Reference
+            if cap.isOpened():
+                    ret, frame = cap.read()
+                    if ret:
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        video_place.image(cv2.resize(frame, (640, 360)), use_column_width=True)
+                    else:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+            # C. Cập nhật 3D Dashboard (AI vs GT)
+            current_gt = gt_poses[f_idx % len(gt_poses)] if gt_poses is not None else None
             
-            fig_sig = go.Figure()
-            for sc in range(n_subcarriers):
-                fig_sig.add_trace(go.Scatter(
-                    y=csi_rolling_buffer[:, sc], 
-                    mode='lines', 
-                    name=f"Sub {sc}",
-                    line=dict(width=1.5)
-                ))
-            fig_sig.update_layout(
-                height=250, margin=dict(l=0, r=0, t=0, b=0),
-                template="plotly_dark", showlegend=False,
-                xaxis=dict(showticklabels=False, showgrid=False),
-                yaxis=dict(showgrid=False)
-            )
-            signal_place.plotly_chart(fig_sig, use_container_width=True, key=f"sig_{seg['index']}_{f_idx}")
-
-            # --- C. HIỂN THỊ 3D POSE (AI VS GT) ---
-            # Để tránh lag, ta có thể render 3D ở tốc độ thấp hơn (ví dụ mỗi 2 frame CSI 1 lần)
-            if f_idx % 1 == 0: 
-                # Lấy GT
-                current_gt = gt_poses[f_idx % len(gt_poses)] if gt_poses is not None else None
-                
-                # CHẠY INFERENCE HOẶC GIẢ LẬP
-                # Nếu GPU mạnh: current_pred = run_ai_inference(model, csi_amp_full[:, f_idx])
-                # Hiện tại: Dùng GT + nhiễu để demo độ chính xác
-                current_pred = current_gt + np.random.normal(0, 0.02, current_gt.shape) if current_gt is not None else None
-                
-                if current_gt is not None:
-                    # Gọi hàm vẽ tối ưu (đã fix khớp và lật trục Z ở Giai đoạn 1)
-                    fig_3d = create_optimized_3d_figure(current_pred, current_gt, selected_vid_id, f"{seg['index']}_{f_idx}")
-                    pose_place.plotly_chart(fig_3d, use_container_width=True, key=f"pose_{seg['index']}_{f_idx}")
+            # Gọi hàm vẽ Giai đoạn 1 (Đã fix lật trục Z và xương)
+            fig_3d = create_optimized_3d_figure(current_pred, current_gt, selected_vid_id, f_idx)
+            pose_place.plotly_chart(fig_3d, use_container_width=True, key=f"pose_{seg['index']}_{f_idx}")
 
             # --- D. TÍNH FPS VÀ ĐIỀU TIẾT ---
             curr_time = time.time()
