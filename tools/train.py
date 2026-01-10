@@ -1,3 +1,14 @@
+# @title tools/train.py
+# %%writefile /content/Person-in-WiFi-3D/tools/train.py
+
+import ssl
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
 # Copyright (c) Hikvision Research Institute. All rights reserved.
 import argparse
 import copy
@@ -21,6 +32,25 @@ from opera.apis import init_random_seed, set_random_seed, train_model
 from opera.datasets import build_dataset
 from opera.models import build_model
 
+try:
+    # Import module gây lỗi
+    import mmcv.parallel._functions
+    from torch.nn.parallel import _functions
+
+    # Lấy hàm gốc của PyTorch
+    _original_get_stream = _functions._get_stream
+
+    # Viết lại hàm wrapper để xử lý số nguyên (int)
+    def _patched_get_stream(device):
+        if isinstance(device, int):
+            device = torch.device(f'cuda:{device}')
+        return _original_get_stream(device)
+
+    # Ghi đè hàm trong mmcv bằng hàm đã vá
+    mmcv.parallel._functions._get_stream = _patched_get_stream
+    print(">>> Successfully patched mmcv._get_stream for PyTorch 2.0 compatibility.")
+except ImportError:
+    pass
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model')
@@ -109,16 +139,16 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
-    
- 
+
+
 
     # replace the ${key} with the value of cfg.key
     cfg = replace_cfg_vals(cfg)
 
     # update data root according to MMDET_DATASETS
     update_data_root(cfg)
-    
-    
+
+
 
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)

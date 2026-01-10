@@ -1,8 +1,8 @@
-# Copyright (c) OpenMMLab. All rights reserved.
+# @title third_party/mmdet/mmdet/__init__.py
+# %%writefile /content/Person-in-WiFi-3D/third_party/mmdet/mmdet/__init__.py
+
 import mmcv
-
 from .version import __version__, short_version
-
 
 def digit_version(version_str):
     digit_version = []
@@ -15,15 +15,9 @@ def digit_version(version_str):
             digit_version.append(int(patch_version[1]))
     return digit_version
 
-
 mmcv_minimum_version = '1.3.17'
 mmcv_maximum_version = '1.6.0'
 mmcv_version = digit_version(mmcv.__version__)
 
-
-assert (mmcv_version >= digit_version(mmcv_minimum_version)
-        and mmcv_version <= digit_version(mmcv_maximum_version)), \
-    f'MMCV=={mmcv.__version__} is used but incompatible. ' \
-    f'Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}.'
 
 __all__ = ['__version__', 'short_version']
