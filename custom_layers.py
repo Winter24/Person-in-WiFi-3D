@@ -150,12 +150,14 @@ class WiFiGraphLayer(BaseModule):
                 self.adj[i, j] = 1.0
                 self.adj[j, i] = 1.0
         
+        
         # Normalized Laplacian
         d = self.adj.sum(1)
         d_inv_sqrt = torch.pow(d, -0.5)
         d_inv_sqrt[d_inv_sqrt == float('inf')] = 0
         d_mat_inv_sqrt = torch.diag(d_inv_sqrt)
-        self.adj_norm = torch.mm(torch.mm(d_mat_inv_sqrt, self.adj), d_mat_inv_sqrt)
+        adj_norm = torch.mm(torch.mm(d_mat_inv_sqrt, self.adj), d_mat_inv_sqrt)
+        self.register_buffer('adj_norm', adj_norm)
         
         # GCN Linear Weight
         self.gcn_weight = nn.Linear(self.embed_dims, self.embed_dims)
@@ -196,16 +198,22 @@ class WiFiGraphLayer(BaseModule):
                 
             elif layer == 'graph':
                 # Soft-GCN Mixing
-                if self.adj_norm.device != query.device:
-                    self.adj_norm = self.adj_norm.to(query.device)
+                # 1. Linear Transform: XW
+                gcn_feat = self.gcn_weight(query) # [len, bs, dim]
                 
-                gcn_feat = self.gcn_weight(query)
+                # 2. Graph Convolution: A(XW) via einsum
+                # 'lk,kbd->lbd': (Joints, Joints) x (Joints, Batch, Dim) -> (Joints, Batch, Dim)
+                gcn_feat = torch.einsum('lk,kbd->lbd', self.adj_norm, gcn_feat)
                 
+                # 3. Activation Function
+                gcn_feat = torch.relu(gcn_feat)
+
                 if self.pre_norm:
                     residual = query
                 else:
                     residual = identity
                 
+                # 4. Residual Connection
                 query = gcn_feat + residual
                 identity = query
 
