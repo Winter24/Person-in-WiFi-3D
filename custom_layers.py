@@ -159,8 +159,11 @@ class WiFiGraphLayer(BaseModule):
         adj_norm = torch.mm(torch.mm(d_mat_inv_sqrt, self.adj), d_mat_inv_sqrt)
         self.register_buffer('adj_norm', adj_norm)
         
-        # GCN Linear Weight
+        
+        # GCN Linear Weight (Zero Init để không phá vỡ pretrained features ban đầu)
         self.gcn_weight = nn.Linear(self.embed_dims, self.embed_dims)
+        nn.init.zeros_(self.gcn_weight.weight)
+        nn.init.zeros_(self.gcn_weight.bias)
 
     def forward(self, query, key=None, value=None, query_pos=None, key_pos=None, 
                 attn_masks=None, query_key_padding_mask=None, key_padding_mask=None, **kwargs):
@@ -205,8 +208,8 @@ class WiFiGraphLayer(BaseModule):
                 # 'lk,kbd->lbd': (Joints, Joints) x (Joints, Batch, Dim) -> (Joints, Batch, Dim)
                 gcn_feat = torch.einsum('lk,kbd->lbd', self.adj_norm, gcn_feat)
                 
-                # 3. Activation Function
-                gcn_feat = torch.relu(gcn_feat)
+                # 3. Activation Function (GELU mượt hơn ReLU)
+                gcn_feat = torch.nn.functional.gelu(gcn_feat)
 
                 if self.pre_norm:
                     residual = query
