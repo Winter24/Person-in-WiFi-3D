@@ -5,12 +5,21 @@ _base_ = ['./petr_wifi.py']
 
 model = dict(
     bbox_head=dict(
-        type='opera.WiTiDARHead', # Dùng Head mới
+        type='opera.WiTiDARHead',
         num_query=100,
         embed_dims=256,
         num_keypoints=14,
-        loss_flow_weight=10.0,
-        # Loss Config (Có thể tune lại weight)
+
+        # --- Cấu hình siêu tham số Mamba từ Config ---
+        mamba_cfg=dict(
+            num_layers=4,     # Có thể thử 2, 4, 6 để xem cái nào nhanh nhất
+            d_state=16,       # Có thể thử 32 nếu cần khả năng nhớ mạnh hơn
+            d_conv=4,
+            expand=2,
+            dropout=0.1
+        ),
+
+        # --- Các Loss ---
         loss_cls=dict(
             type='mmdet.FocalLoss',
             use_sigmoid=True,
@@ -18,36 +27,24 @@ model = dict(
             alpha=0.25,
             loss_weight=2.0),
 
-        # Dùng L1 Loss cho giai đoạn Draft này (dễ hội tụ hơn MSE)
         loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0),
 
-        # Train Config (Assigner)
+        # --- Cấu hình Bone Loss (Có thể bật/tắt dễ dàng) ---
+        loss_limb=dict(type='opera.LimbLoss', loss_weight=2.0),
+
+        loss_flow_weight=10.0,
+
         train_cfg=dict(
             assigner=dict(
                 type='opera.PoseHungarianAssigner',
                 cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
-                kpt_cost=dict(type='opera.KptL1Cost', weight=5.0), # Khớp với loss L1
-                oks_cost=dict(type='opera.OksCost', weight=0.0) # Tạm tắt OKS cho đơn giản
+                kpt_cost=dict(type='opera.KptL1Cost', weight=5.0),
+                oks_cost=dict(type='opera.OksCost', weight=0.0)
             )
         ),
-        test_cfg=dict(max_per_img=100),  # <--- ĐÃ THÊM DẤU PHẨY Ở ĐÂY
-
-        transformer=dict(
-            # --- [THAY ĐỔI CỐT LÕI] ---
-            # Thay thế Transformer Encoder (O(N^2)) bằng WiMamba Encoder (O(N))
-            encoder=dict(
-                type='WiMambaEncoder',
-                embed_dims=256,      # Giữ nguyên để khớp với Spectral Tokenizer
-                num_layers=4,        # 4 lớp Mamba thường mạnh ngang 6 lớp Transformer cũ
-                d_state=16,          # Kích thước trạng thái ẩn SSM
-                d_conv=4,            # Local Convolution
-                expand=2,            # Hệ số mở rộng kênh
-                dropout=0.1
-            )
-        )
-    )
+        test_cfg=dict(max_per_img=100)
+    ),
 )
-
 # --- Mixed Precision Training ---
 
 # --- Logging & Checkpoint ---

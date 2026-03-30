@@ -1,0 +1,7 @@
+run_id,config,tokenizer,encoder,head,flow_refine,flow_steps,bone_loss,bone_weight,epochs,best_epoch,mpjpe,mpjpe_h,mpjpe_v,mpjpe_d,mpjpe_1p,mpjpe_2p,mpjpe_3p,wrist_err,ankle_err,bone_err,params_m,flops_g,latency_ms,fps,checkpoint,notes
+B0,configs/wifi/<baseline>.py,Linear,Transformer,PETR,No,0,No,0,0,0,,,,,,,,,,,,,,,,,
+B1,configs/wifi/<tokenizer>.py,SpectralTokenizer,Transformer,PETR,No,0,No,0,0,0,,,,,,,,,,,,,,,,,
+B2,configs/wifi/<mamba>.py,SpectralTokenizer,Mamba,PETR,No,0,No,0,0,0,,,,,,,,,,,,,,,,,
+B3,configs/wifi/<draft>.py,SpectralTokenizer,Mamba,DraftHead,No,0,No,0,0,0,,,,,,,,,,,,,,,,,
+B4,configs/wifi/<flow>.py,SpectralTokenizer,Mamba,DraftHead,Yes,1,No,0,0,0,,,,,,,,,,,,,,,,,
+B5,configs/wifi/<full>.py,SpectralTokenizer,Mamba,DraftHead,Yes,1,Yes,10,0,0,,,,,,,,,,,,,,,,,
