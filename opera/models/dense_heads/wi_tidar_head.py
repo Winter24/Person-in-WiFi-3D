@@ -1,4 +1,6 @@
 # @title opera/models/dense_heads/wi_tidar_head.py
+import json
+
 import torch
 import torch.nn as nn
 from mmcv.runner import BaseModule, force_fp32
@@ -45,9 +47,10 @@ class WiTiDARHead(BaseModule):
                  
                  loss_cls=dict(type='mmdet.FocalLoss', use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0),
                  loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0), 
+                 loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0),
                  
                  # --- [REFACTORED 2]: Đưa Bone Loss vào Init để dễ config ---
-                 loss_limb=dict(type='opera.LimbLoss', loss_weight=2.0),
+                 loss_limb=None,
                  # -----------------------------------------------------------
                  
                  loss_flow_weight=10.0,
@@ -72,11 +75,18 @@ class WiTiDARHead(BaseModule):
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_kpt = build_loss(loss_kpt)
-        # Build Limb Loss
+        if loss_bone is not None:
+            self.loss_bone = build_loss(loss_bone)
+        else:
+            self.loss_bone = None
         if loss_limb is not None:
             self.loss_limb = build_loss(loss_limb)
         else:
             self.loss_limb = None
+
+        bone_stats, has_bone_stats = self._load_bone_statistics()
+        self.register_buffer('gt_bone_lengths_mean', bone_stats)
+        self.has_bone_stats = has_bone_stats
         
         # --- Khởi tạo WiMamba dựa trên tham số từ Config ---
         if WiMambaEncoder is not None and mamba_cfg is not None:
@@ -111,6 +121,20 @@ class WiTiDARHead(BaseModule):
             self.flow_model = RectifiedFlowWrapper(velocity_net)
         else:
             self.flow_model = None
+
+    def _load_bone_statistics(self):
+        """Load dataset-level bone statistics used by BoneLengthLoss."""
+        bone_stats_path = 'gt_bone_stats.json'
+        try:
+            with open(bone_stats_path, 'r', encoding='utf-8') as f:
+                bone_stats = json.load(f)
+            print("[WiTiDARHead] Loaded gt_bone_stats.json for BoneLengthLoss.")
+            return torch.tensor(bone_stats['mean'], dtype=torch.float32), True
+        except FileNotFoundError:
+            print("[WiTiDARHead] WARNING: gt_bone_stats.json not found. BoneLengthLoss will be disabled.")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            print(f"[WiTiDARHead] WARNING: Failed to parse gt_bone_stats.json ({exc}). BoneLengthLoss will be disabled.")
+        return torch.zeros(15, dtype=torch.float32), False
 
     def init_weights(self):
         for m in self.draft_regressor:
@@ -173,7 +197,7 @@ class WiTiDARHead(BaseModule):
         gt_areas_list = [gt_areas[i] for i in range(num_imgs)]
 
         # --- [REFACTORED 3]: Thêm losses_limb vào danh sách track ---
-        losses_cls, losses_kpt, losses_limb, losses_flow = [], [], [], []
+        losses_cls, losses_kpt, losses_bone, losses_limb, losses_flow = [], [], [], [], []
         
         for i in range(num_imgs):
             cls_score = cls_scores[i]
@@ -206,7 +230,17 @@ class WiTiDARHead(BaseModule):
                 loss_kpt = self.loss_kpt(pos_kpt_pred, pos_gt_kpts, torch.ones_like(pos_kpt_pred), avg_factor=num_pos)
                 losses_kpt.append(loss_kpt)
                 
-                # B. Limb Loss (Bone Constraints)
+                # B. Draft-stage structural regularization.
+                if self.loss_bone is not None:
+                    if self.has_bone_stats:
+                        loss_bone = self.loss_bone(pos_kpt_pred, self.gt_bone_lengths_mean)
+                        losses_bone.append(loss_bone)
+                    else:
+                        losses_bone.append(cls_score.sum() * 0)
+                else:
+                    losses_bone.append(cls_score.sum() * 0)
+
+                # Optional limb-direction regularizer kept for future ablations.
                 if self.loss_limb is not None:
                     limb_weight = pos_kpt_pred.new_ones(pos_kpt_pred.shape[:2])
                     
@@ -228,16 +262,21 @@ class WiTiDARHead(BaseModule):
                     losses_flow.append(cls_score.sum() * 0)
             else:
                 losses_kpt.append(cls_score.sum() * 0)
+                losses_bone.append(cls_score.sum() * 0)
                 losses_limb.append(cls_score.sum() * 0)
                 losses_flow.append(cls_score.sum() * 0)
 
         # --- Trả về Dictionary tách biệt để hiện rõ trên Log ---
-        return dict(
+        loss_dict = dict(
             loss_cls=sum(losses_cls) / num_imgs,
             loss_kpt=sum(losses_kpt) / num_imgs,
-            loss_limb=sum(losses_limb) / num_imgs,
             loss_flow=sum(losses_flow) / num_imgs
         )
+        if self.loss_bone is not None:
+            loss_dict['loss_bone'] = sum(losses_bone) / num_imgs
+        if self.loss_limb is not None:
+            loss_dict['loss_limb'] = sum(losses_limb) / num_imgs
+        return loss_dict
 
     def simple_test(self, feats, img_metas, rescale=False):
         if isinstance(feats, (list, tuple)):

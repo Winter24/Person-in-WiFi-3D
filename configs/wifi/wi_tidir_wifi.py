@@ -28,9 +28,10 @@ model = dict(
             loss_weight=2.0),
 
         loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0),
+        loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0),
 
         # --- Cấu hình Bone Loss (Có thể bật/tắt dễ dàng) ---
-        loss_limb=dict(type='opera.LimbLoss', loss_weight=2.0),
+        loss_limb=None,
 
         loss_flow_weight=10.0,
 
