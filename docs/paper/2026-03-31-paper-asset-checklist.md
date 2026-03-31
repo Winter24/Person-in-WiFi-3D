@@ -22,6 +22,27 @@ Recommended folders:
 - `paper_assets/logs/`
 - `paper_assets/qualitative/`
 
+## Command-To-Asset Mapping
+
+For every reported ablation, the asset source of truth should come from the canonical run directory:
+
+- `B0` -> `work_dirs/paper/B0/`
+- `B1` -> `work_dirs/paper/B1/`
+- `B2` -> `work_dirs/paper/B2/`
+- `B4` -> `work_dirs/paper/B4/`
+- `B5` -> `work_dirs/paper/B5/`
+
+Expected fixed artifacts:
+
+- `paper_assets/logs/<ID>_eval.json`
+- `paper_assets/logs/<ID>_benchmark.json`
+- `paper_assets/logs/experiment_log.csv`
+
+Important note:
+
+- if a run was launched with `--cfg-options`, use the dumped config inside `work_dirs/paper/<ID>/` as the official config reference for that ablation
+- do not build final paper assets from `B3` until flow can be disabled cleanly for a paper-clean draft-only ablation
+
 ## Master Completion Check
 
 - [ ] all tables have frozen numbers

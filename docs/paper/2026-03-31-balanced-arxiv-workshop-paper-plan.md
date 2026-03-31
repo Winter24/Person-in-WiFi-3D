@@ -187,6 +187,22 @@ If the week gets compressed, keep at least:
 
 This is the minimum set that still tells a convincing story.
 
+### Current Runnable Command Strategy
+
+To keep the ablations reproducible in the current codebase:
+
+- use `work_dirs/paper/<ID>/` as the canonical run folder for each ablation
+- for runs launched with `--cfg-options`, use the dumped config inside that work dir for later eval and benchmark
+- treat `B3` as exploratory only for now; it is not yet a paper-clean config-only ablation because flow is not fully toggleable at inference
+
+Practical mapping:
+
+- `B0`: train from `configs/wifi/petr_wifi.py`
+- `B1`: train from `configs/wifi/petr_wifi.py` with `--cfg-options model.backbone.mode=spectral`
+- `B2`: train from `configs/wifi/petr_wifi_mamba.py`
+- `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None`
+- `B5`: train from `configs/wifi/wi_tidir_wifi.py`
+
 ## Hypotheses To Validate
 
 ### H1: Spectral Tokenizer Helps

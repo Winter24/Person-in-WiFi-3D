@@ -154,6 +154,165 @@ What to check in `experiment_log.csv`:
 - [ ] `created_at` is preserved on updates
 - [ ] values match the latest eval and benchmark artifacts
 
+## Per-Ablation Command Map
+
+Important execution rule:
+
+- [ ] if a run was created with `--cfg-options`, use the dumped config inside `work_dirs/paper/<ID>/` for later eval and benchmark
+- [ ] this is especially important for `B1` and `B4`
+
+### B0
+
+```bash
+python tools/train.py configs/wifi/petr_wifi.py \
+    --work-dir work_dirs/paper/B0
+
+python tools/test.py work_dirs/paper/B0/petr_wifi.py <CKPT_B0> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B0 \
+    --metrics-out paper_assets/logs/B0_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/B0/petr_wifi.py \
+    --checkpoint <CKPT_B0> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/B0_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id B0 \
+    --config work_dirs/paper/B0/petr_wifi.py \
+    --checkpoint <CKPT_B0> \
+    --eval-json paper_assets/logs/B0_eval.json \
+    --benchmark-json paper_assets/logs/B0_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "B0 linear baseline"
+```
+
+### B1
+
+```bash
+python tools/train.py configs/wifi/petr_wifi.py \
+    --work-dir work_dirs/paper/B1 \
+    --cfg-options model.backbone.mode=spectral
+
+python tools/test.py work_dirs/paper/B1/petr_wifi.py <CKPT_B1> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B1 \
+    --metrics-out paper_assets/logs/B1_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/B1/petr_wifi.py \
+    --checkpoint <CKPT_B1> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/B1_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id B1 \
+    --config work_dirs/paper/B1/petr_wifi.py \
+    --checkpoint <CKPT_B1> \
+    --eval-json paper_assets/logs/B1_eval.json \
+    --benchmark-json paper_assets/logs/B1_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "B1 spectral tokenizer only"
+```
+
+### B2
+
+```bash
+python tools/train.py configs/wifi/petr_wifi_mamba.py \
+    --work-dir work_dirs/paper/B2
+
+python tools/test.py work_dirs/paper/B2/petr_wifi_mamba.py <CKPT_B2> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B2 \
+    --metrics-out paper_assets/logs/B2_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/B2/petr_wifi_mamba.py \
+    --checkpoint <CKPT_B2> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/B2_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id B2 \
+    --config work_dirs/paper/B2/petr_wifi_mamba.py \
+    --checkpoint <CKPT_B2> \
+    --eval-json paper_assets/logs/B2_eval.json \
+    --benchmark-json paper_assets/logs/B2_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "B2 spectral tokenizer + WiMamba"
+```
+
+### B3
+
+Current caveat:
+
+- [ ] `B3` is not yet a paper-clean config-only ablation in the current codebase
+- [ ] do not freeze `B3` numbers for the paper until flow can be disabled cleanly in both training and inference
+
+Temporary exploratory command only:
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --work-dir work_dirs/paper/B3_tmp \
+    --cfg-options model.bbox_head.loss_flow_weight=0.0 model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None
+```
+
+### B4
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --work-dir work_dirs/paper/B4 \
+    --cfg-options model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None
+
+python tools/test.py work_dirs/paper/B4/wi_tidir_wifi.py <CKPT_B4> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B4 \
+    --metrics-out paper_assets/logs/B4_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/B4/wi_tidir_wifi.py \
+    --checkpoint <CKPT_B4> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/B4_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id B4 \
+    --config work_dirs/paper/B4/wi_tidir_wifi.py \
+    --checkpoint <CKPT_B4> \
+    --eval-json paper_assets/logs/B4_eval.json \
+    --benchmark-json paper_assets/logs/B4_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "B4 spectral + WiMamba + draft + flow, no structure"
+```
+
+### B5
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --work-dir work_dirs/paper/B5
+
+python tools/test.py work_dirs/paper/B5/wi_tidir_wifi.py <CKPT_B5> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B5 \
+    --metrics-out paper_assets/logs/B5_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/B5/wi_tidir_wifi.py \
+    --checkpoint <CKPT_B5> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/B5_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id B5 \
+    --config work_dirs/paper/B5/wi_tidir_wifi.py \
+    --checkpoint <CKPT_B5> \
+    --eval-json paper_assets/logs/B5_eval.json \
+    --benchmark-json paper_assets/logs/B5_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "B5 full current codebase"
+```
+
 ## Priority Order
 
 ### Tier 1
