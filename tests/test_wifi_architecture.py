@@ -56,6 +56,15 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("self.backbone(x)", source)
         self.assertNotIn("self.head =", source)
 
+    def test_petr_source_initializes_via_single_stage_detector_to_support_neck(self):
+        source = _read("opera/models/detectors/petr.py")
+
+        self.assertIn(
+            "from mmdet.models.detectors.single_stage import SingleStageDetector",
+            source)
+        self.assertIn("neck=None", source)
+        self.assertIn("SingleStageDetector.__init__(", source)
+
     def test_single_gpu_test_source_skips_rgb_visualization_for_wifi(self):
         source = _read("opera/apis/test.py")
 

@@ -10,6 +10,7 @@ from matplotlib.patches import Polygon, Circle
 from mmdet.core.visualization import color_val_matplotlib
 from mmdet.core import bbox_mapping_back, multiclass_nms
 from mmdet.models.detectors.detr import DETR
+from mmdet.models.detectors.single_stage import SingleStageDetector
 
 from opera.core.keypoint import bbox_kpt2result, kpt_mapping_back
 from ..builder import DETECTORS
@@ -20,8 +21,27 @@ class PETR(DETR):
     """Implementation of `End-to-End Multi-Person Pose Estimation with
     Transformers`"""
 
-    def __init__(self, *args, **kwargs):
-        super(PETR, self).__init__(*args, **kwargs)
+    def __init__(self,
+                 backbone,
+                 bbox_head,
+                 neck=None,
+                 train_cfg=None,
+                 test_cfg=None,
+                 pretrained=None,
+                 init_cfg=None):
+        # DETR hard-codes neck=None in some MMDet versions. Call the shared
+        # single-stage initializer directly so PETR remains compatible with
+        # both legacy PETR configs and the WiFi config that explicitly sets
+        # neck=None.
+        SingleStageDetector.__init__(
+            self,
+            backbone=backbone,
+            neck=neck,
+            bbox_head=bbox_head,
+            train_cfg=train_cfg,
+            test_cfg=test_cfg,
+            pretrained=pretrained,
+            init_cfg=init_cfg)
 
     def extract_feat(self, img):
         """Extract WiFi token features using the configured backbone."""
