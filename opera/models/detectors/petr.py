@@ -1,4 +1,6 @@
 # Copyright (c) Hikvision Research Institute. All rights reserved.
+import warnings
+
 import mmcv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,10 +9,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon, Circle
 from mmdet.core.visualization import color_val_matplotlib
 from mmdet.core import bbox_mapping_back, multiclass_nms
-from mmdet.models.detectors.single_stage import SingleStageDetector
 from mmdet.models.detectors.detr import DETR
-from opera.models.utils.spectral_tokenizer import SpectralTokenizer
-from mmcv.cnn import Linear
 
 from opera.core.keypoint import bbox_kpt2result, kpt_mapping_back
 from ..builder import DETECTORS
@@ -22,14 +21,15 @@ class PETR(DETR):
     Transformers`"""
 
     def __init__(self, *args, **kwargs):
-        super(DETR, self).__init__(*args, **kwargs)
-        #---------------------
-        # self.head = Linear(60, 256)
-        self.head = SpectralTokenizer(in_channels=60, embed_dims=256)
+        super(PETR, self).__init__(*args, **kwargs)
 
-        #--------only amp
-        #self.head = Linear(30, 256)
-        
+    def extract_feat(self, img):
+        """Extract WiFi token features using the configured backbone."""
+        bs, _, _, _, channel = img.shape
+        x = img.reshape(bs, -1, channel)
+        x = self.backbone(x)
+        return x
+
     def forward_train(self,
                       img,
                       img_metas,
@@ -60,11 +60,7 @@ class PETR(DETR):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        super(SingleStageDetector, self).forward_train(img, img_metas)
-        # x = self.extract_feat(img)
-        bs, _, _, _, channel = img.shape
-        x = img.reshape(bs, -1, channel)
-        x = self.head(x)
+        x = self.extract_feat(img)
         losses = self.bbox_head.forward_train(x, img_metas, gt_bboxes,
                                               gt_labels, gt_keypoints,
                                               gt_areas, gt_bboxes_ignore)
@@ -79,18 +75,16 @@ class PETR(DETR):
                       'support flops computation! Do not use the '
                       'results in your papers!')
 
-        batch_size, _, height, width = img.shape
+        batch_size = img.shape[0]
         dummy_img_metas = [
             dict(
-                batch_input_shape=(height, width),
-                img_shape=(height, width, 3),
-                scale_factor=(1., 1., 1., 1.)) for _ in range(batch_size)
+                batch_input_shape=(1, 1),
+                img_shape=(1, 1, 3),
+                scale_factor=np.array([1., 1., 1., 1.])) for _ in range(batch_size)
         ]
         x = self.extract_feat(img)
         outs = self.bbox_head(x, img_metas=dummy_img_metas)
-        bbox_list = self.bbox_head.get_bboxes(
-            *outs, dummy_img_metas, rescale=True)
-        return bbox_list
+        return outs
 
     def simple_test(self, img, img_metas, rescale=False):
         """Test function without test time augmentation.
@@ -109,10 +103,8 @@ class PETR(DETR):
         batch_size = len(img_metas)
         assert batch_size == 1, 'Currently only batch_size 1 for inference ' \
             f'mode is supported. Found batch_size {batch_size}.'
-        
-        bs, _, _, _, channel = img.shape
-        x = img.reshape(bs, -1, channel)
-        feat = self.head(x)
+
+        feat = self.extract_feat(img)
         results_list = self.bbox_head.simple_test(
             feat, img_metas, rescale=rescale)
 

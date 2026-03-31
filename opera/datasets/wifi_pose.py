@@ -97,7 +97,17 @@ class WifiPoseDataset(dataset):
         gt_labels = np.zeros(numOfPerson, dtype=np.int64) #label (N,)
         gt_bboxes = torch.tensor([])
         gt_areas = torch.tensor([])
-        result = dict(img=csi, gt_keypoints=keypoint, gt_labels = gt_labels, gt_bboxes = gt_bboxes, gt_areas = gt_areas, img_name = data_name)
+        img_shape = tuple(csi.shape)
+        result = dict(
+            img=csi,
+            gt_keypoints=keypoint,
+            gt_labels=gt_labels,
+            gt_bboxes=gt_bboxes,
+            gt_areas=gt_areas,
+            img_name=data_name,
+            img_shape=img_shape,
+            ori_shape=img_shape,
+            pad_shape=img_shape)
         return result
     
     def get_item_single_frame_limit(self,index): 
@@ -136,7 +146,17 @@ class WifiPoseDataset(dataset):
         gt_labels = np.zeros(numOfPerson, dtype=np.int64) #label (N,)
         gt_bboxes = torch.tensor([])
         gt_areas = torch.tensor([])
-        result = dict(img=csi, gt_keypoints=keypoint, gt_labels = gt_labels, gt_bboxes = gt_bboxes, gt_areas = gt_areas )
+        img_shape = tuple(csi.shape)
+        result = dict(
+            img=csi,
+            gt_keypoints=keypoint,
+            gt_labels=gt_labels,
+            gt_bboxes=gt_bboxes,
+            gt_areas=gt_areas,
+            img_name=data_name,
+            img_shape=img_shape,
+            ori_shape=img_shape,
+            pad_shape=img_shape)
         return result
     
     def __getitem__(self, index):

@@ -273,10 +273,11 @@ def main():
             metric = dataset.evaluate(outputs, **eval_kwargs)
             print(metric)
             if args.scene:
-                file_name = "/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result/mpjpe.txt"
-                f = open(file_name, 'a')
-                f.write(args.scene+ '  :'+ str(metric['mpjpe']) + "\n")
-                f.close()
+                target_dir = args.work_dir or cfg.get('work_dir') or '.'
+                mmcv.mkdir_or_exist(osp.abspath(target_dir))
+                file_name = osp.join(target_dir, 'mpjpe.txt')
+                with open(file_name, 'a', encoding='utf-8') as f:
+                    f.write(args.scene + '  :' + str(metric['mpjpe']) + "\n")
             metric_dict = dict(config=args.config, metric=metric)
             if args.work_dir is not None and rank == 0:
                 mmcv.dump(metric_dict, json_file)

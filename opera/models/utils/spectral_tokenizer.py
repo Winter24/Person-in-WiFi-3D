@@ -2,7 +2,9 @@
 import torch
 import torch.nn as nn
 import torch.fft
+from ..builder import BACKBONES
 
+@BACKBONES.register_module()
 class SpectralTokenizer(nn.Module):
     """
     SpectraPose Tokenizer v3: Local-Global Fusion.

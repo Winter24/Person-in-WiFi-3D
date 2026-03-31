@@ -134,7 +134,7 @@ class PETRHead(AnchorFreeHead):
         self.loss_oks = build_loss(loss_oks)
         self.loss_oks_refine = build_loss(loss_oks_refine)
         self.loss_hm = build_loss(loss_hm)
-        self.loss_bone = build_loss(loss_bone)
+        self.loss_bone = build_loss(loss_bone) if loss_bone is not None else None
         if self.loss_cls.use_sigmoid:
             self.cls_out_channels = num_classes
         else:
@@ -160,6 +160,7 @@ class PETRHead(AnchorFreeHead):
         except FileNotFoundError:
             print("\n!!! CẢNH BÁO: Không tìm thấy file 'gt_bone_stats.json'. BoneLengthLoss sẽ không hoạt động.!!!\n")
             self.register_buffer('gt_bone_lengths_mean', torch.zeros(15))
+        self.has_bone_stats = bool(self.gt_bone_lengths_mean.abs().sum().item())
 
     def _init_layers(self):
         """Initialize classification branch and keypoint branch of head."""
@@ -544,7 +545,7 @@ class PETRHead(AnchorFreeHead):
         pos_kpt_preds = kpt_preds_last_layer[pos_inds]
 
         # Chỉ tính loss nếu có ít nhất một mẫu dương trong batch
-        if pos_kpt_preds.numel() > 0:
+        if self.loss_bone is not None and self.has_bone_stats and pos_kpt_preds.numel() > 0:
             # Reshape để có dạng (num_pos, num_keypoints, 3)
             pos_kpt_preds_reshaped = pos_kpt_preds.view(-1, self.num_keypoints, 3)
 

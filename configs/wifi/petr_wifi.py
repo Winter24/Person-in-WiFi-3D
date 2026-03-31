@@ -1,5 +1,8 @@
 dataset_type = 'opera.WifiPoseDataset'
-data_root = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose'
+data_root = 'data/wifipose'
+
+meta_keys = ['img_shape', 'ori_shape', 'pad_shape', 'img_name']
+
 train_pipeline = [
     dict(
         type='opera.DefaultFormatBundle',
@@ -7,73 +10,39 @@ train_pipeline = [
     dict(
         type='mmdet.Collect',
         keys=['img', 'gt_bboxes', 'gt_labels', 'gt_keypoints', 'gt_areas'],
-        meta_keys=[])
+        meta_keys=meta_keys)
 ]
+
 test_pipeline = [
     dict(
-        type='mmdet.MultiScaleFlipAug',
-        scale_factor=1.0,
-        flip=False,
-        transforms=[
-            dict(
-                type='opera.DefaultFormatBundle',
-                extra_keys=['gt_keypoints', 'gt_labels']),
-            dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
-        ])
+        type='opera.DefaultFormatBundle',
+        extra_keys=['gt_keypoints', 'gt_labels']),
+    dict(
+        type='mmdet.Collect',
+        keys=['img'],
+        meta_keys=meta_keys)
 ]
+
 data = dict(
     samples_per_gpu=32,
     workers_per_gpu=2,
     train=dict(
-        type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/train_data',
-        pipeline=[
-            dict(
-                type='opera.DefaultFormatBundle',
-                extra_keys=['gt_keypoints', 'gt_labels']),
-            dict(
-                type='mmdet.Collect',
-                keys=[
-                    'img', 'gt_bboxes', 'gt_labels', 'gt_keypoints', 'gt_areas'
-                ],
-                meta_keys=[])
-        ],
+        type=dataset_type,
+        dataset_root=f'{data_root}/train_data',
+        pipeline=train_pipeline,
         mode='train'),
-        # limit_samples=10, 
     val=dict(
-        type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/test_data',
-        pipeline=[
-            dict(
-                type='mmdet.MultiScaleFlipAug',
-                scale_factor=1.0,
-                flip=False,
-                transforms=[
-                    dict(
-                        type='opera.DefaultFormatBundle',
-                        extra_keys=['gt_keypoints', 'gt_labels']),
-                    dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
-                ])
-        ],
+        type=dataset_type,
+        dataset_root=f'{data_root}/test_data',
+        pipeline=test_pipeline,
         mode='test'),
     test=dict(
-        type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/test_data',
-        pipeline=[
-            dict(
-                type='mmdet.MultiScaleFlipAug',
-                scale_factor=1.0,
-                flip=False,
-                transforms=[
-                    dict(
-                        type='opera.DefaultFormatBundle',
-                        extra_keys=['gt_keypoints', 'gt_labels']),
-                    dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
-                ])
-        ],
+        type=dataset_type,
+        dataset_root=f'{data_root}/test_data',
+        pipeline=test_pipeline,
         mode='test'))
-#add
-fp16 = dict(loss_scale=512.)
+
+fp16 = dict(loss_scale=512.0)
 evaluation = dict(interval=1, metric='mpjpe')
 checkpoint_config = dict(interval=1, max_keep_ckpts=20)
 log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
@@ -86,31 +55,19 @@ workflow = [('train', 1)]
 opencv_num_threads = 0
 mp_start_method = 'fork'
 auto_scale_lr = dict(enable=False, base_batch_size=16)
+
 model = dict(
     type='opera.PETR',
     backbone=dict(
-        type='mmdet.ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
-    neck=dict(
-        type='mmdet.ChannelMapper',
-        in_channels=[512, 1024, 2048],
-        kernel_size=1,
-        out_channels=256,
-        act_cfg=None,
-        norm_cfg=dict(type='GN', num_groups=32),
-        num_outs=4),
+        type='SpectralTokenizer',
+        in_channels=60,
+        embed_dims=256),
+    neck=None,
     bbox_head=dict(
         type='opera.PETRHead',
         num_query=100,
         num_classes=1,
-        in_channels=2048,
+        in_channels=256,
         sync_cls_avg_factor=True,
         with_kpt_refine=True,
         as_two_stage=True,
@@ -187,8 +144,8 @@ model = dict(
             gamma=2.0,
             alpha=0.25,
             loss_weight=4.0),
-        loss_kpt=dict(type='mmdet.MSELoss', loss_weight=35.0), #70 -> 35
-        loss_bone=dict(type='BoneLengthLoss', loss_weight=10.0), # Thử với trọng số 10.0
+        loss_kpt=dict(type='mmdet.MSELoss', loss_weight=35.0),
+        loss_bone=dict(type='BoneLengthLoss', loss_weight=10.0),
         loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=35.0),
         loss_oks=dict(type='opera.OKSLoss', loss_weight=2.0),
         loss_hm=dict(type='opera.CenterFocalLoss', loss_weight=4.0),
@@ -201,9 +158,10 @@ model = dict(
             kpt_cost=dict(type='opera.KptMSECost', weight=35.0),
             oks_cost=dict(type='opera.OksCost', weight=7.0))),
     test_cfg=dict(max_per_img=100))
+
 optimizer = dict(
     type='AdamW',
-    betas=(0.9, 0.999), #add
+    betas=(0.9, 0.999),
     lr=2e-05,
     weight_decay=0.0001,
     paramwise_cfg=dict(
@@ -215,6 +173,6 @@ optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 lr_config = dict(policy='step', step=[450])
 runner = dict(type='EpochBasedRunner', max_epochs=500)
 find_unused_parameters = True
-work_dir = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result'
+work_dir = './work_dirs/petr_wifi'
 auto_resume = False
 gpu_ids = range(0, 3)

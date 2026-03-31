@@ -30,4 +30,4 @@ log_config = dict(
         dict(type='TextLoggerHook'),
     ])
 
-work_dir = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result_mamba'
+work_dir = './work_dirs/petr_wifi_mamba'

@@ -35,31 +35,35 @@ def single_gpu_test(model,
                 img_tensor = data['img'][0]
             else:
                 img_tensor = data['img'][0].data[0]
-            img_metas = data['img_metas'][0].data[0]
-            imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
-            assert len(imgs) == len(img_metas)
 
-            for i, (img, img_meta) in enumerate(zip(imgs, img_metas)):
-                h, w, _ = img_meta['img_shape']
-                img_show = img[:h, :w, :]
+            if img_tensor.dim() >= 4:
+                img_tensor = None
+            else:
+                img_metas = data['img_metas'][0].data[0]
+                imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
+                assert len(imgs) == len(img_metas)
 
-                ori_h, ori_w = img_meta['ori_shape'][:-1]
-                img_show = mmcv.imresize(img_show, (ori_w, ori_h))
+                for i, (img, img_meta) in enumerate(zip(imgs, img_metas)):
+                    h, w, _ = img_meta['img_shape']
+                    img_show = img[:h, :w, :]
 
-                if out_dir:
-                    out_file = osp.join(out_dir, img_meta['ori_filename'])
-                else:
-                    out_file = None
+                    ori_h, ori_w = img_meta['ori_shape'][:-1]
+                    img_show = mmcv.imresize(img_show, (ori_w, ori_h))
 
-                model.module.show_result(
-                    img_show,
-                    result[i],
-                    bbox_color=PALETTE,
-                    text_color=PALETTE,
-                    mask_color=PALETTE,
-                    show=show,
-                    out_file=out_file,
-                    score_thr=show_score_thr)
+                    if out_dir:
+                        out_file = osp.join(out_dir, img_meta['ori_filename'])
+                    else:
+                        out_file = None
+
+                    model.module.show_result(
+                        img_show,
+                        result[i],
+                        bbox_color=PALETTE,
+                        text_color=PALETTE,
+                        mask_color=PALETTE,
+                        show=show,
+                        out_file=out_file,
+                        score_thr=show_score_thr)
 
         if type(model.module).__name__ in SEG_ALG:
             # encode mask results
