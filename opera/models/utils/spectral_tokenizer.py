@@ -2,9 +2,13 @@
 import torch
 import torch.nn as nn
 import torch.fft
-from ..builder import BACKBONES
+from mmdet.models.builder import BACKBONES as MMDET_BACKBONES
 
-@BACKBONES.register_module()
+from ..builder import BACKBONES as OPERA_BACKBONES
+
+
+@MMDET_BACKBONES.register_module()
+@OPERA_BACKBONES.register_module()
 class SpectralTokenizer(nn.Module):
     """
     SpectraPose Tokenizer v3: Local-Global Fusion.

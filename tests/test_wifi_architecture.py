@@ -38,7 +38,9 @@ class WifiArchitectureTests(unittest.TestCase):
         source = _read("opera/models/utils/spectral_tokenizer.py")
 
         self.assertIn("BACKBONES", source)
-        self.assertIn("@BACKBONES.register_module()", source)
+        self.assertIn("mmdet.models.builder", source)
+        self.assertIn("@MMDET_BACKBONES.register_module()", source)
+        self.assertIn("@OPERA_BACKBONES.register_module()", source)
 
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")
