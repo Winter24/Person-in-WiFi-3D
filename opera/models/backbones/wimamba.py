@@ -1,6 +1,8 @@
 # Copyright (c) Hikvision Research Institute. All rights reserved.
 import torch
 import torch.nn as nn
+from mmcv.cnn.bricks.transformer import TRANSFORMER_LAYER_SEQUENCE as \
+    MMCV_TRANSFORMER_LAYER_SEQUENCE
 from mmcv.runner import BaseModule
 from ..builder import BACKBONES
 from ..utils.builder import TRANSFORMER_LAYER_SEQUENCE
@@ -49,6 +51,7 @@ class WiMambaBlock(nn.Module):
         return residual + out
 
 @BACKBONES.register_module()
+@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
 class WiMambaEncoder(BaseModule):
     """

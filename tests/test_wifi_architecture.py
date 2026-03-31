@@ -42,6 +42,15 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("@MMDET_BACKBONES.register_module()", source)
         self.assertIn("@OPERA_BACKBONES.register_module()", source)
 
+    def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
+        source = _read("opera/models/backbones/wimamba.py")
+
+        self.assertIn("mmcv.cnn.bricks.transformer", source)
+        self.assertIn(
+            "@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()",
+            source)
+        self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
+
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")
 
