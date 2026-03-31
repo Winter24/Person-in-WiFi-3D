@@ -1,5 +1,4 @@
-# @title tools/train.py
-# %%writefile /content/Person-in-WiFi-3D/tools/train.py
+# Copyright (c) Hikvision Research Institute. All rights reserved.
 
 import ssl
 try:

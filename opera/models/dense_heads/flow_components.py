@@ -1,5 +1,4 @@
-# @title opera/models/dense_heads/flow_components.py
-# %%writefile /content/Person-in-WiFi-3D/opera/models/dense_heads/flow_components.py
+# opera/models/dense_heads/flow_components.py
 import torch
 import torch.nn as nn
 import math

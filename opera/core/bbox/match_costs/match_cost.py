@@ -1,4 +1,4 @@
-# @title opera/core/bbox/match_costs/match_cost.py
+# opera/core/bbox/match_costs/match_cost.py
 
 import torch
 import numpy as np

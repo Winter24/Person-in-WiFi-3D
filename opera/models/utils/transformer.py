@@ -1,7 +1,6 @@
-# @title opera/models/utils/transformer.py
-# %%writefile /content/Person-in-WiFi-3D/opera/models/utils/transformer.py
+# opera/models/utils/transformer.py
 import math
-import copy # Import copy để deepcopy config
+import copy
 
 import torch
 import torch.nn as nn

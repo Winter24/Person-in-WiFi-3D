@@ -1,5 +1,6 @@
-# @title opera/models/dense_heads/wi_tidar_head.py
+# opera/models/dense_heads/wi_tidar_head.py
 import json
+import os
 
 import torch
 import torch.nn as nn
@@ -124,14 +125,16 @@ class WiTiDARHead(BaseModule):
 
     def _load_bone_statistics(self):
         """Load dataset-level bone statistics used by BoneLengthLoss."""
-        bone_stats_path = 'gt_bone_stats.json'
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, '../../../..'))
+        bone_stats_path = os.path.join(project_root, 'gt_bone_stats.json')
         try:
             with open(bone_stats_path, 'r', encoding='utf-8') as f:
                 bone_stats = json.load(f)
-            print("[WiTiDARHead] Loaded gt_bone_stats.json for BoneLengthLoss.")
+            print(f"[WiTiDARHead] Loaded gt_bone_stats.json from {bone_stats_path}")
             return torch.tensor(bone_stats['mean'], dtype=torch.float32), True
         except FileNotFoundError:
-            print("[WiTiDARHead] WARNING: gt_bone_stats.json not found. BoneLengthLoss will be disabled.")
+            print(f"[WiTiDARHead] WARNING: {bone_stats_path} not found. BoneLengthLoss disabled.")
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             print(f"[WiTiDARHead] WARNING: Failed to parse gt_bone_stats.json ({exc}). BoneLengthLoss will be disabled.")
         return torch.zeros(15, dtype=torch.float32), False

@@ -1,6 +1,8 @@
 # dataset settings
+import os.path as osp
 dataset_type = 'opera.WifiPoseDataset'
-data_root = '/home/qianbo/wifipose/data/'
+_base_dir = osp.abspath(osp.join(osp.dirname(__file__), '../../..'))
+data_root = osp.join(_base_dir, 'data', 'wifipose') + '/'
 train_pipeline = [
     dict(type='opera.DefaultFormatBundle',
          extra_keys=['gt_keypoints', 'gt_labels']),

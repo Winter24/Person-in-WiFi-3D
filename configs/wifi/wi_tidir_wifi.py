@@ -1,5 +1,4 @@
-# %%writefile /content/Person-in-WiFi-3D/configs/wifi/wi_tidir_wifi.py
-# @title configs/wifi/wi_tidir_wifi.py
+# Wi-TiDAR WiFi config
 # Kế thừa toàn bộ thiết lập dữ liệu và pipeline từ file gốc
 _base_ = ['./petr_wifi.py']
 

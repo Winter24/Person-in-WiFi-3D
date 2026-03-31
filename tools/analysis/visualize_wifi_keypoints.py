@@ -13,8 +13,9 @@ from matplotlib.lines import Line2D
 from opera.datasets.wifi_pose import WifiPoseDataset
 
 # --- CẤU HÌNH ---
-# !!! QUAN TRỌNG: Thay đổi đường dẫn này cho đúng với máy của bạn !!!
-DATASET_ROOT = '/home/yankangwei/opera-main/data/wifipose/train_data'
+# Tự động tìm thư mục gốc của dự án từ vị trí file script
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+DATASET_ROOT = os.path.join(project_root, 'data', 'wifipose', 'train_data')
 SAMPLE_INDEX_TO_VISUALIZE = 0  # Chọn một mẫu bất kỳ để xem
 
 

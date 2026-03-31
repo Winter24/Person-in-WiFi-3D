@@ -34,8 +34,9 @@ def compute_and_save_bone_stats():
     ]
     
     # --- TẢI DỮ LIỆU ---
-    # !!! QUAN TRỌNG: Thay đổi đường dẫn này nếu cần !!!
-    dataset_root = '/home/yankangwei/opera-main/data/wifipose/train_data' 
+    # Tự động tìm thư mục gốc của dự án từ vị trí file script
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+    dataset_root = os.path.join(project_root, 'data', 'wifipose', 'train_data')
     
     try:
         dataset = WifiPoseDataset(dataset_root=dataset_root, pipeline=[], mode='train')
@@ -82,7 +83,7 @@ def compute_and_save_bone_stats():
             bone_stats["std"].append(0.0)
             print(f"{BONE_NAMES[i]:<20}: Không có mẫu hợp lệ.")
 
-    output_path = 'gt_bone_stats.json'
+    output_path = os.path.join(project_root, 'gt_bone_stats.json')
     with open(output_path, 'w') as f:
         json.dump(bone_stats, f, indent=4)
         

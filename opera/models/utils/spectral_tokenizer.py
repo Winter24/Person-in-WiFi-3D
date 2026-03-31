@@ -1,4 +1,4 @@
-# @title opera/models/utils/spectral_tokenizer.py
+# opera/models/utils/spectral_tokenizer.py
 import torch
 import torch.nn as nn
 import torch.fft

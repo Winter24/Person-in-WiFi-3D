@@ -1,5 +1,4 @@
-# @title opera/models/utils/rectified_flow.py
-# %%writefile /content/Person-in-WiFi-3D/opera/models/utils/rectified_flow.py
+# opera/models/utils/rectified_flow.py
 import torch
 import torch.nn as nn
 import numpy as np

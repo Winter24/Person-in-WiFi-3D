@@ -94,6 +94,37 @@ class WifiArchitectureTests(unittest.TestCase):
                 msg=f"{relative_path} should derive its paths dynamically.",
             )
 
+    def test_bone_stats_paths_are_anchored_to_project_root(self):
+        for relative_path in (
+            "opera/models/dense_heads/petr_head.py",
+            "opera/models/dense_heads/wi_tidar_head.py",
+        ):
+            source = _read(relative_path)
+            self.assertIn("__file__", source)
+            self.assertIn("project_root", source)
+            self.assertIn(
+                "os.path.join(project_root, 'gt_bone_stats.json')",
+                source)
+
+    def test_compute_bone_stats_writes_output_to_project_root(self):
+        source = _read("tools/analysis/compute_bone_stats.py")
+
+        self.assertIn("project_root", source)
+        self.assertIn(
+            "output_path = os.path.join(project_root, 'gt_bone_stats.json')",
+            source)
+
+    def test_selected_files_no_longer_have_colab_headers(self):
+        for relative_path in (
+            "configs/wifi/wi_tidir_wifi.py",
+            "opera/models/dense_heads/flow_components.py",
+            "opera/models/utils/rectified_flow.py",
+            "tools/train.py",
+        ):
+            source = _read(relative_path)
+            self.assertNotIn("%%writefile", source, msg=relative_path)
+            self.assertNotIn("# @title", source, msg=relative_path)
+
 
 if __name__ == "__main__":
     unittest.main()

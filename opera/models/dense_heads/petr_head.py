@@ -1,7 +1,8 @@
-# @title opera/models/dense_heads/petr_head.py
+# opera/models/dense_heads/petr_head.py
 
 # Copyright (c) Hikvision Research Institute. All rights reserved.
 import copy
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -152,15 +153,29 @@ class PETRHead(AnchorFreeHead):
             f' be exactly 2 times of num_feats. Found {self.embed_dims}' \
             f' and {num_feats}.'
         self._init_layers()
+        bone_stats, has_bone_stats = self._load_bone_statistics()
+        self.register_buffer('gt_bone_lengths_mean', bone_stats)
+        self.has_bone_stats = has_bone_stats
+
+    def _load_bone_statistics(self):
+        """Load dataset-level bone statistics used by BoneLengthLoss.
+
+        Returns:
+            tuple: (bone_lengths_mean: Tensor, has_bone_stats: bool)
+        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, '../../../..'))
+        bone_stats_path = os.path.join(project_root, 'gt_bone_stats.json')
         try:
-            with open('gt_bone_stats.json', 'r') as f:
+            with open(bone_stats_path, 'r', encoding='utf-8') as f:
                 bone_stats = json.load(f)
-            self.register_buffer('gt_bone_lengths_mean', torch.tensor(bone_stats['mean']))
-            print("\nĐã tải và đăng ký 'gt_bone_stats.json' thành công vào buffer.\n")
+            print(f"[PETRHead] Loaded gt_bone_stats.json from {bone_stats_path}")
+            return torch.tensor(bone_stats['mean'], dtype=torch.float32), True
         except FileNotFoundError:
-            print("\n!!! CẢNH BÁO: Không tìm thấy file 'gt_bone_stats.json'. BoneLengthLoss sẽ không hoạt động.!!!\n")
-            self.register_buffer('gt_bone_lengths_mean', torch.zeros(15))
-        self.has_bone_stats = bool(self.gt_bone_lengths_mean.abs().sum().item())
+            print(f"[PETRHead] WARNING: {bone_stats_path} not found. BoneLengthLoss disabled.")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            print(f"[PETRHead] WARNING: Failed to parse gt_bone_stats.json ({exc}). BoneLengthLoss disabled.")
+        return torch.zeros(15, dtype=torch.float32), False
 
     def _init_layers(self):
         """Initialize classification branch and keypoint branch of head."""
