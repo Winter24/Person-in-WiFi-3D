@@ -155,12 +155,11 @@ When this support work is complete, the repo should contain:
   - evaluation interval
   - checkpoint policy
   - work_dir naming
-- [ ] Implement `B0` as `Linear + Transformer + PETR + no structural loss`
-- [ ] Implement `B1` as `SpectralTokenizer + Transformer + PETR + no structural loss`
-- [ ] Implement `B2` as `SpectralTokenizer + Mamba + PETR + no structural loss`
-- [ ] Implement `B3` as `SpectralTokenizer + Mamba + Draft head + no flow + no structural loss`
-- [ ] Implement `B4` as `SpectralTokenizer + Mamba + Draft head + flow + no structural loss`
-- [ ] Implement `B5` as `SpectralTokenizer + Mamba + Draft head + flow + structural loss`
+- [ ] Implement `B0` as `Linear + Transformer + PETR + no structural loss(bone length loss)`
+- [ ] Implement `B1` as `SpectralTokenizer + Transformer + PETR + no structural loss(bone length loss)`
+- [ ] Implement `B2` as `SpectralTokenizer + Mamba + PETR + no structural loss(bone length loss)`
+- [ ] Implement `B3` as `SpectralTokenizer + Mamba + Draft head + flow + no structural loss(bone length loss)`
+- [ ] Implement `B4` as `SpectralTokenizer + Mamba + Draft head + flow + structural loss(bone length loss)`
 - [ ] Give every config a paper-specific `work_dir`
 - [ ] Add one short header comment in each config mapping it to the ablation table ID
 - [ ] Verify all config files parse as Python source

@@ -8,7 +8,6 @@ from .transformer import (PETRTransformer,
                           PetrTransformerDecoder,
                           MultiScaleDeformablePoseAttention,
                           PetrRefineTransformerDecoder)
-from .mamba_encoder import MambaEncoder
 from .spectral_tokenizer import SpectralTokenizer
 
 __all__ = [
@@ -16,5 +15,6 @@ __all__ = [
     'build_transformer_layer_sequence', 'build_transformer', 'ATTENTION',
     'POSITIONAL_ENCODING', 'TRANSFORMER_LAYER_SEQUENCE', 'TRANSFORMER',
     'RelSinePositionalEncoding', 'PETRTransformer',
-    'PetrTransformerDecoder', 'MultiScaleDeformablePoseAttention', 'PetrRefineTransformerDecoder','MambaEncoder','SpectralTokenizer'
+    'PetrTransformerDecoder', 'MultiScaleDeformablePoseAttention',
+    'PetrRefineTransformerDecoder', 'SpectralTokenizer'
 ]

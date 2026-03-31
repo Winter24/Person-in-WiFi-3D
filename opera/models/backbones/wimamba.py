@@ -98,7 +98,14 @@ class WiMambaEncoder(BaseModule):
         # Norm cuối cùng để ổn định feature trước khi vào Decoder
         self.final_norm = nn.LayerNorm(embed_dims)
 
-    def forward(self, x, query_pos=None, **kwargs):
+    def forward(self,
+                x=None,
+                query_pos=None,
+                key=None,
+                value=None,
+                key_padding_mask=None,
+                query=None,
+                **kwargs):
         """
         Args:
             x (Tensor): Input feature.
@@ -110,6 +117,12 @@ class WiMambaEncoder(BaseModule):
         # 1. Tích hợp Positional Encoding (nếu có)
         # Mặc dù Mamba là mô hình chuỗi (RNN-like), việc cộng PE giúp nó
         # nhận biết vị trí tuyệt đối tốt hơn trong không gian 3D.
+        if x is None:
+            x = query
+
+        if x is None:
+            raise ValueError('WiMambaEncoder requires either "x" or "query".')
+
         if query_pos is not None:
             x = x + query_pos
 
