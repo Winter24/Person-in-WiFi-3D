@@ -43,6 +43,27 @@ class PETR(DETR):
             pretrained=pretrained,
             init_cfg=init_cfg)
 
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        """Remap legacy WiFi baseline checkpoints onto the unified backbone.
+
+        Older B0 checkpoints stored the input projection as top-level
+        ``head.weight`` / ``head.bias``. The current codebase moves that layer
+        under ``backbone.linear_proj.*`` so we adapt those keys on load.
+        """
+        legacy_weight_key = prefix + 'head.weight'
+        legacy_bias_key = prefix + 'head.bias'
+        new_weight_key = prefix + 'backbone.linear_proj.weight'
+        new_bias_key = prefix + 'backbone.linear_proj.bias'
+
+        if legacy_weight_key in state_dict and new_weight_key not in state_dict:
+            state_dict[new_weight_key] = state_dict.pop(legacy_weight_key)
+        if legacy_bias_key in state_dict and new_bias_key not in state_dict:
+            state_dict[new_bias_key] = state_dict.pop(legacy_bias_key)
+
+        super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                      missing_keys, unexpected_keys, error_msgs)
+
     def extract_feat(self, img):
         """Extract WiFi token features using the configured backbone."""
         bs, _, _, _, channel = img.shape

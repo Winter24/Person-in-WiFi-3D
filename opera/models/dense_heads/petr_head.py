@@ -164,7 +164,7 @@ class PETRHead(AnchorFreeHead):
             tuple: (bone_lengths_mean: Tensor, has_bone_stats: bool)
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(current_dir, '../../../..'))
+        project_root = os.path.abspath(os.path.join(current_dir, '../../..'))
         bone_stats_path = os.path.join(project_root, 'gt_bone_stats.json')
         try:
             with open(bone_stats_path, 'r', encoding='utf-8') as f:

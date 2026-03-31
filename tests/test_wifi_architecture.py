@@ -80,6 +80,14 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("self.backbone(x)", source)
         self.assertNotIn("self.head =", source)
 
+    def test_petr_source_remaps_legacy_linear_head_checkpoint_keys(self):
+        source = _read("opera/models/detectors/petr.py")
+
+        self.assertIn("head.weight", source)
+        self.assertIn("head.bias", source)
+        self.assertIn("backbone.linear_proj.weight", source)
+        self.assertIn("backbone.linear_proj.bias", source)
+
     def test_petr_source_initializes_via_single_stage_detector_to_support_neck(self):
         source = _read("opera/models/detectors/petr.py")
 
@@ -115,6 +123,7 @@ class WifiArchitectureTests(unittest.TestCase):
             source = _read(relative_path)
             self.assertIn("__file__", source)
             self.assertIn("project_root", source)
+            self.assertIn("os.path.join(current_dir, '../../..')", source)
             self.assertIn(
                 "os.path.join(project_root, 'gt_bone_stats.json')",
                 source)
