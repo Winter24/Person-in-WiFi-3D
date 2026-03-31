@@ -80,6 +80,15 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("self.backbone(x)", source)
         self.assertNotIn("self.head =", source)
 
+    def test_petr_source_normalizes_tensor_inputs_for_forward_test(self):
+        source = _read("opera/models/detectors/petr.py")
+
+        self.assertIn("def forward_test", source)
+        self.assertIn("if isinstance(imgs, torch.Tensor):", source)
+        self.assertIn("imgs = [imgs]", source)
+        self.assertIn("if img_metas and isinstance(img_metas[0], dict):", source)
+        self.assertIn("img_metas = [img_metas]", source)
+
     def test_petr_source_remaps_legacy_linear_head_checkpoint_keys(self):
         source = _read("opera/models/detectors/petr.py")
 

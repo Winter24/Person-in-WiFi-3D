@@ -71,6 +71,16 @@ class PETR(DETR):
         x = self.backbone(x)
         return x
 
+    def forward_test(self, imgs, img_metas, **kwargs):
+        """Normalize WiFi inference inputs to MMDet's nested-list format."""
+        if isinstance(imgs, torch.Tensor):
+            imgs = [imgs]
+        if isinstance(img_metas, tuple):
+            img_metas = list(img_metas)
+        if img_metas and isinstance(img_metas[0], dict):
+            img_metas = [img_metas]
+        return super().forward_test(imgs, img_metas, **kwargs)
+
     def forward_train(self,
                       img,
                       img_metas,
