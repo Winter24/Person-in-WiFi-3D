@@ -19,9 +19,6 @@ from mmdet.models.utils.transformer import (DeformableDetrTransformer,
 from .builder import (TRANSFORMER, ATTENTION, TRANSFORMER_LAYER_SEQUENCE,
                       build_transformer_layer_sequence)
 
-# Import WiMambaEncoder
-from opera.models.backbones.wimamba import WiMambaEncoder
-
 
 @ATTENTION.register_module()
 class MultiScaleDeformablePoseAttention(BaseModule):
@@ -274,46 +271,7 @@ class PETRTransformer(Transformer):
                  two_stage_num_proposals=100,
                  num_keypoints=17,
                  **kwargs):
-
-        # --- [WIMAMBA FIX] ---
-        use_wimamba = False
-        wimamba_cfg = None
-        encoder_for_super = encoder
-
-        if encoder is not None and encoder.get('type') == 'WiMambaEncoder':
-            use_wimamba = True
-            wimamba_cfg = encoder
-
-            # TẠO ENCODER "GIẢ" (DUMMY) ĐỂ QUA MẶT LỚP CHA
-            # Vì class cha Transformer bắt buộc encoder phải là dict hợp lệ
-            encoder_for_super = dict(
-                type='DetrTransformerEncoder',
-                num_layers=1,
-                transformerlayers=dict(
-                    type='BaseTransformerLayer',
-                    attn_cfgs=dict(
-                        type='MultiheadAttention',
-                        embed_dims=256,
-                        num_heads=8,
-                        dropout=0.1),
-                    feedforward_channels=1024,
-                    ffn_dropout=0.1,
-                    operation_order=('self_attn', 'norm', 'ffn', 'norm')))
-
-        super(PETRTransformer, self).__init__(encoder=encoder_for_super, **kwargs)
-
-        # TRÁO HÀNG THẬT: Khởi tạo WiMamba và ghi đè self.encoder
-        if use_wimamba:
-            print(f">>> Initializing WiMambaEncoder for PETRTransformer <<<")
-            self.encoder = WiMambaEncoder(
-                embed_dims=self.embed_dims,
-                num_layers=wimamba_cfg.get('num_layers', 4),
-                d_state=wimamba_cfg.get('d_state', 16),
-                d_conv=wimamba_cfg.get('d_conv', 4),
-                expand=wimamba_cfg.get('expand', 2),
-                dropout=wimamba_cfg.get('dropout', 0.1)
-            )
-        # -----------------------
+        super(PETRTransformer, self).__init__(encoder=encoder, **kwargs)
 
         self.as_two_stage = as_two_stage
         self.num_feature_levels = num_feature_levels
@@ -359,29 +317,11 @@ class PETRTransformer(Transformer):
                 **kwargs):
         assert self.as_two_stage or query_embed is not None
         feat_flatten = mlvl_feats.permute(1, 0, 2)  # (H*W, bs, embed_dims)
-
-        # --- [FIX LỖI COMPATIBILITY] ---
-        # Kiểm tra nếu đang dùng WiMambaEncoder thì gọi kiểu mới
-        # Nếu đang dùng Encoder gốc (Standard Transformer) thì gọi kiểu cũ (có key, value)
-
-        # Cách kiểm tra an toàn: check tên class hoặc isinstance
-        is_wimamba = False
-        if isinstance(self.encoder, WiMambaEncoder):
-            is_wimamba = True
-
-        if is_wimamba:
-            # WiMamba chỉ cần 1 đầu vào x
-            memory = self.encoder(feat_flatten, **kwargs)
-        else:
-            # Standard Transformer Encoder yêu cầu đủ bộ query, key, value
-            # Với Self-Attention, key và value có thể là None (tùy implement) hoặc chính là query
-            # Trong codebase này, truyền key=None, value=None là chuẩn cho Encoder.
-            memory = self.encoder(
-                query=feat_flatten,
-                key=None,
-                value=None,
-                **kwargs)
-        # -------------------------------
+        memory = self.encoder(
+            query=feat_flatten,
+            key=None,
+            value=None,
+            **kwargs)
 
         memory = memory.permute(1, 0, 2)
         bs, _, c = memory.shape

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from mmcv.runner import BaseModule
 from ..builder import BACKBONES
+from ..utils.builder import TRANSFORMER_LAYER_SEQUENCE
 
 # Cố gắng import Mamba, nếu chưa cài đặt sẽ báo lỗi rõ ràng trong __init__
 try:
@@ -48,6 +49,7 @@ class WiMambaBlock(nn.Module):
         return residual + out
 
 @BACKBONES.register_module()
+@TRANSFORMER_LAYER_SEQUENCE.register_module()
 class WiMambaEncoder(BaseModule):
     """
     WiMamba Encoder: Thay thế Transformer Encoder O(N^2) bằng State Space Model O(N).
