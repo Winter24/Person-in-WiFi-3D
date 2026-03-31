@@ -203,6 +203,12 @@ Practical mapping:
 - `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None`
 - `B5`: train from `configs/wifi/wi_tidir_wifi.py`
 
+Legacy B0 evaluation policy:
+
+- if a `B0` checkpoint was trained in the original pre-refactor codebase, still evaluate it with the current canonical `configs/wifi/petr_wifi.py`
+- do not evaluate a legacy `B0` checkpoint with an old dumped config that still declares `ResNet`, because that config no longer reflects the actual linear-projection runtime path used by the old PETR WiFi baseline
+- the patched current codebase is the source of truth for legacy `B0` evaluation because it remaps old `head.weight/head.bias` checkpoints onto `backbone.linear_proj.*`
+
 ## Hypotheses To Validate
 
 ### H1: Spectral Tokenizer Helps

@@ -158,6 +158,27 @@ class WifiArchitectureTests(unittest.TestCase):
             self.assertNotIn("%%writefile", source, msg=relative_path)
             self.assertNotIn("# @title", source, msg=relative_path)
 
+    def test_witidir_config_keeps_only_bone_loss(self):
+        source = _read("configs/wifi/wi_tidir_wifi.py")
+
+        self.assertIn("loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0)", source)
+        self.assertNotIn("loss_limb", source)
+
+    def test_witidar_head_source_removes_limb_loss_logic(self):
+        source = _read("opera/models/dense_heads/wi_tidar_head.py")
+
+        self.assertIn("losses_cls, losses_kpt, losses_bone, losses_flow", source)
+        self.assertNotIn("loss_limb", source)
+        self.assertNotIn("losses_limb", source)
+        self.assertNotIn("LimbLoss", source)
+
+    def test_losses_init_no_longer_imports_limb_loss(self):
+        source = _read("opera/models/losses/__init__.py")
+
+        self.assertIn("BoneLengthLoss", source)
+        self.assertNotIn("limb_loss", source)
+        self.assertNotIn("LimbLoss", source)
+
 
 if __name__ == "__main__":
     unittest.main()

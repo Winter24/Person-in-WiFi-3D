@@ -85,6 +85,7 @@ Config note:
 
 - [ ] `B0` should use `configs/wifi/petr_wifi.py`
 - [ ] any improved run (`B1`, `B2`, `B3`, `B4`, `B5`) must use a config whose backbone is `WifiInputAdapter(mode='spectral')`
+- [ ] legacy `B0` checkpoints from the original codebase must be evaluated with the current canonical `configs/wifi/petr_wifi.py`, not an old dumped config that still declares `ResNet`
 
 What to check in `<ID>_eval.json`:
 
@@ -186,6 +187,24 @@ python tools/analysis/append_experiment_log.py \
     --benchmark-json paper_assets/logs/B0_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
     --notes "B0 linear baseline"
+```
+
+Legacy B0 checkpoint note:
+
+- [ ] if `<CKPT_B0>` comes from the original pre-refactor codebase, do not use its old dumped config for evaluation
+- [ ] use the current canonical config `configs/wifi/petr_wifi.py`
+- [ ] make sure `/content/Person-in-WiFi-3D/opera/models/detectors/petr.py` is the patched version that remaps legacy `head.weight/head.bias` and handles WiFi `forward_test()`
+- [ ] make sure `/content/Person-in-WiFi-3D/opera/models/dense_heads/petr_head.py` and `/content/Person-in-WiFi-3D/opera/models/dense_heads/wi_tidar_head.py` are the patched versions that resolve `gt_bone_stats.json` from repo root
+
+Legacy B0 eval rerun command:
+
+```bash
+python tools/test.py \
+    /content/Person-in-WiFi-3D/configs/wifi/petr_wifi.py \
+    <CKPT_B0> \
+    --eval mpjpe \
+    --work-dir work_dirs/paper_eval/B0 \
+    --metrics-out paper_assets/logs/B0_eval.json
 ```
 
 ### B1
