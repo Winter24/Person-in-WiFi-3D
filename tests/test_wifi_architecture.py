@@ -20,13 +20,16 @@ def _load_config_module(relative_path: str):
 
 
 class WifiArchitectureTests(unittest.TestCase):
-    def test_petr_wifi_config_uses_relative_paths_and_wifi_backbone(self):
+    def test_petr_wifi_config_uses_relative_paths_and_linear_b0_backbone(self):
         cfg = _load_config_module("configs/wifi/petr_wifi.py")
 
         expected_meta_keys = ["img_shape", "ori_shape", "pad_shape", "img_name"]
 
         self.assertEqual(cfg.data_root, "data/wifipose")
-        self.assertEqual(cfg.model["backbone"]["type"], "SpectralTokenizer")
+        self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
+        self.assertEqual(cfg.model["backbone"]["mode"], "linear")
+        self.assertEqual(cfg.model["backbone"]["in_channels"], 60)
+        self.assertEqual(cfg.model["backbone"]["embed_dims"], 256)
         self.assertIsNone(cfg.model["neck"])
         self.assertEqual(cfg.data["train"]["dataset_root"], "data/wifipose/train_data")
         self.assertEqual(cfg.data["val"]["dataset_root"], "data/wifipose/test_data")
@@ -34,13 +37,23 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.train_pipeline[-1]["meta_keys"], expected_meta_keys)
         self.assertEqual(cfg.test_pipeline[-1]["meta_keys"], expected_meta_keys)
 
-    def test_spectral_tokenizer_is_registered_as_backbone_in_source(self):
+    def test_petr_wifi_mamba_config_switches_backbone_to_spectral_mode(self):
+        cfg = _load_config_module("configs/wifi/petr_wifi_mamba.py")
+
+        self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
+        self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+
+    def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
 
         self.assertIn("BACKBONES", source)
         self.assertIn("mmdet.models.builder", source)
         self.assertIn("@MMDET_BACKBONES.register_module()", source)
         self.assertIn("@OPERA_BACKBONES.register_module()", source)
+        self.assertIn("class WifiInputAdapter", source)
+        self.assertIn("mode='spectral'", source)
+        self.assertIn("self.linear_proj", source)
+        self.assertIn("if self.mode == 'linear'", source)
 
     def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
         source = _read("opera/models/backbones/wimamba.py")

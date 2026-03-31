@@ -59,9 +59,10 @@ auto_scale_lr = dict(enable=False, base_batch_size=16)
 model = dict(
     type='opera.PETR',
     backbone=dict(
-        type='SpectralTokenizer',
+        type='WifiInputAdapter',
         in_channels=60,
-        embed_dims=256),
+        embed_dims=256,
+        mode='linear'),
     neck=None,
     bbox_head=dict(
         type='opera.PETRHead',

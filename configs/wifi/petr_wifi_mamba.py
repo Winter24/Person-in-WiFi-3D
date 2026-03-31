@@ -1,6 +1,11 @@
 _base_ = ['./petr_wifi.py']
 
 model = dict(
+    backbone=dict(
+        type='WifiInputAdapter',
+        in_channels=60,
+        embed_dims=256,
+        mode='spectral'),
     bbox_head=dict(
         transformer=dict(
             encoder=dict(

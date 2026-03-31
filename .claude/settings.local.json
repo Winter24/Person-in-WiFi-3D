@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m compileall opera/datasets/wifi_pose.py tools/analysis/append_experiment_log.py tests/test_b0_reporting.py)",
+      "Bash(python -m unittest tests.test_b0_reporting -v)"
+    ]
+  }
+}

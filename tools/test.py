@@ -105,6 +105,12 @@ def parse_args():
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--scene', default=None, type=str, help='show results')
+    parser.add_argument(
+        '--metrics-out',
+        type=str,
+        default=None,
+        help='path to write evaluation metrics as a single JSON file '
+        '(e.g. paper_assets/logs/B0_eval.json)')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -270,6 +276,9 @@ def main():
             ]:
                 eval_kwargs.pop(key, None)
             eval_kwargs.update(dict(metric=args.eval, **kwargs))
+            # Pass --metrics-out so evaluate() can export structured JSON
+            if args.metrics_out:
+                eval_kwargs['metrics_out'] = args.metrics_out
             metric = dataset.evaluate(outputs, **eval_kwargs)
             print(metric)
             if args.scene:

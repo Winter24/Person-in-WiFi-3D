@@ -14,6 +14,21 @@ try:
     from scipy.optimize import linear_sum_assignment
 except ImportError:
     linear_sum_assignment = None
+def _json_serializer(obj):
+    """JSON serializer for numpy/torch types."""
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, torch.Tensor):
+        return obj.cpu().tolist()
+    if isinstance(obj, float) and (obj != obj):  # NaN
+        return None
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
 @DATASETS.register_module()
 class WifiPoseDataset(dataset):
     CLASSES = ('person', )
@@ -297,68 +312,97 @@ class WifiPoseDataset(dataset):
                 classwise=False,
                 proposal_nums=(100, 300, 1000),
                 iou_thrs=None,
-                metric_items=None):
-        
+                metric_items=None,
+                metrics_out=None):
+
         # --- PHẦN KHỞI TẠO CÁC LIST ĐỂ LƯU KẾT QUẢ ---
         all_mpjpe_metrics = [] # MPJPE, PJDLE_h, PJDLE_v, PJDLE_d cho từng mẫu
         all_per_joint_mpjpe = [] # MPJPE cho từng khớp, shape (num_samples, 14)
         all_bone_length_errors = [] # Sai số chiều dài xương, shape (num_samples, num_bones)
 
+        # Per-person-count buckets: key = number of GT persons (1, 2, 3)
+        bucket_mpjpe = {1: [], 2: [], 3: []}
+        # GT-split denominator: counts every frame with valid GT,
+        # regardless of whether prediction exists or matching succeeded.
+        bucket_gt_count = {1: 0, 2: 0, 3: 0}
+
         # Tải chiều dài xương ground-truth từ file JSON
         try:
-            with open('gt_bone_stats.json', 'r') as f:
+            bone_stats_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                'gt_bone_stats.json')
+            with open(bone_stats_path, 'r') as f:
                 bone_stats = json.load(f)
             gt_bone_lengths_mean = torch.tensor(bone_stats['mean'])
             bones_definition_from_json = bone_stats['bones_definition']
         except FileNotFoundError:
-            print("Lỗi: Không tìm thấy file 'gt_bone_stats.json'. Vui lòng chạy script phân tích trước.")
-            return {}
+            print("Warning: 'gt_bone_stats.json' not found. Bone length errors will be skipped.")
+            gt_bone_lengths_mean = None
+            bones_definition_from_json = None
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            print(f"Warning: Failed to parse 'gt_bone_stats.json' ({exc}). Bone length errors will be skipped.")
+            gt_bone_lengths_mean = None
+            bones_definition_from_json = None
 
         # Tạo mapping từ TARGET_BONES tới chỉ số trong gt_bone_lengths_mean
-        json_indices = []
-        for target_bone in self.TARGET_BONES:
-            for i, full_bone in enumerate(bones_definition_from_json):
-                if (target_bone[0] == full_bone[0] and target_bone[1] == full_bone[1]) or \
-                (target_bone[0] == full_bone[1] and target_bone[1] == full_bone[0]):
-                    json_indices.append(i)
-                    break
-        reliable_gt_lengths_mean = gt_bone_lengths_mean[json_indices]
-        
+        reliable_gt_lengths_mean = None
+        if gt_bone_lengths_mean is not None:
+            json_indices = []
+            for target_bone in self.TARGET_BONES:
+                for i, full_bone in enumerate(bones_definition_from_json):
+                    if (target_bone[0] == full_bone[0] and target_bone[1] == full_bone[1]) or \
+                    (target_bone[0] == full_bone[1] and target_bone[1] == full_bone[0]):
+                        json_indices.append(i)
+                        break
+            reliable_gt_lengths_mean = gt_bone_lengths_mean[json_indices]
+
         # --- VÒNG LẶP XỬ LÝ KẾT QUẢ ---
         for i in range(len(results)):
             info = self.get_item_single_frame(i)
             gt_keypoints = info['gt_keypoints']
-            
+
             # Bỏ qua nếu không có ground-truth
             if gt_keypoints.shape[0] == 0:
                 continue
-                
+
+            n_gt_persons = int(gt_keypoints.shape[0])
+
+            # Count every valid-GT frame for the per-split denominator,
+            # before any prediction-availability guard.
+            if n_gt_persons in bucket_gt_count:
+                bucket_gt_count[n_gt_persons] += 1
+
             det_bboxes, det_keypoints = results[i]
-            
+
             # Chỉ xử lý lớp 'person' (label 0)
             kpt_pred = det_keypoints[0]
-            
+
             # Bỏ qua nếu không có dự đoán nào
             if kpt_pred.shape[0] == 0:
                 # Nếu có ground-truth nhưng không có dự đoán, coi như sai số là rất lớn
                 # Hoặc đơn giản là bỏ qua để tính trên các mẫu có dự đoán
                 continue
-                
+
             kpt_pred = torch.tensor(kpt_pred, dtype=gt_keypoints.dtype, device=gt_keypoints.device)
-            
+
             # --- TÍNH TOÁN CÁC METRIC ---
             # 1. Khớp cặp và tính toán MPJPE, PJDLE
             matched_results = self.calc_mpjpe_and_match(gt_keypoints, kpt_pred)
-            
+
             if matched_results:
                 # Nếu có ít nhất một cặp được khớp
                 mpjpe_metrics, per_joint_mpjpe, matched_pred_kpts, matched_gt_kpts = matched_results
                 all_mpjpe_metrics.append(mpjpe_metrics)
                 all_per_joint_mpjpe.append(per_joint_mpjpe)
-                
+
+                # Bucket by GT person count
+                if n_gt_persons in bucket_mpjpe:
+                    bucket_mpjpe[n_gt_persons].append(mpjpe_metrics[0])  # overall MPJPE only
+
                 # 2. Tính toán sai số chiều dài xương trên các cặp đã khớp
-                bone_error = self.calc_bone_length_error(matched_pred_kpts, reliable_gt_lengths_mean)
-                all_bone_length_errors.append(bone_error)
+                if reliable_gt_lengths_mean is not None:
+                    bone_error = self.calc_bone_length_error(matched_pred_kpts, reliable_gt_lengths_mean)
+                    all_bone_length_errors.append(bone_error)
 
         # --- TỔNG HỢP VÀ IN KẾT QUẢ ---
         if not all_mpjpe_metrics:
@@ -367,45 +411,105 @@ class WifiPoseDataset(dataset):
 
         # Tính trung bình các metric MPJPE/PJDLE
         avg_mpjpe_metrics = np.mean(all_mpjpe_metrics, axis=0)
-        
+
         # Tính trung bình MPJPE trên từng khớp
         avg_per_joint_mpjpe = np.mean(all_per_joint_mpjpe, axis=0)
-        
+
         # Tính trung bình sai số chiều dài xương
-        avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
-        
-        # Tạo dictionary kết quả
+        if all_bone_length_errors:
+            avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
+        else:
+            avg_bone_length_error = np.zeros(len(self.TARGET_BONES))
+
+        # Per-person-count breakdown
+        mpjpe_1p = float(np.mean(bucket_mpjpe[1])) if bucket_mpjpe[1] else float('nan')
+        mpjpe_2p = float(np.mean(bucket_mpjpe[2])) if bucket_mpjpe[2] else float('nan')
+        mpjpe_3p = float(np.mean(bucket_mpjpe[3])) if bucket_mpjpe[3] else float('nan')
+        # count_Xp = true GT-split denominator (all frames with X GT persons,
+        # including missed predictions).  matched_Xp = frames where matching
+        # actually produced a result (numerator for the per-split MPJPE).
+        count_1p = bucket_gt_count[1]
+        count_2p = bucket_gt_count[2]
+        count_3p = bucket_gt_count[3]
+        matched_1p = len(bucket_mpjpe[1])
+        matched_2p = len(bucket_mpjpe[2])
+        matched_3p = len(bucket_mpjpe[3])
+
+        # Tạo dictionary kết quả (giữ tương thích với workflow cũ)
         result_dict = OrderedDict(
-            mpjpe=avg_mpjpe_metrics[0],
-            mpjpeh=avg_mpjpe_metrics[1],
-            mpjpev=avg_mpjpe_metrics[2],
-            mpjped=avg_mpjpe_metrics[3]
+            mpjpe=float(avg_mpjpe_metrics[0]),
+            mpjpeh=float(avg_mpjpe_metrics[1]),
+            mpjpev=float(avg_mpjpe_metrics[2]),
+            mpjped=float(avg_mpjpe_metrics[3]),
+            mpjpe_1p=mpjpe_1p,
+            mpjpe_2p=mpjpe_2p,
+            mpjpe_3p=mpjpe_3p,
+            count_1p=count_1p,
+            count_2p=count_2p,
+            count_3p=count_3p,
+            matched_1p=matched_1p,
+            matched_2p=matched_2p,
+            matched_3p=matched_3p,
         )
 
         # In ra bảng kết quả chi tiết
         print("\n" + "="*60)
-        print(" " * 15 + "BÁO CÁO ĐÁNH GIÁ CHI TIẾT")
+        print(" " * 15 + "EVALUATION REPORT")
         print("="*60)
-        print(f"MPJPE Tổng thể: {result_dict['mpjpe']:.2f} mm")
-        print(f"PJDLE (ngang):   {result_dict['mpjpeh']:.2f} mm")
-        print(f"PJDLE (sâu):     {result_dict['mpjpev']:.2f} mm")
-        print(f"PJDLE (cao):     {result_dict['mpjped']:.2f} mm")
+        print(f"MPJPE Overall:   {result_dict['mpjpe']:.2f} mm")
+        print(f"PJDLE (horiz):   {result_dict['mpjpeh']:.2f} mm")
+        print(f"PJDLE (depth):   {result_dict['mpjpev']:.2f} mm")
+        print(f"PJDLE (vert):    {result_dict['mpjped']:.2f} mm")
         print("-"*60)
-        print(" " * 15 + "MPJPE TRUNG BÌNH TRÊN TỪNG KHỚP (mm)")
+        print(" " * 10 + "MPJPE BY NUMBER OF PERSONS")
+        print("-"*60)
+        print(f"  1-person:  {mpjpe_1p:.2f} mm  (n={count_1p}, matched={matched_1p})")
+        print(f"  2-person:  {mpjpe_2p:.2f} mm  (n={count_2p}, matched={matched_2p})")
+        print(f"  3-person:  {mpjpe_3p:.2f} mm  (n={count_3p}, matched={matched_3p})")
+        print("-"*60)
+        print(" " * 10 + "PER-JOINT MPJPE (mm)")
         print("-"*60)
         # Sắp xếp để dễ xem
         sorted_joint_errors = sorted(zip(self.JOINT_NAMES, avg_per_joint_mpjpe), key=lambda item: item[1], reverse=True)
         for joint_name, error in sorted_joint_errors:
             print(f"{joint_name:<15} | {error:.2f}")
-        print("-"*60)
-        print(" " * 10 + "SAI SỐ CHIỀU DÀI XƯƠNG TRUNG BÌNH (mm)")
-        print("-"*60)
-        bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
-        sorted_bone_errors = sorted(zip(bone_names, avg_bone_length_error), key=lambda item: item[1], reverse=True)
-        for bone_name, error in sorted_bone_errors:
-            print(f"{bone_name:<25} | {error:.2f}")
+        if all_bone_length_errors:
+            print("-"*60)
+            print(" " * 10 + "BONE LENGTH ERROR (mm)")
+            print("-"*60)
+            bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
+            sorted_bone_errors = sorted(zip(bone_names, avg_bone_length_error), key=lambda item: item[1], reverse=True)
+            for bone_name, error in sorted_bone_errors:
+                print(f"{bone_name:<25} | {error:.2f}")
         print("="*60)
-        
+
+        # --- EXPORT JSON (nếu metrics_out được chỉ định) ---
+        if metrics_out:
+            per_joint_dict = {name: float(err) for name, err in zip(self.JOINT_NAMES, avg_per_joint_mpjpe)}
+            bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
+            bone_dict = {name: float(err) for name, err in zip(bone_names, avg_bone_length_error)}
+            export = OrderedDict(
+                mpjpe=result_dict['mpjpe'],
+                mpjpeh=result_dict['mpjpeh'],
+                mpjpev=result_dict['mpjpev'],
+                mpjped=result_dict['mpjped'],
+                mpjpe_1p=mpjpe_1p,
+                mpjpe_2p=mpjpe_2p,
+                mpjpe_3p=mpjpe_3p,
+                count_1p=count_1p,
+                count_2p=count_2p,
+                count_3p=count_3p,
+                matched_1p=matched_1p,
+                matched_2p=matched_2p,
+                matched_3p=matched_3p,
+                per_joint_mpjpe=per_joint_dict,
+                bone_length_error=bone_dict,
+            )
+            os.makedirs(os.path.dirname(os.path.abspath(metrics_out)), exist_ok=True)
+            with open(metrics_out, 'w') as f:
+                json.dump(export, f, indent=2, default=_json_serializer)
+            print(f"\nMetrics exported to: {metrics_out}")
+
         return result_dict
 
     # THÊM 2 HÀM HELPER NÀY VÀO BÊN TRONG CLASS WifiPoseDataset
