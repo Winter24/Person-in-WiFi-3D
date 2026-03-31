@@ -84,10 +84,12 @@ class WifiArchitectureTests(unittest.TestCase):
         source = _read("opera/models/detectors/petr.py")
 
         self.assertIn("def forward_test", source)
-        self.assertIn("if isinstance(imgs, torch.Tensor):", source)
-        self.assertIn("imgs = [imgs]", source)
-        self.assertIn("if img_metas and isinstance(img_metas[0], dict):", source)
-        self.assertIn("img_metas = [img_metas]", source)
+        self.assertIn("if isinstance(imgs, list):", source)
+        self.assertIn("img = imgs[0]", source)
+        self.assertIn("if hasattr(img_metas, 'data'):", source)
+        self.assertIn("elif isinstance(img_metas, list) and img_metas and hasattr(img_metas[0], 'data'):", source)
+        self.assertIn("img_meta['batch_input_shape'] = tuple(img.size()[-2:])", source)
+        self.assertIn("return self.simple_test(img, img_metas, **kwargs)", source)
 
     def test_petr_source_remaps_legacy_linear_head_checkpoint_keys(self):
         source = _read("opera/models/detectors/petr.py")

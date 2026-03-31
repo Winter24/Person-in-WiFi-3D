@@ -72,14 +72,31 @@ class PETR(DETR):
         return x
 
     def forward_test(self, imgs, img_metas, **kwargs):
-        """Normalize WiFi inference inputs to MMDet's nested-list format."""
-        if isinstance(imgs, torch.Tensor):
-            imgs = [imgs]
-        if isinstance(img_metas, tuple):
+        """Normalize WiFi inference inputs without relying on image TTA paths."""
+        if isinstance(imgs, list):
+            assert len(imgs) == 1, 'WiFi inference only supports one test-time augmentation.'
+            img = imgs[0]
+        else:
+            img = imgs
+
+        if hasattr(img_metas, 'data'):
+            img_metas = img_metas.data[0]
+        elif isinstance(img_metas, list) and img_metas and hasattr(img_metas[0], 'data'):
+            img_metas = img_metas[0].data[0]
+        elif isinstance(img_metas, tuple):
             img_metas = list(img_metas)
-        if img_metas and isinstance(img_metas[0], dict):
+
+        if isinstance(img_metas, list) and len(img_metas) == 1 and isinstance(img_metas[0], list):
+            img_metas = img_metas[0]
+        elif isinstance(img_metas, dict):
             img_metas = [img_metas]
-        return super().forward_test(imgs, img_metas, **kwargs)
+
+        for img_meta in img_metas:
+            img_meta['batch_input_shape'] = tuple(img.size()[-2:])
+
+        if 'proposals' in kwargs and isinstance(kwargs['proposals'], list):
+            kwargs['proposals'] = kwargs['proposals'][0]
+        return self.simple_test(img, img_metas, **kwargs)
 
     def forward_train(self,
                       img,
