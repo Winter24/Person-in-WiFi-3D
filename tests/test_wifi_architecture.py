@@ -185,7 +185,7 @@ class WifiArchitectureTests(unittest.TestCase):
     def test_witidir_config_keeps_only_bone_loss(self):
         source = _read("configs/wifi/wi_tidir_wifi.py")
 
-        self.assertIn("loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0)", source)
+        self.assertIn("loss_bone=dict(_delete_=True, type='BoneLengthLoss', loss_weight=2.0)", source)
         self.assertNotIn("loss_limb", source)
         self.assertIn("num_layers=6", source)
 
