@@ -20,6 +20,9 @@ Current codebase convention:
 - `B0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
 - `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
 - do not report any run as `B0` if it was trained with `mode='spectral'`
+- canonical `configs/wifi/petr_wifi.py` is now paper-faithful for the CVPR baseline recipe:
+  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `MSE`-based keypoint losses
+- any `10e/20e/50e` run should be treated as a screening override, not the canonical baseline config
 - exploratory side branch:
   `B0_bone = B0 + BoneLengthLoss`
   `B1_bone = B1 + BoneLengthLoss`

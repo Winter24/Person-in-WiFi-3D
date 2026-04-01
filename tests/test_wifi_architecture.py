@@ -23,8 +23,6 @@ class WifiArchitectureTests(unittest.TestCase):
     def test_petr_wifi_config_uses_relative_paths_and_linear_b0_backbone(self):
         cfg = _load_config_module("configs/wifi/petr_wifi.py")
 
-        expected_meta_keys = ["img_shape", "ori_shape", "pad_shape", "img_name"]
-
         self.assertEqual(cfg.data_root, "data/wifipose")
         self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
         self.assertEqual(cfg.model["backbone"]["mode"], "linear")
@@ -35,24 +33,31 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.data["train"]["dataset_root"], "data/wifipose/train_data")
         self.assertEqual(cfg.data["val"]["dataset_root"], "data/wifipose/test_data")
         self.assertEqual(cfg.data["test"]["dataset_root"], "data/wifipose/test_data")
-        self.assertEqual(cfg.train_pipeline[-1]["meta_keys"], expected_meta_keys)
-        self.assertEqual(cfg.test_pipeline[-1]["meta_keys"], expected_meta_keys)
+        self.assertEqual(cfg.train_pipeline[-1]["meta_keys"], [])
+        self.assertEqual(cfg.test_pipeline[0]["type"], "mmdet.MultiScaleFlipAug")
+        self.assertEqual(
+            cfg.test_pipeline[0]["transforms"][-1]["meta_keys"],
+            [])
 
-    def test_b0_training_hparams_match_legacy_cvpr_except_epochs(self):
+    def test_b0_training_hparams_match_cvpr_paper_recipe(self):
         cfg = _load_config_module("configs/wifi/petr_wifi.py")
         bbox_head = cfg.model["bbox_head"]
         assigner = cfg.model["train_cfg"]["assigner"]
 
-        self.assertEqual(cfg.data["samples_per_gpu"], 64)
-        self.assertEqual(bbox_head["loss_cls"]["loss_weight"], 2.0)
-        self.assertEqual(bbox_head["loss_kpt"]["loss_weight"], 70.0)
-        self.assertEqual(bbox_head["loss_kpt_rpn"]["loss_weight"], 70.0)
-        self.assertEqual(bbox_head["loss_kpt_refine"]["loss_weight"], 80.0)
-        self.assertEqual(assigner["cls_cost"]["weight"], 2.0)
-        self.assertEqual(assigner["kpt_cost"]["weight"], 70.0)
+        self.assertEqual(cfg.data["samples_per_gpu"], 32)
+        self.assertEqual(bbox_head["loss_cls"]["loss_weight"], 4.0)
+        self.assertEqual(bbox_head["loss_kpt"]["loss_weight"], 35.0)
+        self.assertEqual(bbox_head["loss_kpt_rpn"]["loss_weight"], 35.0)
+        self.assertEqual(bbox_head["loss_kpt_refine"]["loss_weight"], 35.0)
+        self.assertEqual(bbox_head["loss_oks_refine"]["loss_weight"], 3.0)
+        self.assertEqual(assigner["cls_cost"]["weight"], 4.0)
+        self.assertEqual(assigner["kpt_cost"]["weight"], 35.0)
+        self.assertEqual(cfg.optimizer["type"], "AdamW")
         self.assertEqual(cfg.optimizer["lr"], 2e-5)
-        self.assertEqual(cfg.lr_config["step"], [80])
-        self.assertEqual(cfg.runner["max_epochs"], 10)
+        self.assertEqual(cfg.optimizer["betas"], (0.9, 0.999))
+        self.assertEqual(cfg.optimizer["weight_decay"], 1e-4)
+        self.assertEqual(cfg.lr_config["step"], [450])
+        self.assertEqual(cfg.runner["max_epochs"], 500)
 
     def test_petr_wifi_mamba_config_switches_backbone_to_spectral_mode(self):
         cfg = _load_config_module("configs/wifi/petr_wifi_mamba.py")

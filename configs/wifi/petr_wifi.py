@@ -1,7 +1,7 @@
 dataset_type = 'opera.WifiPoseDataset'
 data_root = 'data/wifipose'
 
-meta_keys = ['img_shape', 'ori_shape', 'pad_shape', 'img_name']
+meta_keys = []
 
 train_pipeline = [
     dict(
@@ -15,16 +15,22 @@ train_pipeline = [
 
 test_pipeline = [
     dict(
-        type='opera.DefaultFormatBundle',
-        extra_keys=['gt_keypoints', 'gt_labels']),
-    dict(
-        type='mmdet.Collect',
-        keys=['img'],
-        meta_keys=meta_keys)
+        type='mmdet.MultiScaleFlipAug',
+        scale_factor=1.0,
+        flip=False,
+        transforms=[
+            dict(
+                type='opera.DefaultFormatBundle',
+                extra_keys=['gt_keypoints', 'gt_labels']),
+            dict(
+                type='mmdet.Collect',
+                keys=['img'],
+                meta_keys=meta_keys)
+        ])
 ]
 
 data = dict(
-    samples_per_gpu=64,
+    samples_per_gpu=32,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
@@ -143,19 +149,19 @@ model = dict(
             use_sigmoid=True,
             gamma=2.0,
             alpha=0.25,
-            loss_weight=2.0),
-        loss_kpt=dict(type='mmdet.MSELoss', loss_weight=70.0),
+            loss_weight=4.0),
+        loss_kpt=dict(type='mmdet.MSELoss', loss_weight=35.0),
         loss_bone=None,
-        loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=70.0),
+        loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=35.0),
         loss_oks=dict(type='opera.OKSLoss', loss_weight=2.0),
         loss_hm=dict(type='opera.CenterFocalLoss', loss_weight=4.0),
-        loss_kpt_refine=dict(type='mmdet.MSELoss', loss_weight=80.0),
-        loss_oks_refine=dict(type='opera.OKSLoss', loss_weight=2.0)),
+        loss_kpt_refine=dict(type='mmdet.MSELoss', loss_weight=35.0),
+        loss_oks_refine=dict(type='opera.OKSLoss', loss_weight=3.0)),
     train_cfg=dict(
         assigner=dict(
             type='opera.PoseHungarianAssigner',
-            cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
-            kpt_cost=dict(type='opera.KptMSECost', weight=70.0),
+            cls_cost=dict(type='mmdet.FocalLossCost', weight=4.0),
+            kpt_cost=dict(type='opera.KptMSECost', weight=35.0),
             oks_cost=dict(type='opera.OksCost', weight=7.0))),
     test_cfg=dict(max_per_img=100))
 
@@ -170,8 +176,8 @@ optimizer = dict(
             sampling_offsets=dict(lr_mult=0.1),
             reference_points=dict(lr_mult=0.1))))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
-lr_config = dict(policy='step', step=[80])
-runner = dict(type='EpochBasedRunner', max_epochs=10)
+lr_config = dict(policy='step', step=[450])
+runner = dict(type='EpochBasedRunner', max_epochs=500)
 find_unused_parameters = True
 work_dir = './work_dirs/petr_wifi'
 auto_resume = False

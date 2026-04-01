@@ -112,6 +112,9 @@ Current codebase mapping:
 
 - `B0` uses `WifiInputAdapter(mode='linear')` without `BoneLengthLoss`
 - `B1+` use `WifiInputAdapter(mode='spectral')`
+- canonical `configs/wifi/petr_wifi.py` now follows the paper-faithful baseline recipe:
+  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `MSE` regression losses
+- shorter `10e/20e/50e` runs are screening overrides for proposal-speed iteration, not the canonical CVPR-style baseline config
 - exploratory side branch:
   `B0_bone = B0 + BoneLengthLoss`
   `B1_bone = B1 + BoneLengthLoss`
