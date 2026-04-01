@@ -61,6 +61,12 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
         self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 6)
 
+    def test_petr_wifi_mamba_source_does_not_override_runtime_hparams(self):
+        source = _read("configs/wifi/petr_wifi_mamba.py")
+
+        self.assertNotIn("optimizer = dict(", source)
+        self.assertNotIn("log_config = dict(", source)
+
     def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
 

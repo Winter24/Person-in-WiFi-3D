@@ -18,21 +18,4 @@ model = dict(
                 expand=2,
                 dropout=0.1))))
 
-optimizer = dict(
-    type='AdamW',
-    lr=2e-4,
-    weight_decay=0.0001,
-    paramwise_cfg=dict(
-        custom_keys={
-            'backbone': dict(lr_mult=0.1),
-            'sampling_offsets': dict(lr_mult=0.1),
-            'reference_points': dict(lr_mult=0.1)
-        }))
-
-log_config = dict(
-    interval=10,
-    hooks=[
-        dict(type='TextLoggerHook'),
-    ])
-
 work_dir = './work_dirs/petr_wifi_mamba'
