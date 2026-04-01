@@ -38,4 +38,4 @@ model = dict(
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=20)
 evaluation = dict(interval=1, metric='mpjpe')
-runner = dict(type='EpochBasedRunner', max_epochs=5)
+runner = dict(type='EpochBasedRunner', max_epochs=10)

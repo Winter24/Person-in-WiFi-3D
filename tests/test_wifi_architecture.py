@@ -38,6 +38,22 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.train_pipeline[-1]["meta_keys"], expected_meta_keys)
         self.assertEqual(cfg.test_pipeline[-1]["meta_keys"], expected_meta_keys)
 
+    def test_b0_training_hparams_match_legacy_cvpr_except_epochs(self):
+        cfg = _load_config_module("configs/wifi/petr_wifi.py")
+        bbox_head = cfg.model["bbox_head"]
+        assigner = cfg.model["train_cfg"]["assigner"]
+
+        self.assertEqual(cfg.data["samples_per_gpu"], 64)
+        self.assertEqual(bbox_head["loss_cls"]["loss_weight"], 2.0)
+        self.assertEqual(bbox_head["loss_kpt"]["loss_weight"], 70.0)
+        self.assertEqual(bbox_head["loss_kpt_rpn"]["loss_weight"], 70.0)
+        self.assertEqual(bbox_head["loss_kpt_refine"]["loss_weight"], 80.0)
+        self.assertEqual(assigner["cls_cost"]["weight"], 2.0)
+        self.assertEqual(assigner["kpt_cost"]["weight"], 70.0)
+        self.assertEqual(cfg.optimizer["lr"], 2e-5)
+        self.assertEqual(cfg.lr_config["step"], [80])
+        self.assertEqual(cfg.runner["max_epochs"], 10)
+
     def test_petr_wifi_mamba_config_switches_backbone_to_spectral_mode(self):
         cfg = _load_config_module("configs/wifi/petr_wifi_mamba.py")
 
