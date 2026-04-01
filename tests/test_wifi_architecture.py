@@ -67,6 +67,29 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertNotIn("optimizer = dict(", source)
         self.assertNotIn("log_config = dict(", source)
 
+    def test_petr_wifi_bone_config_enables_bone_loss_for_b0_bone(self):
+        cfg = _load_config_module("configs/wifi/petr_wifi_bone.py")
+        source = _read("configs/wifi/petr_wifi_bone.py")
+
+        self.assertIn("_base_ = ['./petr_wifi.py']", source)
+        self.assertEqual(cfg.model["bbox_head"]["loss_bone"]["type"], "BoneLengthLoss")
+        self.assertEqual(cfg.model["bbox_head"]["loss_bone"]["loss_weight"], 2.0)
+
+    def test_petr_wifi_bone_mamba_config_enables_bone_loss_for_b2_bone(self):
+        cfg = _load_config_module("configs/wifi/petr_wifi_bone_mamba.py")
+        source = _read("configs/wifi/petr_wifi_bone_mamba.py")
+
+        self.assertIn("_base_ = ['./petr_wifi_mamba.py']", source)
+        self.assertEqual(cfg.model["bbox_head"]["loss_bone"]["type"], "BoneLengthLoss")
+        self.assertEqual(cfg.model["bbox_head"]["loss_bone"]["loss_weight"], 2.0)
+
+    def test_bone_branch_commands_are_documented(self):
+        checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
+
+        self.assertIn("B0_bone", checklist)
+        self.assertIn("B1_bone", checklist)
+        self.assertIn("B2_bone", checklist)
+
     def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
 

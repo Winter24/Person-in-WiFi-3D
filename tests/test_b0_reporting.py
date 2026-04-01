@@ -264,6 +264,12 @@ class TestBenchmarkScript(unittest.TestCase):
         self.assertIn('Invalid CUDA device ordinal', benchmark_src)
         self.assertIn("Falling back to 'cuda:0'", benchmark_src)
 
+    def test_missing_cuda_fails_clearly(self):
+        """Explicit CUDA benchmark requests should not silently fall back to CPU."""
+        benchmark_src = (REPO_ROOT / 'tools' / 'analysis' / 'benchmark.py').read_text()
+        self.assertIn('torch.cuda.is_available() is False', benchmark_src)
+        self.assertIn('Do not fall back to CPU for Mamba-based models', benchmark_src)
+
     def test_shape_arg_actually_used(self):
         """args.shape should feed into torch.randn (not ignored)."""
         benchmark_src = (REPO_ROOT / 'tools' / 'analysis' / 'benchmark.py').read_text()

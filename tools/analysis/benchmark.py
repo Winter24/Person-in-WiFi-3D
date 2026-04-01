@@ -47,7 +47,8 @@ def _normalize_device(device_str):
     """Resolve the requested device to a safe, usable target.
 
     Rules:
-      - If CUDA is requested but unavailable, fall back to CPU.
+      - If CUDA is requested but unavailable, fail clearly instead of
+        silently benchmarking on CPU.
       - If cuda:N is requested but N is outside the visible-device range,
         fall back to cuda:0 when at least one CUDA device is visible.
       - Otherwise keep the requested device string unchanged.
@@ -56,14 +57,17 @@ def _normalize_device(device_str):
         return device_str
 
     if not torch.cuda.is_available():
-        print("WARNING: CUDA requested but not available. Falling back to CPU.")
-        return 'cpu'
+        raise RuntimeError(
+            "CUDA benchmark requested but torch.cuda.is_available() is False. "
+            "This process cannot see a GPU. If CUDA_VISIBLE_DEVICES is used, "
+            "pass a remapped ordinal such as '--device cuda:0'. "
+            "Do not fall back to CPU for Mamba-based models.")
 
     device_count = torch.cuda.device_count()
     if device_count <= 0:
-        print("WARNING: CUDA reported available but no visible devices found. "
-              "Falling back to CPU.")
-        return 'cpu'
+        raise RuntimeError(
+            "CUDA benchmark requested but no visible CUDA devices were found "
+            "for this process.")
 
     if ':' not in device_str:
         return 'cuda:0'

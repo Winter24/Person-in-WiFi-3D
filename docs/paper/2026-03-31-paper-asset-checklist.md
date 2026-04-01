@@ -142,6 +142,7 @@ Required rows:
 Source files:
 
 - [ ] all ablation CSV exports
+- [ ] optional side-branch CSV exports for `B0_bone/B1_bone/B2_bone`
 
 Output files:
 
@@ -173,6 +174,10 @@ Output files:
 
 - [ ] markdown version
 - [ ] paper-ready version
+
+Exploratory side branch note:
+
+- [ ] keep `B0_bone/B1_bone/B2_bone` in a separate scratch table or appendix until the branch is explicitly promoted into the main narrative
 
 ## Figure Checklist
 

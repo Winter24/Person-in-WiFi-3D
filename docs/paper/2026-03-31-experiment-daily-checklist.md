@@ -20,6 +20,10 @@ Current codebase convention:
 - `B0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
 - `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
 - do not report any run as `B0` if it was trained with `mode='spectral'`
+- exploratory side branch:
+  `B0_bone = B0 + BoneLengthLoss`
+  `B1_bone = B1 + BoneLengthLoss`
+  `B2_bone = B2 + BoneLengthLoss`
 
 ## Global Rules
 
@@ -263,6 +267,32 @@ python tools/analysis/append_experiment_log.py \
     --benchmark-json paper_assets/logs/B2_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
     --notes "B2 spectral tokenizer + WiMamba"
+```
+
+### Bone Side Branch
+
+Use this branch only if `B0_bone > B0` is promising enough to justify expanding `BoneLengthLoss` to `B1_bone` and `B2_bone`.
+
+`B0_bone`
+
+```bash
+python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --work-dir work_dirs/paper/B0_bone
+```
+
+`B1_bone`
+
+```bash
+python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --work-dir work_dirs/paper/B1_bone \
+    --cfg-options model.backbone.mode=spectral
+```
+
+`B2_bone`
+
+```bash
+python tools/train.py configs/wifi/petr_wifi_bone_mamba.py \
+    --work-dir work_dirs/paper/B2_bone
 ```
 
 ### B3

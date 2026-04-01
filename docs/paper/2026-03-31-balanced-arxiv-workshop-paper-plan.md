@@ -112,6 +112,10 @@ Current codebase mapping:
 
 - `B0` uses `WifiInputAdapter(mode='linear')` without `BoneLengthLoss`
 - `B1+` use `WifiInputAdapter(mode='spectral')`
+- exploratory side branch:
+  `B0_bone = B0 + BoneLengthLoss`
+  `B1_bone = B1 + BoneLengthLoss`
+  `B2_bone = B2 + BoneLengthLoss`
 
 ## Experimental Protocol
 
@@ -202,6 +206,10 @@ Practical mapping:
 - `B2`: train from `configs/wifi/petr_wifi_mamba.py`
 - `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None`
 - `B5`: train from `configs/wifi/wi_tidir_wifi.py`
+- exploratory side branch:
+  `B0_bone`: train from `configs/wifi/petr_wifi_bone.py`
+  `B1_bone`: train from `configs/wifi/petr_wifi_bone.py` with `--cfg-options model.backbone.mode=spectral`
+  `B2_bone`: train from `configs/wifi/petr_wifi_bone_mamba.py`
 
 Legacy B0 evaluation policy:
 
