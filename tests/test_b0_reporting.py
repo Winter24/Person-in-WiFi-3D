@@ -257,6 +257,13 @@ class TestBenchmarkScript(unittest.TestCase):
         benchmark_src = (REPO_ROOT / 'tools' / 'analysis' / 'benchmark.py').read_text()
         self.assertIn('[1, 3, 3, 20, 60]', benchmark_src)
 
+    def test_invalid_cuda_ordinal_is_normalized(self):
+        """Invalid cuda:N requests should fall back safely."""
+        benchmark_src = (REPO_ROOT / 'tools' / 'analysis' / 'benchmark.py').read_text()
+        self.assertIn('torch.cuda.device_count()', benchmark_src)
+        self.assertIn('Invalid CUDA device ordinal', benchmark_src)
+        self.assertIn("Falling back to 'cuda:0'", benchmark_src)
+
     def test_shape_arg_actually_used(self):
         """args.shape should feed into torch.randn (not ignored)."""
         benchmark_src = (REPO_ROOT / 'tools' / 'analysis' / 'benchmark.py').read_text()

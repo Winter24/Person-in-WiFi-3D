@@ -43,16 +43,52 @@ def _is_cuda(device_str):
     return device_str.startswith('cuda')
 
 
+def _normalize_device(device_str):
+    """Resolve the requested device to a safe, usable target.
+
+    Rules:
+      - If CUDA is requested but unavailable, fall back to CPU.
+      - If cuda:N is requested but N is outside the visible-device range,
+        fall back to cuda:0 when at least one CUDA device is visible.
+      - Otherwise keep the requested device string unchanged.
+    """
+    if not _is_cuda(device_str):
+        return device_str
+
+    if not torch.cuda.is_available():
+        print("WARNING: CUDA requested but not available. Falling back to CPU.")
+        return 'cpu'
+
+    device_count = torch.cuda.device_count()
+    if device_count <= 0:
+        print("WARNING: CUDA reported available but no visible devices found. "
+              "Falling back to CPU.")
+        return 'cpu'
+
+    if ':' not in device_str:
+        return 'cuda:0'
+
+    try:
+        ordinal = int(device_str.split(':', 1)[1])
+    except ValueError:
+        print(f"WARNING: Unrecognized CUDA device string '{device_str}'. "
+              "Falling back to 'cuda:0'.")
+        return 'cuda:0'
+
+    if ordinal >= device_count or ordinal < 0:
+        print(f"WARNING: Invalid CUDA device ordinal '{device_str}' for the "
+              f"current process (visible device count={device_count}). "
+              "Falling back to 'cuda:0'.")
+        return 'cuda:0'
+
+    return device_str
+
+
 def main():
     args = parse_args()
 
-    device = args.device
+    device = _normalize_device(args.device)
     use_cuda = _is_cuda(device)
-
-    if use_cuda and not torch.cuda.is_available():
-        print("WARNING: CUDA requested but not available. Falling back to CPU.")
-        device = 'cpu'
-        use_cuda = False
 
     # ------------------------------------------------------------------
     # 1. Load Config & Build Model
