@@ -17,7 +17,7 @@ Target scope:
 
 Current codebase convention:
 
-- `B0` = `WifiInputAdapter(mode='linear')` baseline projection
+- `B0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
 - `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
 - do not report any run as `B0` if it was trained with `mode='spectral'`
 
@@ -85,6 +85,9 @@ Config note:
 
 - [ ] `B0` should use `configs/wifi/petr_wifi.py`
 - [ ] any improved run (`B1`, `B2`, `B3`, `B4`, `B5`) must use a config whose backbone is `WifiInputAdapter(mode='spectral')`
+- [ ] `B0`, `B1`, and `B2` should not use `BoneLengthLoss`
+- [ ] `B4` should use `WiTiDARHead` with `loss_bone=None`
+- [ ] `B5` should use `WiTiDARHead` with `loss_bone=dict(...)`
 - [ ] legacy `B0` checkpoints from the original codebase must be evaluated with the current canonical `configs/wifi/petr_wifi.py`, not an old dumped config that still declares `ResNet`
 
 What to check in `<ID>_eval.json`:
@@ -274,7 +277,7 @@ Temporary exploratory command only:
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --work-dir work_dirs/paper/B3_tmp \
-    --cfg-options model.bbox_head.loss_flow_weight=0.0 model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None
+    --cfg-options model.bbox_head.loss_flow_weight=0.0 model.bbox_head.loss_bone=None
 ```
 
 ### B4
@@ -282,7 +285,7 @@ python tools/train.py configs/wifi/wi_tidir_wifi.py \
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --work-dir work_dirs/paper/B4 \
-    --cfg-options model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None
+    --cfg-options model.bbox_head.loss_bone=None
 
 python tools/test.py work_dirs/paper/B4/wi_tidir_wifi.py <CKPT_B4> --eval mpjpe \
     --work-dir work_dirs/paper_eval/B4 \
@@ -302,7 +305,7 @@ python tools/analysis/append_experiment_log.py \
     --eval-json paper_assets/logs/B4_eval.json \
     --benchmark-json paper_assets/logs/B4_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B4 spectral + WiMamba + draft + flow, no structure"
+    --notes "B4 spectral + WiMamba(6) + draft + flow, no bone"
 ```
 
 ### B5
@@ -329,7 +332,7 @@ python tools/analysis/append_experiment_log.py \
     --eval-json paper_assets/logs/B5_eval.json \
     --benchmark-json paper_assets/logs/B5_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B5 full current codebase"
+    --notes "B5 spectral + WiMamba(6) + draft + flow + bone"
 ```
 
 ## Priority Order
@@ -340,7 +343,7 @@ python tools/analysis/append_experiment_log.py \
 - [ ] `B1` switch `linear -> spectral` only
 - [ ] `B2` spectral tokenizer + WiMamba
 - [ ] `B4` spectral tokenizer + WiMamba + Draft + Flow
-- [ ] `B5` full model with structural constraints
+- [ ] `B5` full model with BoneLengthLoss
 
 ### Tier 2
 
@@ -446,7 +449,7 @@ Run and inspect full model.
 - [ ] Export benchmark for `B5`
 - [ ] Append or update CSV row for `B5`
 - [ ] Compare `B4 vs B5`
-- [ ] Inspect bone/limb realism qualitatively
+- [ ] Inspect bone-length realism qualitatively
 - [ ] Save candidate figures for structure improvement
 
 ### End-of-Day Deliverables

@@ -31,6 +31,7 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.model["backbone"]["in_channels"], 60)
         self.assertEqual(cfg.model["backbone"]["embed_dims"], 256)
         self.assertIsNone(cfg.model["neck"])
+        self.assertIsNone(cfg.model["bbox_head"]["loss_bone"])
         self.assertEqual(cfg.data["train"]["dataset_root"], "data/wifipose/train_data")
         self.assertEqual(cfg.data["val"]["dataset_root"], "data/wifipose/test_data")
         self.assertEqual(cfg.data["test"]["dataset_root"], "data/wifipose/test_data")
@@ -42,6 +43,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
         self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+        self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 6)
 
     def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
@@ -163,6 +165,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertIn("loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0)", source)
         self.assertNotIn("loss_limb", source)
+        self.assertIn("num_layers=6", source)
 
     def test_witidar_head_source_removes_limb_loss_logic(self):
         source = _read("opera/models/dense_heads/wi_tidar_head.py")

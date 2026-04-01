@@ -4,7 +4,7 @@
 
 Write a direct follow-up paper to *Person-in-WiFi 3D* that keeps the original CVPR split and tells one clear story:
 
-`Raw CSI -> Linear Projection Baseline or Spectral Tokenizer -> WiMamba Encoder -> Cross-Attention + Draft MLP -> Rectified Flow Matching -> 3D Pose under Bone/Limb Constraints`
+`Raw CSI -> Linear Projection Baseline or Spectral Tokenizer -> WiMamba Encoder -> Cross-Attention + Draft MLP -> Rectified Flow Matching -> 3D Pose under BoneLengthLoss Constraints`
 
 The target is a strong `arXiv/workshop first` paper with a balanced claim:
 
@@ -70,7 +70,7 @@ Map each gap to one corresponding module:
 3. `Draft-to-Refine Head`
    - cross-attention + draft MLP for coarse pose hypotheses
    - rectified flow matching for ODE-style correction
-   - bone/limb supervision for anatomical realism
+   - bone-length supervision for anatomical realism
 
 ### Core Contributions
 
@@ -79,7 +79,7 @@ Recommended contribution bullets:
 1. A frequency-aware CSI tokenization module that upgrades the baseline linear CSI projection with local temporal dynamics and global spectral cues.
 2. A linear-complexity WiMamba encoder for efficient long-sequence CSI modeling.
 3. A draft-to-refine 3D pose pipeline using cross-attention and rectified flow matching.
-4. Anatomy-aware regularization with bone and limb constraints to improve structural plausibility.
+4. Anatomy-aware regularization with BoneLengthLoss to improve structural plausibility.
 5. A full benchmark on the original Person-in-WiFi 3D split, including accuracy, efficiency, and structural realism analyses.
 
 ## Model Definition For The Paper
@@ -94,7 +94,7 @@ The official full pipeline should be described as:
 4. `Cross-Attention Query Decoder`
 5. `Draft MLP Pose Regressor`
 6. `Rectified Flow Refiner`
-7. `Bone Loss and Limb Loss Structural Supervision`
+7. `BoneLengthLoss Structural Supervision`
 
 ### Paper Naming Convention
 
@@ -106,11 +106,11 @@ Use the following naming consistently in the manuscript:
 - `Encoder`: WiMamba Encoder
 - `Draft`: cross-attention + draft MLP
 - `Refine`: Rectified Flow Matching
-- `Structure`: Bone Loss and Limb Loss
+- `Structure`: BoneLengthLoss
 
 Current codebase mapping:
 
-- `B0` uses `WifiInputAdapter(mode='linear')`
+- `B0` uses `WifiInputAdapter(mode='linear')` without `BoneLengthLoss`
 - `B1+` use `WifiInputAdapter(mode='spectral')`
 
 ## Experimental Protocol
@@ -157,7 +157,7 @@ For the balanced claim, also report:
 For realism analysis, report:
 
 - `mean bone length error`
-- `limb consistency error` if available
+- `bone-length consistency error`
 - `qualitative structural failure rate` if you define a simple criterion
 
 ## Required Baselines And Ablations
@@ -166,14 +166,14 @@ The paper should not compare only `baseline vs full model`. It needs a clean lad
 
 ### Main Ablation Ladder
 
-| ID | Input Adapter | Encoder | Draft | Flow Refine | Bone/Limb | Purpose |
+| ID | Input Adapter | Encoder | Draft | Flow Refine | BoneLengthLoss | Purpose |
 | --- | --- | --- | --- | --- | --- | --- |
 | B0 | Linear Projection | Transformer | PETR original | No | No | Reproduced CVPR baseline |
 | B1 | Spectral Tokenizer | Transformer | PETR original | No | No | Isolate tokenizer gain over linear B0 |
-| B2 | Spectral Tokenizer | WiMamba | PETR original or PETR-compatible decoder | No | No | Isolate encoder gain |
+| B2 | Spectral Tokenizer | WiMamba (6 layers) | PETR original or PETR-compatible decoder | No | No | Isolate encoder gain |
 | B3 | Spectral Tokenizer | WiMamba | Draft head | No | No | Isolate draft decoding |
-| B4 | Spectral Tokenizer | WiMamba | Draft head | Yes | No | Isolate flow refinement |
-| B5 | Spectral Tokenizer | WiMamba | Draft head | Yes | Yes | Full model |
+| B4 | Spectral Tokenizer | WiMamba (6 layers) | Draft head | Yes | No | Isolate flow refinement |
+| B5 | Spectral Tokenizer | WiMamba (6 layers) | Draft head | Yes | Yes | Full model with BoneLengthLoss |
 
 ### Minimum Viable Ladder If Time Is Tight
 
@@ -200,7 +200,7 @@ Practical mapping:
 - `B0`: train from `configs/wifi/petr_wifi.py`
 - `B1`: train from `configs/wifi/petr_wifi.py` with `--cfg-options model.backbone.mode=spectral`
 - `B2`: train from `configs/wifi/petr_wifi_mamba.py`
-- `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None model.bbox_head.loss_limb=None`
+- `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None`
 - `B5`: train from `configs/wifi/wi_tidir_wifi.py`
 
 Legacy B0 evaluation policy:
@@ -240,7 +240,7 @@ Expected signs:
 Expected signs:
 
 - B5 better bone-length consistency than B4
-- cleaner limb proportions
+- cleaner bone-length consistency
 - fewer qualitative failure examples
 
 ## Tables To Produce
@@ -292,7 +292,7 @@ Columns:
 - WiMamba
 - Draft Head
 - Flow Refine
-- Bone/Limb Loss
+- BoneLengthLoss
 - MPJPE
 - Bone Error
 - Latency
@@ -307,8 +307,8 @@ Columns:
 
 - Method
 - Mean Bone Error
-- Upper-Limb Error
-- Lower-Limb Error
+- Upper-body bone error
+- Lower-body bone error
 - Notes
 
 Rows:
@@ -481,7 +481,7 @@ Suggested subsections:
 3. WiMamba Encoder
 4. Draft Pose Decoder
 5. Rectified Flow Refinement
-6. Bone/Limb Structural Loss
+6. BoneLengthLoss Structural Loss
 7. Training objective
 
 ### Experiments

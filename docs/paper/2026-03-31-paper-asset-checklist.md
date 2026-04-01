@@ -42,6 +42,7 @@ Important note:
 
 - if a run was launched with `--cfg-options`, use the dumped config inside `work_dirs/paper/<ID>/` as the official config reference for that ablation
 - do not build final paper assets from `B3` until flow can be disabled cleanly for a paper-clean draft-only ablation
+- `B4` and `B5` should both use the 6-layer WiMamba backbone; the only intended structural difference is `loss_bone=None` vs `loss_bone=dict(...)`
 
 ## Master Completion Check
 
@@ -124,7 +125,7 @@ Required columns:
 - [ ] WiMamba
 - [ ] Draft Head
 - [ ] Flow Refine
-- [ ] Bone/Limb Loss
+- [ ] BoneLengthLoss
 - [ ] MPJPE
 - [ ] Bone Error
 - [ ] Latency
@@ -153,8 +154,8 @@ Required columns:
 
 - [ ] Method
 - [ ] Mean Bone Error
-- [ ] Upper-Limb Error
-- [ ] Lower-Limb Error
+- [ ] Upper-body bone error
+- [ ] Lower-body bone error
 - [ ] Note
 
 Required rows:
@@ -186,7 +187,7 @@ Must show:
 - [ ] Cross-Attention Decoder
 - [ ] Draft Pose
 - [ ] Rectified Flow Refinement
-- [ ] Bone/Limb Constraints
+- [ ] BoneLengthLoss Constraint
 - [ ] Final 3D Pose
 
 Asset requirements:
@@ -308,7 +309,7 @@ For every chosen sample:
 Suggested tags:
 
 - [ ] depth ambiguity
-- [ ] limb distortion
+- [ ] bone-length distortion
 - [ ] crowd overlap
 - [ ] extremity correction
 - [ ] multi-person separation
