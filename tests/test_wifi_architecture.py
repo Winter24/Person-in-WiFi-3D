@@ -106,6 +106,16 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("mode='spectral'", source)
         self.assertIn("self.linear_proj", source)
         self.assertIn("if self.mode == 'linear'", source)
+        self.assertIn("num_spatial=9", source)
+        self.assertIn("seq_len=20", source)
+        self.assertIn("x.reshape(B, self.num_spatial, self.seq_len, C)", source)
+        self.assertIn("torch.fft.rfft(", source)
+        self.assertNotIn("torch.fft.rfft2", source)
+        self.assertIn("x_out + x_linear", source)
+        self.assertIn("self.complex_weight[..., 0], 1.0", source)
+        self.assertIn("self.complex_weight[..., 1], 0.0", source)
+        self.assertIn("Expected sequence length", source)
+        self.assertIn("CRITICAL ASSUMPTION", source)
 
     def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
         source = _read("opera/models/backbones/wimamba.py")
