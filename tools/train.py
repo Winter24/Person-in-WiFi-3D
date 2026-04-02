@@ -16,6 +16,9 @@ import os.path as osp
 import time
 import warnings
 
+os.environ.setdefault('PYTHONHASHSEED', '42')
+os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
+
 import mmcv
 import torch
 import torch.distributed as dist
@@ -83,7 +86,7 @@ def parse_args():
         default=0,
         help='id of gpu to use '
         '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=None, help='random seed')
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument(
         '--diff-seed',
         action='store_true',
@@ -92,6 +95,12 @@ def parse_args():
         '--deterministic',
         action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
+    parser.add_argument(
+        '--non-deterministic',
+        dest='deterministic',
+        action='store_false',
+        help='disable deterministic options for CUDNN backend.')
+    parser.set_defaults(deterministic=True)
     parser.add_argument(
         '--options',
         nargs='+',

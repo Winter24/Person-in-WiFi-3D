@@ -232,6 +232,22 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertNotIn("limb_loss", source)
         self.assertNotIn("LimbLoss", source)
 
+    def test_train_entrypoint_defaults_to_seed_42_and_deterministic(self):
+        source = _read("tools/train.py")
+
+        self.assertIn("parser.add_argument('--seed', type=int, default=42", source)
+        self.assertIn("parser.set_defaults(deterministic=True)", source)
+        self.assertIn("--non-deterministic", source)
+        self.assertIn("PYTHONHASHSEED", source)
+        self.assertIn("CUBLAS_WORKSPACE_CONFIG", source)
+
+    def test_training_docs_show_seed_42_and_deterministic_flags(self):
+        checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
+
+        self.assertIn("--seed 42 --deterministic", checklist)
+        self.assertIn("PYTHONHASHSEED=42", checklist)
+        self.assertIn("CUBLAS_WORKSPACE_CONFIG=:4096:8", checklist)
+
 
 if __name__ == "__main__":
     unittest.main()

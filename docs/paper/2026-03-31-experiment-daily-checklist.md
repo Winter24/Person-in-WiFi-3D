@@ -21,7 +21,12 @@ Current codebase convention:
 - `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
 - do not report any run as `B0` if it was trained with `mode='spectral'`
 - canonical `configs/wifi/petr_wifi.py` is now paper-faithful for the CVPR baseline recipe:
-  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `MSE`-based keypoint losses
+  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE`-based keypoint losses
+- canonical `configs/wifi/petr_wifi.py` also currently follows the requested config-side conventions:
+  `meta_keys=[]` and test-time `MultiScaleFlipAug`
+- train entrypoint default is fixed to `--seed 42 --deterministic`
+- reproducibility env defaults are pinned to:
+  `PYTHONHASHSEED=42` and `CUBLAS_WORKSPACE_CONFIG=:4096:8`
 - any `10e/20e/50e` run should be treated as a screening override, not the canonical baseline config
 - exploratory side branch:
   `B0_bone = B0 + BoneLengthLoss`
@@ -95,6 +100,7 @@ Config note:
 - [ ] `B0`, `B1`, and `B2` should not use `BoneLengthLoss`
 - [ ] `B4` should use `WiTiDARHead` with `loss_bone=None`
 - [ ] `B5` should use `WiTiDARHead` with `loss_bone=dict(...)`
+- [ ] canonical `B0` config currently uses `AdamW`, `meta_keys=[]`, and test-time `MultiScaleFlipAug`
 - [ ] legacy `B0` checkpoints from the original codebase must be evaluated with the current canonical `configs/wifi/petr_wifi.py`, not an old dumped config that still declares `ResNet`
 
 What to check in `<ID>_eval.json`:
@@ -176,6 +182,7 @@ Important execution rule:
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B0
 
 python tools/test.py work_dirs/paper/B0/petr_wifi.py <CKPT_B0> --eval mpjpe \
@@ -197,6 +204,15 @@ python tools/analysis/append_experiment_log.py \
     --benchmark-json paper_assets/logs/B0_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
     --notes "B0 linear baseline"
+```
+
+Explicit shell form for maximum reproducibility:
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B0
 ```
 
 Legacy B0 checkpoint note:
@@ -221,6 +237,7 @@ python tools/test.py \
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B1 \
     --cfg-options model.backbone.mode=spectral
 
@@ -249,6 +266,7 @@ python tools/analysis/append_experiment_log.py \
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_mamba.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B2
 
 python tools/test.py work_dirs/paper/B2/petr_wifi_mamba.py <CKPT_B2> --eval mpjpe \
@@ -280,6 +298,7 @@ Use this branch only if `B0_bone > B0` is promising enough to justify expanding 
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B0_bone
 ```
 
@@ -287,6 +306,7 @@ python tools/train.py configs/wifi/petr_wifi_bone.py \
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B1_bone \
     --cfg-options model.backbone.mode=spectral
 ```
@@ -295,6 +315,7 @@ python tools/train.py configs/wifi/petr_wifi_bone.py \
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone_mamba.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B2_bone
 ```
 
@@ -309,6 +330,7 @@ Temporary exploratory command only:
 
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B3_tmp \
     --cfg-options model.bbox_head.loss_flow_weight=0.0 model.bbox_head.loss_bone=None
 ```
@@ -317,6 +339,7 @@ python tools/train.py configs/wifi/wi_tidir_wifi.py \
 
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B4 \
     --cfg-options model.bbox_head.loss_bone=None
 
@@ -345,6 +368,7 @@ python tools/analysis/append_experiment_log.py \
 
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
     --work-dir work_dirs/paper/B5
 
 python tools/test.py work_dirs/paper/B5/wi_tidir_wifi.py <CKPT_B5> --eval mpjpe \

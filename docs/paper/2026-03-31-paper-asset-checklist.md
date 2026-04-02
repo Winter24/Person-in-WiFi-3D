@@ -31,6 +31,8 @@ For every reported ablation, the asset source of truth should come from the cano
 - `B2` -> `work_dirs/paper/B2/`
 - `B4` -> `work_dirs/paper/B4/`
 - `B5` -> `work_dirs/paper/B5/`
+- canonical `B0` artifacts are expected to come from a config using:
+  `WifiInputAdapter(mode='linear')`, `AdamW`, `meta_keys=[]`, and test-time `MultiScaleFlipAug`
 
 Expected fixed artifacts:
 
