@@ -104,7 +104,9 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("@OPERA_BACKBONES.register_module()", source)
         self.assertIn("class WifiInputAdapter", source)
         self.assertIn("mode='spectral'", source)
-        self.assertIn("self.linear_proj", source)
+        self.assertIn("self.head = nn.Linear(in_channels, embed_dims)", source)
+        self.assertIn("def linear_proj(self):", source)
+        self.assertIn("return self.head", source)
         self.assertIn("if self.mode == 'linear'", source)
         self.assertIn("num_spatial=9", source)
         self.assertIn("seq_len=20", source)
@@ -116,6 +118,7 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("self.complex_weight[..., 1], 0.0", source)
         self.assertIn("Expected sequence length", source)
         self.assertIn("CRITICAL ASSUMPTION", source)
+        self.assertNotIn("xavier_uniform_(self.linear_proj.weight)", source)
 
     def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
         source = _read("opera/models/backbones/wimamba.py")
@@ -158,6 +161,8 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertIn("head.weight", source)
         self.assertIn("head.bias", source)
+        self.assertIn("backbone.head.weight", source)
+        self.assertIn("backbone.head.bias", source)
         self.assertIn("backbone.linear_proj.weight", source)
         self.assertIn("backbone.linear_proj.bias", source)
 

@@ -35,7 +35,7 @@ class WifiInputAdapter(nn.Module):
         self.mode = mode
         self.num_spatial = num_spatial
         self.seq_len = seq_len
-        self.linear_proj = nn.Linear(in_channels, embed_dims)
+        self.head = nn.Linear(in_channels, embed_dims)
 
         if self.mode == 'spectral':
             self.time_conv = nn.Conv1d(
@@ -56,11 +56,12 @@ class WifiInputAdapter(nn.Module):
 
         self._init_weights()
 
-    def _init_weights(self):
-        nn.init.xavier_uniform_(self.linear_proj.weight)
-        if self.linear_proj.bias is not None:
-            nn.init.constant_(self.linear_proj.bias, 0)
+    @property
+    def linear_proj(self):
+        """Backward-compatible alias for code/checkpoints using linear_proj."""
+        return self.head
 
+    def _init_weights(self):
         if self.mode != 'spectral':
             return
 
@@ -85,7 +86,7 @@ class WifiInputAdapter(nn.Module):
     def forward(self, x):
         # x shape: (B, 180, C)
         B, L, C = x.shape
-        x_linear = self.linear_proj(x)
+        x_linear = self.head(x)
 
         if self.mode == 'linear':
             return x_linear

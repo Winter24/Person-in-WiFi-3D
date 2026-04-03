@@ -48,18 +48,25 @@ class PETR(DETR):
         """Remap legacy WiFi baseline checkpoints onto the unified backbone.
 
         Older B0 checkpoints stored the input projection as top-level
-        ``head.weight`` / ``head.bias``. The current codebase moves that layer
-        under ``backbone.linear_proj.*`` so we adapt those keys on load.
+        ``head.weight`` / ``head.bias``. An intermediate refactor stored the
+        same layer under ``backbone.linear_proj.*``. The canonical name is now
+        ``backbone.head.*`` and we adapt both older layouts on load.
         """
         legacy_weight_key = prefix + 'head.weight'
         legacy_bias_key = prefix + 'head.bias'
-        new_weight_key = prefix + 'backbone.linear_proj.weight'
-        new_bias_key = prefix + 'backbone.linear_proj.bias'
+        intermediate_weight_key = prefix + 'backbone.linear_proj.weight'
+        intermediate_bias_key = prefix + 'backbone.linear_proj.bias'
+        new_weight_key = prefix + 'backbone.head.weight'
+        new_bias_key = prefix + 'backbone.head.bias'
 
         if legacy_weight_key in state_dict and new_weight_key not in state_dict:
             state_dict[new_weight_key] = state_dict.pop(legacy_weight_key)
         if legacy_bias_key in state_dict and new_bias_key not in state_dict:
             state_dict[new_bias_key] = state_dict.pop(legacy_bias_key)
+        if intermediate_weight_key in state_dict and new_weight_key not in state_dict:
+            state_dict[new_weight_key] = state_dict.pop(intermediate_weight_key)
+        if intermediate_bias_key in state_dict and new_bias_key not in state_dict:
+            state_dict[new_bias_key] = state_dict.pop(intermediate_bias_key)
 
         super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
                                       missing_keys, unexpected_keys, error_msgs)
