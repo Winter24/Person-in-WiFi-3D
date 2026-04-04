@@ -221,6 +221,85 @@ python tools/train.py configs/wifi/petr_wifi.py \
     --work-dir work_dirs/paper/B0
 ```
 
+### Full Train Commands With Fixed Environment
+
+Use these exact commands when you want the canonical reproducible shell form.
+
+`B0`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B0
+```
+
+`B1`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B1 \
+    --cfg-options model.backbone.mode=spectral
+```
+
+`B2`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi_mamba.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B2
+```
+
+`B0_bone`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B0_bone
+```
+
+`B1_bone`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi_bone.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B1_bone \
+    --cfg-options model.backbone.mode=spectral
+```
+
+`B2_bone`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi_bone_mamba.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B2_bone
+```
+
+`B4`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B4 \
+    --cfg-options model.bbox_head.loss_bone=None
+```
+
+`B5`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B5
+```
+
 Legacy B0 checkpoint note:
 
 - [ ] if `<CKPT_B0>` comes from the original pre-refactor codebase, do not use its old dumped config for evaluation
