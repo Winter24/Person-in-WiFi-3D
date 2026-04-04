@@ -55,10 +55,7 @@ def set_random_seed(seed, deterministic=False):
 
     Args:
         seed (int): Seed to be used.
-        deterministic (bool): Whether to set the deterministic option for
-            CUDNN backend, i.e., set `torch.backends.cudnn.deterministic`
-            to True and `torch.backends.cudnn.benchmark` to False.
-            Default: False.
+        deterministic (bool): Whether to set the deterministic option.
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -67,6 +64,18 @@ def set_random_seed(seed, deterministic=False):
     if deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+        if hasattr(torch.backends, 'cuda') and hasattr(
+                torch.backends.cuda, 'matmul'):
+            torch.backends.cuda.matmul.allow_tf32 = False
+        if hasattr(torch.backends, 'cudnn'):
+            torch.backends.cudnn.allow_tf32 = False
+        if hasattr(torch, 'use_deterministic_algorithms'):
+            # Some CUDA / attention kernels may still warn about a lack of
+            # deterministic backward implementations in the current stack.
+            torch.use_deterministic_algorithms(True, warn_only=True)
+        # Keep cuBLAS deterministic mode explicit in-process, while the
+        # canonical shell commands also export it before Python starts.
+        os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 
 
 def auto_scale_lr(cfg, distributed, logger):

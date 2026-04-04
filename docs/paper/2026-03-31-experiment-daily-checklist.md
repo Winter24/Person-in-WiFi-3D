@@ -300,6 +300,37 @@ python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --work-dir work_dirs/paper/B5
 ```
 
+### Strict Reproducibility Run
+
+Use this workflow only for reproducibility verification runs, not for fast screening.
+
+Strict train rerun for `B1`:
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/B1_rerun_strict_01 \
+    --cfg-options model.backbone.mode=spectral data.workers_per_gpu=0
+```
+
+Strict evaluation against an explicit checkpoint:
+
+```bash
+python tools/test.py configs/wifi/petr_wifi.py \
+    work_dirs/paper/B1_rerun_strict_01/epoch_5.pth \
+    --eval mpjpe \
+    --cfg-options model.backbone.mode=spectral data.workers_per_gpu=0
+```
+
+Strict-run notes:
+
+- [ ] use a fresh `work_dir` for every rerun, never overwrite an older strict run
+- [ ] use `epoch_X.pth` directly for comparison, not `latest.pth`
+- [ ] set `data.workers_per_gpu=0` when the goal is reproducibility debugging rather than throughput
+- [ ] with the current stack, deterministic warnings may still appear from attention/CUDA kernels even under `warn_only=True`
+- [ ] the current WiFi PETR configs use `mmcv.MultiheadAttention`; do not attribute those warnings to `MultiScaleDeformableAttention`
+
 Legacy B0 checkpoint note:
 
 - [ ] if `<CKPT_B0>` comes from the original pre-refactor codebase, do not use its old dumped config for evaluation

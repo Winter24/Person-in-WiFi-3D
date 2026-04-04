@@ -136,6 +136,12 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("ori_shape=img_shape", source)
         self.assertIn("pad_shape=img_shape", source)
 
+    def test_dataset_worker_init_fn_seeds_torch_rng(self):
+        source = _read("opera/datasets/builder.py")
+
+        self.assertIn("def worker_init_fn", source)
+        self.assertIn("torch.manual_seed(worker_seed)", source)
+
     def test_petr_source_uses_backbone_extract_feat_for_wifi(self):
         source = _read("opera/models/detectors/petr.py")
 
@@ -276,6 +282,22 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("target_weight=2.0", base_cfg)
         self.assertIn("target_weight=1.0", b5_cfg)
         self.assertIn("BoneLossWarmupHook", runner_init)
+
+    def test_set_random_seed_enables_strict_cuda_determinism_controls(self):
+        source = _read("opera/apis/train.py")
+
+        self.assertIn("torch.backends.cuda.matmul.allow_tf32 = False", source)
+        self.assertIn("torch.backends.cudnn.allow_tf32 = False", source)
+        self.assertIn("torch.use_deterministic_algorithms(True, warn_only=True)", source)
+        self.assertIn("os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'", source)
+
+    def test_docs_include_strict_repro_run_workflow(self):
+        checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
+
+        self.assertIn("B1_rerun_strict_01", checklist)
+        self.assertIn("data.workers_per_gpu=0", checklist)
+        self.assertIn("epoch_5.pth", checklist)
+        self.assertIn("latest.pth", checklist)
 
 
 if __name__ == "__main__":
