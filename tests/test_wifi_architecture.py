@@ -263,6 +263,20 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("PYTHONHASHSEED=42", checklist)
         self.assertIn("CUBLAS_WORKSPACE_CONFIG=:4096:8", checklist)
 
+    def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
+        base_cfg = _read("configs/wifi/petr_wifi.py")
+        b5_cfg = _read("configs/wifi/wi_tidir_wifi.py")
+        hook_source = _read("opera/core/runner/hooks/bone_warmup_hook.py")
+        runner_init = _read("opera/core/runner/__init__.py")
+
+        self.assertIn("BoneLossWarmupHook", hook_source)
+        self.assertIn("loss_bone is None", hook_source)
+        self.assertIn("warmup_ratio=0.1", base_cfg)
+        self.assertIn("ramp_ratio=0.1", base_cfg)
+        self.assertIn("target_weight=2.0", base_cfg)
+        self.assertIn("target_weight=1.0", b5_cfg)
+        self.assertIn("BoneLossWarmupHook", runner_init)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -39,3 +39,11 @@ model = dict(
 checkpoint_config = dict(interval=1, max_keep_ckpts=20)
 evaluation = dict(interval=1, metric='mpjpe')
 runner = dict(type='EpochBasedRunner', max_epochs=10)
+custom_hooks = [
+    dict(type='NumClassCheckHook'),
+    dict(
+        type='BoneLossWarmupHook',
+        target_weight=1.0,
+        warmup_ratio=0.1,
+        ramp_ratio=0.1)
+]

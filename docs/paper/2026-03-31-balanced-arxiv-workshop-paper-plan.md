@@ -121,6 +121,10 @@ Current codebase mapping:
   `B0_bone = B0 + BoneLengthLoss`
   `B1_bone = B1 + BoneLengthLoss`
   `B2_bone = B2 + BoneLengthLoss`
+- all bone-enabled runs now use a global ratio-based `BoneLossWarmupHook`
+  from the base config so early epochs do not over-regularize pose formation
+- `B5` keeps the same warmup schedule shape but overrides the final
+  `BoneLengthLoss` target weight to `1.0`
 
 ## Experimental Protocol
 

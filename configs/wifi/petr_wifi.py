@@ -51,7 +51,14 @@ data = dict(
 evaluation = dict(interval=1, metric='mpjpe')
 checkpoint_config = dict(interval=1, max_keep_ckpts=20)
 log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
-custom_hooks = [dict(type='NumClassCheckHook')]
+custom_hooks = [
+    dict(type='NumClassCheckHook'),
+    dict(
+        type='BoneLossWarmupHook',
+        target_weight=2.0,
+        warmup_ratio=0.1,
+        ramp_ratio=0.1)
+]
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None

@@ -24,6 +24,12 @@ Current codebase convention:
   `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE`-based keypoint losses
 - canonical `configs/wifi/petr_wifi.py` also currently follows the requested config-side conventions:
   `meta_keys=[]` and test-time `MultiScaleFlipAug`
+- `BoneLossWarmupHook` is now installed globally in `configs/wifi/petr_wifi.py`
+  and auto-bypasses when `loss_bone=None`
+- default bone warmup policy for PETR-family bone runs:
+  `target_weight=2.0`, `warmup_ratio=0.1`, `ramp_ratio=0.1`
+- `B5` overrides the warmup target specifically for WiTiDAR:
+  `target_weight=1.0`, `warmup_ratio=0.1`, `ramp_ratio=0.1`
 - train entrypoint default is fixed to `--seed 42 --deterministic`
 - reproducibility env defaults are pinned to:
   `PYTHONHASHSEED=42` and `CUBLAS_WORKSPACE_CONFIG=:4096:8`
