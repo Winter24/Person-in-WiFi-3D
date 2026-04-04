@@ -39,7 +39,7 @@ class WifiArchitectureTests(unittest.TestCase):
             cfg.test_pipeline[0]["transforms"][-1]["meta_keys"],
             [])
 
-    def test_b0_training_hparams_match_cvpr_paper_recipe(self):
+    def test_b0_training_hparams_match_current_runtime_recipe(self):
         cfg = _load_config_module("configs/wifi/petr_wifi.py")
         bbox_head = cfg.model["bbox_head"]
         assigner = cfg.model["train_cfg"]["assigner"]
@@ -57,14 +57,16 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.optimizer["betas"], (0.9, 0.999))
         self.assertEqual(cfg.optimizer["weight_decay"], 1e-4)
         self.assertEqual(cfg.lr_config["step"], [450])
-        self.assertEqual(cfg.runner["max_epochs"], 500)
+        self.assertEqual(cfg.evaluation["interval"], 5)
+        self.assertEqual(cfg.checkpoint_config["interval"], 5)
+        self.assertEqual(cfg.runner["max_epochs"], 20)
 
     def test_petr_wifi_mamba_config_switches_backbone_to_spectral_mode(self):
         cfg = _load_config_module("configs/wifi/petr_wifi_mamba.py")
 
         self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
         self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
-        self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 6)
+        self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 4)
 
     def test_petr_wifi_mamba_source_does_not_override_runtime_hparams(self):
         source = _read("configs/wifi/petr_wifi_mamba.py")
@@ -236,7 +238,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertIn("loss_bone=dict(_delete_=True, type='BoneLengthLoss', loss_weight=2.0)", source)
         self.assertNotIn("loss_limb", source)
-        self.assertIn("num_layers=6", source)
+        self.assertIn("num_layers=4", source)
 
     def test_witidar_head_source_removes_limb_loss_logic(self):
         source = _read("opera/models/dense_heads/wi_tidar_head.py")

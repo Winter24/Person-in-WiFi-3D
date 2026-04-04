@@ -13,7 +13,7 @@ model = dict(
         embed_dims=256,
         num_keypoints=14,
         mamba_cfg=dict(
-            num_layers=6,
+            num_layers=4,
             d_state=16,
             d_conv=4,
             expand=2,
@@ -36,9 +36,9 @@ model = dict(
         test_cfg=dict(max_per_img=100)),
 )
 
-checkpoint_config = dict(interval=1, max_keep_ckpts=20)
-evaluation = dict(interval=1, metric='mpjpe')
-runner = dict(type='EpochBasedRunner', max_epochs=10)
+checkpoint_config = dict(interval=5, max_keep_ckpts=20)
+evaluation = dict(interval=5, metric='mpjpe')
+runner = dict(type='EpochBasedRunner', max_epochs=20)
 custom_hooks = [
     dict(type='NumClassCheckHook'),
     dict(

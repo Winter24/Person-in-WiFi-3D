@@ -48,8 +48,8 @@ data = dict(
         pipeline=test_pipeline,
         mode='test'))
 
-evaluation = dict(interval=1, metric='mpjpe')
-checkpoint_config = dict(interval=1, max_keep_ckpts=20)
+evaluation = dict(interval=5, metric='mpjpe')
+checkpoint_config = dict(interval=5, max_keep_ckpts=20)
 log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
 custom_hooks = [
     dict(type='NumClassCheckHook'),
@@ -184,7 +184,7 @@ optimizer = dict(
             reference_points=dict(lr_mult=0.1))))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 lr_config = dict(policy='step', step=[450])
-runner = dict(type='EpochBasedRunner', max_epochs=500)
+runner = dict(type='EpochBasedRunner', max_epochs=20)
 find_unused_parameters = True
 work_dir = './work_dirs/petr_wifi'
 auto_resume = False
