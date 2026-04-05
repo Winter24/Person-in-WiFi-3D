@@ -1,0 +1,47 @@
+============================================================
+Visible GPUs
+============================================================
+GPU_ID   NAME                         MEM_TOTAL    MEM_USED     UTIL(%)   
+0        FakeGPU0                     24564 MiB    0 MiB        0         
+1        FakeGPU1                     24564 MiB    0 MiB        0         
+2        FakeGPU2                     24564 MiB    0 MiB        0         
+3        FakeGPU3                     24564 MiB    0 MiB        0         
+4        FakeGPU4                     24564 MiB    0 MiB        0         
+============================================================
+Selected GPU Mapping
+============================================================
+Selected GPU IDs: 0 1 2 3 4
+B0 -> GPU 0
+B1 -> GPU 1
+B2 -> GPU 2
+B4 -> GPU 3
+B5 -> GPU 4
+============================================================
+Dry Run
+============================================================
+DRY_RUN=1, commands will be printed but not executed.
+[B0] mode=auto-resume gpu=0
+[B0] log=/mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B0.log
+[B0] cmd=env CUDA_VISIBLE_DEVICES=0 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 echo /mnt/d/Resfes_2026/Person-in-WiFi-3D/tools/train.py /mnt/d/Resfes_2026/Person-in-WiFi-3D/configs/wifi/petr_wifi.py --gpu-id 0 --seed 42 --deterministic --work-dir /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper/B0 --auto-resume 
+[B1] mode=auto-resume gpu=1
+[B1] log=/mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B1.log
+[B1] cmd=env CUDA_VISIBLE_DEVICES=1 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 echo /mnt/d/Resfes_2026/Person-in-WiFi-3D/tools/train.py /mnt/d/Resfes_2026/Person-in-WiFi-3D/configs/wifi/petr_wifi.py --gpu-id 0 --seed 42 --deterministic --work-dir /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper/B1 --auto-resume --cfg-options model.backbone.mode=spectral 
+[B2] mode=auto-resume gpu=2
+[B2] log=/mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B2.log
+[B2] cmd=env CUDA_VISIBLE_DEVICES=2 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 echo /mnt/d/Resfes_2026/Person-in-WiFi-3D/tools/train.py /mnt/d/Resfes_2026/Person-in-WiFi-3D/configs/wifi/petr_wifi_mamba.py --gpu-id 0 --seed 42 --deterministic --work-dir /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper/B2 --auto-resume 
+[B4] mode=auto-resume gpu=3
+[B4] log=/mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B4.log
+[B4] cmd=env CUDA_VISIBLE_DEVICES=3 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 echo /mnt/d/Resfes_2026/Person-in-WiFi-3D/tools/train.py /mnt/d/Resfes_2026/Person-in-WiFi-3D/configs/wifi/wi_tidir_wifi.py --gpu-id 0 --seed 42 --deterministic --work-dir /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper/B4 --auto-resume --cfg-options model.bbox_head.loss_bone=None 
+[B5] mode=auto-resume gpu=4
+[B5] log=/mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B5.log
+[B5] cmd=env CUDA_VISIBLE_DEVICES=4 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 echo /mnt/d/Resfes_2026/Person-in-WiFi-3D/tools/train.py /mnt/d/Resfes_2026/Person-in-WiFi-3D/configs/wifi/wi_tidir_wifi.py --gpu-id 0 --seed 42 --deterministic --work-dir /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper/B5 --auto-resume 
+============================================================
+Final Run Summary
+============================================================
+RUN    GPU      PID          STATUS           LOG
+B0     0        dry-run      auto-resume      /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B0.log
+B1     1        dry-run      auto-resume      /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B1.log
+B2     2        dry-run      auto-resume      /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B2.log
+B4     3        dry-run      auto-resume      /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B4.log
+B5     4        dry-run      auto-resume      /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/B5.log
+Launcher log: /mnt/d/Resfes_2026/Person-in-WiFi-3D/work_dirs/paper_launch_logs/launcher_20260405_192615.log

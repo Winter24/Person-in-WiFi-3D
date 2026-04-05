@@ -299,6 +299,25 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("PYTHONHASHSEED=42", checklist)
         self.assertIn("CUBLAS_WORKSPACE_CONFIG=:4096:8", checklist)
 
+    def test_parallel_5gpu_launcher_has_gpu_discovery_and_resume_logic(self):
+        source = _read("scripts/run_train_5gpu.sh")
+
+        self.assertIn("#!/usr/bin/env bash", source)
+        self.assertIn("set -euo pipefail", source)
+        self.assertIn("RUN_IDS=(B0 B1 B2 B4 B5)", source)
+        self.assertIn("--query-gpu=index,name,memory.total,memory.used,utilization.gpu", source)
+        self.assertIn("Need at least 5 visible GPUs", source)
+        self.assertIn('Selected GPU IDs: ${RUN_GPU_IDS[*]}', source)
+        self.assertIn('echo "$run_id -> GPU $gpu_id"', source)
+        self.assertIn('CUDA_VISIBLE_DEVICES=$gpu_id', source)
+        self.assertIn("PYTHONHASHSEED=42", source)
+        self.assertIn("CUBLAS_WORKSPACE_CONFIG=:4096:8", source)
+        self.assertIn("--auto-resume", source)
+        self.assertIn("if [[ -f \"$work_dir/latest.pth\" ]]", source)
+        self.assertIn("DRY_RUN", source)
+        self.assertIn("trap terminate_children INT TERM", source)
+        self.assertIn("Final Run Summary", source)
+
     def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
         base_cfg = _read("configs/wifi/petr_wifi.py")
         b5_cfg = _read("configs/wifi/wi_tidir_wifi.py")

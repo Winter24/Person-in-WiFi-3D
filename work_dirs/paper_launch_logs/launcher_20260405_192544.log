@@ -1,0 +1,23 @@
+============================================================
+Visible GPUs
+============================================================
+GPU_ID   NAME                         MEM_TOTAL    MEM_USED     UTIL(%)   
+0        FakeGPU0                     24564 MiB    0 MiB        0         
+1        FakeGPU1                     24564 MiB    0 MiB        0         
+2        FakeGPU2                     24564 MiB    0 MiB        0         
+3        FakeGPU3                     24564 MiB    0 MiB        0         
+4        FakeGPU4                     24564 MiB    0 MiB        0         
+============================================================
+Selected GPU Mapping
+============================================================
+Selected GPU IDs: 0 1 2 3 4
+B0 -> GPU 0
+B1 -> GPU 1
+B2 -> GPU 2
+B4 -> GPU 3
+B5 -> GPU 4
+============================================================
+Dry Run
+============================================================
+DRY_RUN=1, commands will be printed but not executed.
+./scripts/run_train_5gpu.sh: line 230: RUN_STATUS[$run_id]: unbound variable
