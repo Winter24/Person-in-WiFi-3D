@@ -68,6 +68,23 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
         self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 4)
 
+    def test_petr_wifi_linear_mamba_config_keeps_linear_backbone_and_mamba_encoder(self):
+        cfg = _load_config_module("configs/wifi/petr_wifi_linear_mamba.py")
+
+        self.assertEqual(cfg.model["backbone"]["mode"], "linear")
+        self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["type"], "WiMambaEncoder")
+        self.assertEqual(cfg.model["bbox_head"]["transformer"]["encoder"]["num_layers"], 4)
+
+    def test_witidir_transformer_flow_config_uses_transformer_encoder_without_mamba(self):
+        cfg = _load_config_module("configs/wifi/wi_tidir_wifi_transformer.py")
+
+        self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+        self.assertEqual(cfg.model["bbox_head"]["type"], "opera.WiTiDARHead")
+        self.assertEqual(cfg.model["bbox_head"]["transformer_encoder"]["type"], "mmcv.DetrTransformerEncoder")
+        self.assertEqual(cfg.model["bbox_head"]["transformer_encoder"]["num_layers"], 6)
+        self.assertIsNone(cfg.model["bbox_head"]["mamba_cfg"])
+        self.assertIsNone(cfg.model["bbox_head"]["loss_bone"])
+
     def test_petr_wifi_mamba_source_does_not_override_runtime_hparams(self):
         source = _read("configs/wifi/petr_wifi_mamba.py")
 
@@ -247,6 +264,15 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertNotIn("loss_limb", source)
         self.assertNotIn("losses_limb", source)
         self.assertNotIn("LimbLoss", source)
+
+    def test_witidar_head_supports_transformer_or_mamba_encoder_selection(self):
+        source = _read("opera/models/dense_heads/wi_tidar_head.py")
+
+        self.assertIn("transformer_encoder=None", source)
+        self.assertIn("Specify only one of transformer_encoder or mamba_cfg", source)
+        self.assertIn("build_transformer_layer_sequence(transformer_encoder)", source)
+        self.assertIn("self.encoder_type = 'transformer'", source)
+        self.assertIn("self.encoder_type in ('mamba', 'transformer')", source)
 
     def test_losses_init_no_longer_imports_limb_loss(self):
         source = _read("opera/models/losses/__init__.py")

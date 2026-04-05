@@ -8,6 +8,7 @@ from mmcv.runner import BaseModule, force_fp32
 
 from opera.core.bbox import build_assigner, build_sampler
 from ..builder import HEADS, build_loss
+from ..utils import build_transformer_layer_sequence
 
 try:
     from opera.models.utils.rectified_flow import RectifiedFlowWrapper
@@ -34,6 +35,7 @@ class WiTiDARHead(BaseModule):
                  with_kpt_refine=True,
                  as_two_stage=True,
                  transformer=None,
+                 transformer_encoder=None,
                  mamba_cfg=dict(
                      num_layers=4,
                      d_state=16,
@@ -79,13 +81,21 @@ class WiTiDARHead(BaseModule):
         self.register_buffer('gt_bone_lengths_mean', bone_stats)
         self.has_bone_stats = has_bone_stats
 
-        if WiMambaEncoder is not None and mamba_cfg is not None:
+        if transformer_encoder is not None and mamba_cfg is not None:
+            raise ValueError('Specify only one of transformer_encoder or mamba_cfg for WiTiDARHead.')
+
+        if transformer_encoder is not None:
+            self.encoder = build_transformer_layer_sequence(transformer_encoder)
+            self.encoder_type = 'transformer'
+        elif WiMambaEncoder is not None and mamba_cfg is not None:
             mamba_cfg_copy = mamba_cfg.copy()
             mamba_cfg_copy.pop('type', None)
             self.encoder = WiMambaEncoder(embed_dims=embed_dims, **mamba_cfg_copy)
+            self.encoder_type = 'mamba'
         else:
             print('WARNING: WiMambaEncoder not found or mamba_cfg is None. Using Identity mapping.')
             self.encoder = nn.Identity()
+            self.encoder_type = 'identity'
 
         self.decoder_attn = nn.MultiheadAttention(embed_dims, num_heads=8, batch_first=True)
         self.query_embedding = nn.Embedding(num_query, embed_dims)
@@ -139,7 +149,7 @@ class WiTiDARHead(BaseModule):
     def forward(self, feat, **kwargs):
         batch_size = feat.size(0)
 
-        if isinstance(self.encoder, WiMambaEncoder):
+        if self.encoder_type in ('mamba', 'transformer'):
             feat = feat.permute(1, 0, 2)
             memory = self.encoder(feat)
             memory = memory.permute(1, 0, 2)

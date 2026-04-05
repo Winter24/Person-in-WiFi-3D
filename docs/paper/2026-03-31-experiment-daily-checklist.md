@@ -20,8 +20,8 @@ Current codebase convention:
 - `B0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
 - `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
 - do not report any run as `B0` if it was trained with `mode='spectral'`
-- canonical `configs/wifi/petr_wifi.py` is now paper-faithful for the CVPR baseline recipe:
-  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE`-based keypoint losses
+- canonical `configs/wifi/petr_wifi.py` is now the current screening baseline recipe:
+  `batch=32`, `20 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE`-based keypoint losses
 - canonical `configs/wifi/petr_wifi.py` also currently follows the requested config-side conventions:
   `meta_keys=[]` and test-time `MultiScaleFlipAug`
 - `BoneLossWarmupHook` is now installed globally in `configs/wifi/petr_wifi.py`
@@ -38,6 +38,9 @@ Current codebase convention:
   `B0_bone = B0 + BoneLengthLoss`
   `B1_bone = B1 + BoneLengthLoss`
   `B2_bone = B2 + BoneLengthLoss`
+- extra independent ablations:
+  `A1 = Linear + Mamba(4)`
+  `A3 = Spectral + Transformer + Flow`
 
 ## Global Rules
 
@@ -300,6 +303,24 @@ python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --work-dir work_dirs/paper/B5
 ```
 
+`A1`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/petr_wifi_linear_mamba.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/A1
+```
+
+`A3`
+
+```bash
+PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+python tools/train.py configs/wifi/wi_tidir_wifi_transformer.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/A3
+```
+
 ### Strict Reproducibility Run
 
 Use this workflow only for reproducibility verification runs, not for fast screening.
@@ -477,7 +498,7 @@ python tools/analysis/append_experiment_log.py \
     --eval-json paper_assets/logs/B4_eval.json \
     --benchmark-json paper_assets/logs/B4_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B4 spectral + WiMamba(6) + draft + flow, no bone"
+    --notes "B4 spectral + WiMamba(4) + draft + flow, no bone"
 ```
 
 ### B5
@@ -505,7 +526,25 @@ python tools/analysis/append_experiment_log.py \
     --eval-json paper_assets/logs/B5_eval.json \
     --benchmark-json paper_assets/logs/B5_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B5 spectral + WiMamba(6) + draft + flow + bone"
+    --notes "B5 spectral + WiMamba(4) + draft + flow + bone"
+```
+
+### Extra Independent Ablations
+
+`A1`
+
+```bash
+python tools/train.py configs/wifi/petr_wifi_linear_mamba.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/A1
+```
+
+`A3`
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi_transformer.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/A3
 ```
 
 ## Priority Order
@@ -732,6 +771,23 @@ For each model run, record:
 - [ ] FPS
 - [ ] peak memory
 - [ ] notes
+
+## Ablation Result Table
+
+Fill this table as runs finish. Keep one row per frozen result.
+
+| ID | Config | Input Adapter | Encoder | Draft | Flow | Bone | MPJPE | MPJPE 1P | MPJPE 2P | MPJPE 3P | PJDLE(h) | PJDLE(v) | PJDLE(d) | Bone Error | Latency (ms) | FPS | Params (M) | Peak Mem (MB) | Checkpoint | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B0 | `configs/wifi/petr_wifi.py` | Linear | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B1 | `configs/wifi/petr_wifi.py + mode=spectral` | Spectral | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B2 | `configs/wifi/petr_wifi_mamba.py` | Spectral | Mamba-4 | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| A1 | `configs/wifi/petr_wifi_linear_mamba.py` | Linear | Mamba-4 | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| A3 | `configs/wifi/wi_tidir_wifi_transformer.py` | Spectral | Transformer-6 | Draft | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B0_bone | `configs/wifi/petr_wifi_bone.py` | Linear | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B1_bone | `configs/wifi/petr_wifi_bone.py + mode=spectral` | Spectral | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B2_bone | `configs/wifi/petr_wifi_bone_mamba.py` | Spectral | Mamba-4 | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B4 | `configs/wifi/wi_tidir_wifi.py + loss_bone=None` | Spectral | Mamba-4 | Draft | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| B5 | `configs/wifi/wi_tidir_wifi.py` | Spectral | Mamba-4 | Draft | Yes | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
 ## Stop Conditions
 

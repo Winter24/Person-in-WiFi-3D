@@ -112,8 +112,8 @@ Current codebase mapping:
 
 - `B0` uses `WifiInputAdapter(mode='linear')` without `BoneLengthLoss`
 - `B1+` use `WifiInputAdapter(mode='spectral')`
-- canonical `configs/wifi/petr_wifi.py` now follows the paper-faithful baseline recipe:
-  `batch=32`, `500 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE` regression losses
+- canonical `configs/wifi/petr_wifi.py` now follows the current screening recipe:
+  `batch=32`, `20 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE` regression losses
 - canonical `configs/wifi/petr_wifi.py` also keeps the currently requested config-side conventions:
   `meta_keys=[]` and test-time `MultiScaleFlipAug`
 - shorter `10e/20e/50e` runs are screening overrides for proposal-speed iteration, not the canonical CVPR-style baseline config
@@ -183,10 +183,12 @@ The paper should not compare only `baseline vs full model`. It needs a clean lad
 | --- | --- | --- | --- | --- | --- | --- |
 | B0 | Linear Projection | Transformer | PETR original | No | No | Reproduced CVPR baseline |
 | B1 | Spectral Tokenizer | Transformer | PETR original | No | No | Isolate tokenizer gain over linear B0 |
-| B2 | Spectral Tokenizer | WiMamba (6 layers) | PETR original or PETR-compatible decoder | No | No | Isolate encoder gain |
+| B2 | Spectral Tokenizer | WiMamba (4 layers) | PETR original or PETR-compatible decoder | No | No | Isolate encoder gain |
 | B3 | Spectral Tokenizer | WiMamba | Draft head | No | No | Isolate draft decoding |
-| B4 | Spectral Tokenizer | WiMamba (6 layers) | Draft head | Yes | No | Isolate flow refinement |
-| B5 | Spectral Tokenizer | WiMamba (6 layers) | Draft head | Yes | Yes | Full model with BoneLengthLoss |
+| B4 | Spectral Tokenizer | WiMamba (4 layers) | Draft head | Yes | No | Isolate flow refinement |
+| B5 | Spectral Tokenizer | WiMamba (4 layers) | Draft head | Yes | Yes | Full model with BoneLengthLoss |
+| A1 | Linear Projection | WiMamba (4 layers) | PETR original | No | No | Isolate encoder gain without spectral tokenizer |
+| A3 | Spectral Tokenizer | Transformer (6 layers) | Draft head | Yes | No | Compare flow head under Transformer instead of Mamba |
 
 ### Minimum Viable Ladder If Time Is Tight
 
@@ -213,6 +215,8 @@ Practical mapping:
 - `B0`: train from `configs/wifi/petr_wifi.py`
 - `B1`: train from `configs/wifi/petr_wifi.py` with `--cfg-options model.backbone.mode=spectral`
 - `B2`: train from `configs/wifi/petr_wifi_mamba.py`
+- `A1`: train from `configs/wifi/petr_wifi_linear_mamba.py`
+- `A3`: train from `configs/wifi/wi_tidir_wifi_transformer.py`
 - `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None`
 - `B5`: train from `configs/wifi/wi_tidir_wifi.py`
 - exploratory side branch:
