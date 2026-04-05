@@ -317,6 +317,8 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("DRY_RUN", source)
         self.assertIn("trap terminate_children INT TERM", source)
         self.assertIn("Final Run Summary", source)
+        self.assertIn("printf '%q '", source)
+        self.assertIn('eval "$cmd" >"$log_path" 2>&1 &', source)
 
     def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
         base_cfg = _read("configs/wifi/petr_wifi.py")

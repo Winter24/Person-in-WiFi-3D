@@ -239,7 +239,7 @@ launch_run() {
     return 0
   fi
 
-  bash -lc "$cmd" >"$log_path" 2>&1 &
+  eval "$cmd" >"$log_path" 2>&1 &
   RUN_PID[$run_id]="$!"
   PIDS+=("$!")
   printf '%s\n' "$!" >"$pid_path"
