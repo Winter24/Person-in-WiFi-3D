@@ -149,9 +149,13 @@ class WiTiDARHead(BaseModule):
     def forward(self, feat, **kwargs):
         batch_size = feat.size(0)
 
-        if self.encoder_type in ('mamba', 'transformer'):
+        if self.encoder_type == 'mamba':
             feat = feat.permute(1, 0, 2)
             memory = self.encoder(feat)
+            memory = memory.permute(1, 0, 2)
+        elif self.encoder_type == 'transformer':
+            feat = feat.permute(1, 0, 2)
+            memory = self.encoder(query=feat, key=None, value=None)
             memory = memory.permute(1, 0, 2)
         else:
             memory = feat

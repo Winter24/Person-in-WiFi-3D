@@ -272,7 +272,9 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("Specify only one of transformer_encoder or mamba_cfg", source)
         self.assertIn("build_transformer_layer_sequence(transformer_encoder)", source)
         self.assertIn("self.encoder_type = 'transformer'", source)
-        self.assertIn("self.encoder_type in ('mamba', 'transformer')", source)
+        self.assertIn("if self.encoder_type == 'mamba':", source)
+        self.assertIn("elif self.encoder_type == 'transformer':", source)
+        self.assertIn("self.encoder(query=feat, key=None, value=None)", source)
 
     def test_losses_init_no_longer_imports_limb_loss(self):
         source = _read("opera/models/losses/__init__.py")
