@@ -140,6 +140,11 @@ run_one() {
 }
 
 for run_id in "${RUN_IDS[@]}"; do
+  run_dir="work_dirs/paper/$run_id"
+  if [[ ! -d "$run_dir" ]]; then
+    echo "WARNING: Missing run directory: $run_dir. Skipping." >&2
+    continue
+  fi
   run_one "$run_id"
 done
 

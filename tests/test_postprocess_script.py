@@ -32,6 +32,11 @@ class TestPaperPostprocessScript(unittest.TestCase):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
         self.assertIn('RUN_IDS=(B0 B1 B2 B4 B5)', text)
 
+    def test_script_skips_missing_run_dirs(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('WARNING: Missing run directory: $run_dir. Skipping.', text)
+        self.assertIn('continue', text)
+
 
 if __name__ == '__main__':
     unittest.main()
