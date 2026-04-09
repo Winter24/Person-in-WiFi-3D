@@ -342,6 +342,11 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("torch.use_deterministic_algorithms(True, warn_only=True)", source)
         self.assertIn("os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'", source)
 
+    def test_train_model_defaults_checkpoint_hook_to_latest_checkpoint_hook(self):
+        source = _read("opera/apis/train.py")
+
+        self.assertIn("checkpoint_config.setdefault('type', 'LatestCheckpointHook')", source)
+
     def test_docs_include_strict_repro_run_workflow(self):
         checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
 

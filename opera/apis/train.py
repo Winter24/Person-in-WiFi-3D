@@ -198,11 +198,15 @@ def train_model(model,
     else:
         optimizer_config = cfg.optimizer_config
 
+    checkpoint_config = cfg.checkpoint_config
+    if checkpoint_config is not None:
+        checkpoint_config.setdefault('type', 'LatestCheckpointHook')
+
     # register hooks
     runner.register_training_hooks(
         cfg.lr_config,
         optimizer_config,
-        cfg.checkpoint_config,
+        checkpoint_config,
         cfg.log_config,
         cfg.get('momentum_config', None),
         custom_hooks_config=cfg.get('custom_hooks', None))

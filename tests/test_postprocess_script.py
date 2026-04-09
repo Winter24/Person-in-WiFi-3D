@@ -34,8 +34,18 @@ class TestPaperPostprocessScript(unittest.TestCase):
 
     def test_script_skips_missing_run_dirs(self):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
-        self.assertIn('WARNING: Missing run directory: $run_dir. Skipping.', text)
+        self.assertIn('WARNING: Missing run directory and override for $run_id. Skipping.', text)
         self.assertIn('continue', text)
+
+    def test_script_supports_directory_override(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('if [[ -d "$override" ]]; then', text)
+        self.assertIn('resolve_config_dir', text)
+
+    def test_script_can_use_override_when_default_run_dir_is_missing(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('resolve_run_dir', text)
+        self.assertIn('run_dir="$(resolve_run_dir "$run_id")"', text)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
 # Copyright (c) Hikvision Research Institute. All rights reserved.
-from .hooks import BoneLossWarmupHook
+from .hooks import BoneLossWarmupHook, LatestCheckpointHook
 
-__all__ = ['BoneLossWarmupHook']
+__all__ = ['BoneLossWarmupHook', 'LatestCheckpointHook']

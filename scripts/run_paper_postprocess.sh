@@ -47,6 +47,54 @@ get_run_note() {
   esac
 }
 
+resolve_run_dir() {
+  local run_id="$1"
+  local default_run_dir="work_dirs/paper/$run_id"
+  local override
+  override="$(get_ckpt_override "$run_id")"
+
+  if [[ -n "$override" && -d "$override" ]]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  if [[ -d "$default_run_dir" ]]; then
+    printf '%s\n' "$default_run_dir"
+    return 0
+  fi
+
+  if [[ -n "$override" && -f "$override" ]]; then
+    dirname "$override"
+    return 0
+  fi
+
+  return 1
+}
+
+resolve_config_dir() {
+  local run_id="$1"
+  local default_run_dir="work_dirs/paper/$run_id"
+  local override
+  override="$(get_ckpt_override "$run_id")"
+
+  if [[ -n "$override" && -d "$override" ]]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  if [[ -d "$default_run_dir" ]]; then
+    printf '%s\n' "$default_run_dir"
+    return 0
+  fi
+
+  if [[ -n "$override" && -f "$override" ]]; then
+    dirname "$override"
+    return 0
+  fi
+
+  return 1
+}
+
 resolve_config() {
   local run_dir="$1"
   local matches=("$run_dir"/*.py)
@@ -64,12 +112,17 @@ resolve_checkpoint() {
   override="$(get_ckpt_override "$run_id")"
 
   if [[ -n "$override" ]]; then
-    if [[ ! -f "$override" ]]; then
+    if [[ -f "$override" ]]; then
+      printf '%s\n' "$override"
+      return 0
+    fi
+
+    if [[ -d "$override" ]]; then
+      run_dir="$override"
+    else
       echo "ERROR: Override checkpoint for $run_id not found: $override" >&2
       return 1
     fi
-    printf '%s\n' "$override"
-    return 0
   fi
 
   if [[ -f "$run_dir/latest.pth" ]]; then
@@ -88,7 +141,8 @@ resolve_checkpoint() {
 
 run_one() {
   local run_id="$1"
-  local run_dir="work_dirs/paper/$run_id"
+  local run_dir
+  local config_dir
   local eval_work_dir="work_dirs/paper_eval/$run_id"
   local eval_json="$LOG_ROOT/${run_id}_eval.json"
   local benchmark_json="$LOG_ROOT/${run_id}_benchmark.json"
@@ -96,12 +150,13 @@ run_one() {
   local checkpoint_path
   local notes
 
-  if [[ ! -d "$run_dir" ]]; then
-    echo "ERROR: Missing run directory: $run_dir" >&2
+  if ! run_dir="$(resolve_run_dir "$run_id")"; then
+    echo "ERROR: Missing run directory and override for $run_id" >&2
     return 1
   fi
 
-  config_path="$(resolve_config "$run_dir")"
+  config_dir="$(resolve_config_dir "$run_id")"
+  config_path="$(resolve_config "$config_dir")"
   checkpoint_path="$(resolve_checkpoint "$run_id" "$run_dir")"
   notes="$(get_run_note "$run_id")"
 
@@ -140,9 +195,8 @@ run_one() {
 }
 
 for run_id in "${RUN_IDS[@]}"; do
-  run_dir="work_dirs/paper/$run_id"
-  if [[ ! -d "$run_dir" ]]; then
-    echo "WARNING: Missing run directory: $run_dir. Skipping." >&2
+  if ! run_dir="$(resolve_run_dir "$run_id")"; then
+    echo "WARNING: Missing run directory and override for $run_id. Skipping." >&2
     continue
   fi
   run_one "$run_id"
