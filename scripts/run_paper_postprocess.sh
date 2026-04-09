@@ -4,10 +4,11 @@ set -euo pipefail
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$ROOT_DIR"
 
-RUN_IDS=(B0 B1 B2 B4 B5)
+RUN_IDS=(A3 B0 B1 B2 B4 B5)
 
 # Optional manual checkpoint overrides.
 # Leave empty to use latest.pth, or the highest epoch_*.pth as fallback.
+A3_CKPT=""
 B0_CKPT=""
 B1_CKPT=""
 B2_CKPT=""
@@ -26,6 +27,7 @@ mkdir -p "$LOG_ROOT"
 get_ckpt_override() {
   local run_id="$1"
   case "$run_id" in
+    A3) printf '%s\n' "$A3_CKPT" ;;
     B0) printf '%s\n' "$B0_CKPT" ;;
     B1) printf '%s\n' "$B1_CKPT" ;;
     B2) printf '%s\n' "$B2_CKPT" ;;
@@ -38,6 +40,7 @@ get_ckpt_override() {
 get_run_note() {
   local run_id="$1"
   case "$run_id" in
+    A3) printf '%s\n' "A3 spectral tokenizer + Transformer(6) + draft + flow refine, no BoneLengthLoss" ;;
     B0) printf '%s\n' "B0 linear transformer baseline, no BoneLengthLoss" ;;
     B1) printf '%s\n' "B1 spectral tokenizer over B0, transformer, no BoneLengthLoss" ;;
     B2) printf '%s\n' "B2 spectral tokenizer + WiMamba(6), no BoneLengthLoss" ;;

@@ -14,7 +14,7 @@ class TestPaperPostprocessScript(unittest.TestCase):
 
     def test_script_has_checkpoint_overrides(self):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
-        for run_id in ('B0', 'B1', 'B2', 'B4', 'B5'):
+        for run_id in ('A3', 'B0', 'B1', 'B2', 'B4', 'B5'):
             self.assertIn(f'{run_id}_CKPT=""', text)
 
     def test_script_has_checkpoint_fallback_logic(self):
@@ -30,7 +30,7 @@ class TestPaperPostprocessScript(unittest.TestCase):
 
     def test_script_targets_expected_runs(self):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
-        self.assertIn('RUN_IDS=(B0 B1 B2 B4 B5)', text)
+        self.assertIn('RUN_IDS=(A3 B0 B1 B2 B4 B5)', text)
 
     def test_script_skips_missing_run_dirs(self):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
