@@ -1,4 +1,4 @@
-"""Unit tests for B0 evaluation & reporting gap-closure.
+﻿"""Unit tests for M0 evaluation & reporting gap-closure.
 
 Tests cover:
   1. WifiPoseDataset.evaluate() per-person breakdown
@@ -177,7 +177,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
 
         self.assertTrue(np.isnan(result['mpjpe_1p']))
         self.assertTrue(np.isnan(result['mpjpe_3p']))
-        # count_Xp is the GT denominator — zero because no such GT frames exist
+        # count_Xp is the GT denominator â€” zero because no such GT frames exist
         self.assertEqual(result['count_1p'], 0)
         self.assertEqual(result['count_3p'], 0)
         # All 3 frames have 2-person GT
@@ -321,11 +321,11 @@ class TestAppendExperimentLog(unittest.TestCase):
             'append_experiment_log',
             str(REPO_ROOT / 'tools' / 'analysis' / 'append_experiment_log.py'))
 
-    def _make_args(self, experiment_id='B0', notes=''):
+    def _make_args(self, experiment_id='M0', notes=''):
         args = MagicMock()
         args.experiment_id = experiment_id
         args.config = 'configs/wifi/petr_wifi.py'
-        args.checkpoint = 'checkpoints/B0.pth'
+        args.checkpoint = 'checkpoints/M0.pth'
         args.eval_json = self.eval_json_path
         args.benchmark_json = self.bench_json_path
         args.csv = self.csv_path
@@ -347,7 +347,7 @@ class TestAppendExperimentLog(unittest.TestCase):
             reader = list(csv.DictReader(f))
 
         self.assertEqual(len(reader), 1)
-        self.assertEqual(reader[0]['experiment_id'], 'B0')
+        self.assertEqual(reader[0]['experiment_id'], 'M0')
         # Use float comparison to be robust against trailing zeros etc.
         self.assertAlmostEqual(float(reader[0]['mpjpe']), 85.3, places=5)
         self.assertEqual(reader[0]['count_1p'], '2586')
@@ -399,7 +399,7 @@ class TestAppendExperimentLog(unittest.TestCase):
         rows, _ = self.mod.upsert(rows, row1)
         self.mod.write_csv(self.csv_path, rows, fns)
 
-        # Second upsert — build_row will generate a new timestamp
+        # Second upsert â€” build_row will generate a new timestamp
         args2 = self._make_args(notes='v2')
         row2 = self.mod.build_row(args2)
         # row2['created_at'] may differ from original_created_at by at least 0s;
@@ -417,7 +417,7 @@ class TestAppendExperimentLog(unittest.TestCase):
 
     def test_multiple_experiments(self):
         """Different experiment_ids should each get their own row."""
-        for eid in ['B0', 'B1', 'B2']:
+        for eid in ['M0', 'M1', 'M2']:
             args = self._make_args(experiment_id=eid)
             row = self.mod.build_row(args)
             rows, fns = self.mod.read_csv(self.csv_path)
@@ -428,7 +428,7 @@ class TestAppendExperimentLog(unittest.TestCase):
             reader = list(csv.DictReader(f))
         self.assertEqual(len(reader), 3)
         ids = [r['experiment_id'] for r in reader]
-        self.assertEqual(ids, ['B0', 'B1', 'B2'])
+        self.assertEqual(ids, ['M0', 'M1', 'M2'])
 
     def test_row_has_all_columns(self):
         """Built row should contain every column from COLUMNS."""
@@ -448,3 +448,4 @@ class TestAppendExperimentLog(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

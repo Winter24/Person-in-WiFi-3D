@@ -9,13 +9,13 @@ single row keyed by ``experiment_id``.  If a row with the same
 Usage example
 -------------
 python tools/analysis/append_experiment_log.py \
-    --experiment-id B0 \
+    --experiment-id M0 \
     --config configs/wifi/petr_wifi.py \
-    --checkpoint work_dirs/petr_wifi/epoch_500.pth \
-    --eval-json paper_assets/logs/B0_eval.json \
-    --benchmark-json paper_assets/logs/B0_benchmark.json \
+    --checkpoint work_dirs/paper/M0/latest.pth \
+    --eval-json paper_assets/logs/M0_eval.json \
+    --benchmark-json paper_assets/logs/M0_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "Baseline PETR, 500 epochs"
+    --notes "M0 linear transformer baseline"
 """
 
 import argparse
@@ -64,7 +64,7 @@ def parse_args():
     p = argparse.ArgumentParser(
         description='Append / upsert an experiment log row to CSV')
     p.add_argument('--experiment-id', required=True,
-                   help='unique experiment identifier (e.g. B0)')
+                   help='unique experiment identifier (e.g. M0)')
     p.add_argument('--config', required=True, help='config file path')
     p.add_argument('--checkpoint', default='', help='checkpoint file path')
     p.add_argument('--eval-json', required=True,

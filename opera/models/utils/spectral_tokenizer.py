@@ -38,6 +38,11 @@ class WifiInputAdapter(nn.Module):
         self.head = nn.Linear(in_channels, embed_dims)
 
         if self.mode == 'spectral':
+            self.spatial_norm = nn.LayerNorm(num_spatial)
+            self.spatial_mixer = nn.Sequential(
+                nn.Linear(num_spatial, num_spatial * 2),
+                nn.GELU(),
+                nn.Linear(num_spatial * 2, num_spatial))
             self.time_conv = nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=embed_dims,
@@ -64,6 +69,11 @@ class WifiInputAdapter(nn.Module):
     def _init_weights(self):
         if self.mode != 'spectral':
             return
+
+        nn.init.xavier_uniform_(self.spatial_mixer[0].weight)
+        nn.init.constant_(self.spatial_mixer[0].bias, 0)
+        nn.init.constant_(self.spatial_mixer[2].weight, 0)
+        nn.init.constant_(self.spatial_mixer[2].bias, 0)
 
         nn.init.kaiming_normal_(
             self.time_conv.weight, mode='fan_out', nonlinearity='relu')
@@ -96,14 +106,22 @@ class WifiInputAdapter(nn.Module):
                 f"Expected sequence length {self.num_spatial * self.seq_len}, "
                 f"got {L}")
 
+        # Mix antenna-link information at each time step before temporal FFT.
+        x_grid = x.reshape(B, self.num_spatial, self.seq_len, C)
+        x_spatial = x_grid.permute(0, 2, 3, 1)
+        residual = x_spatial
+        x_spatial = self.spatial_norm(x_spatial)
+        x_spatial = self.spatial_mixer(x_spatial)
+        x_spatial = residual + x_spatial
+        x_grid = x_spatial.permute(0, 3, 1, 2).contiguous()
+
         # Recover the temporal axis so temporal Conv/FFT operate on the
         # real time dimension rather than on the flattened token axis.
-        x_temp = x.reshape(B, self.num_spatial, self.seq_len, C)
-        x_temp = x_temp.reshape(B * self.num_spatial, self.seq_len, C)
+        x_temp = x_grid.reshape(B * self.num_spatial, self.seq_len, C)
 
-        x_permute = x_temp.permute(0, 2, 1)
+        x_permute = x_temp.permute(0, 2, 1).contiguous()
         x_time = self.time_act(self.time_conv(x_permute))
-        x_time = x_time.permute(0, 2, 1)
+        x_time = x_time.permute(0, 2, 1).contiguous()
 
         x_freq_feat = self.freq_proj(x_temp)
         original_dtype = x_freq_feat.dtype

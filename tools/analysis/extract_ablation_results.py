@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 """Extract the last validation row from each paper run log.
 
 The script scans every direct subdirectory under ``work_dirs/paper``,
@@ -6,9 +6,9 @@ finds the latest ``*.log.json`` file in each run directory, extracts the
 last JSON line whose ``mode`` is ``"val"``, and writes all rows to a
 single text file such as::
 
-    B1:{"mode": "val", ...}
+    M1:{"mode": "val", ...}
 
-    B2:{"mode": "val", ...}
+    M2:{"mode": "val", ...}
 """
 
 import argparse
@@ -90,3 +90,4 @@ def main(argv=None):
 
 if __name__ == '__main__':
     main()
+

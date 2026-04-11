@@ -34,7 +34,7 @@ def parse_args():
                         help='number of warmup iterations before timing')
     parser.add_argument('--out', type=str, default=None,
                         help='path to write benchmark results as JSON '
-                             '(e.g. paper_assets/logs/B0_benchmark.json)')
+                             '(e.g. paper_assets/logs/M0_benchmark.json)')
     return parser.parse_args()
 
 

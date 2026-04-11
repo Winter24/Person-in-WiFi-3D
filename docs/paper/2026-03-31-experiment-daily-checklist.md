@@ -1,4 +1,4 @@
-# Experiment Daily Checklist
+﻿# Experiment Daily Checklist
 
 Reference master plan:
 [2026-03-31-balanced-arxiv-workshop-paper-plan.md](D:/Resfes_2026/Person-in-WiFi-3D/docs/paper/2026-03-31-balanced-arxiv-workshop-paper-plan.md)
@@ -13,13 +13,13 @@ Target scope:
 - `1-2 GPU`
 - `about 1 week`
 - priority ladder:
-  `B0 -> B1 -> B2 -> B4 -> B5`
+  `M0 -> M1 -> M2 -> M4 -> M5`
 
 Current codebase convention:
 
-- `B0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
-- `B1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
-- do not report any run as `B0` if it was trained with `mode='spectral'`
+- `M0` = `WifiInputAdapter(mode='linear')` baseline projection without `BoneLengthLoss`
+- `M1+` = `WifiInputAdapter(mode='spectral')` improved tokenizer family
+- do not report any run as `M0` if it was trained with `mode='spectral'`
 - canonical `configs/wifi/petr_wifi.py` is now the current screening baseline recipe:
   `batch=32`, `20 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE`-based keypoint losses
 - canonical `configs/wifi/petr_wifi.py` also currently follows the requested config-side conventions:
@@ -28,19 +28,20 @@ Current codebase convention:
   and auto-bypasses when `loss_bone=None`
 - default bone warmup policy for PETR-family bone runs:
   `target_weight=2.0`, `warmup_ratio=0.1`, `ramp_ratio=0.1`
-- `B5` overrides the warmup target specifically for WiTiDAR:
+- `M5` overrides the warmup target specifically for the Draft + Flow stack:
   `target_weight=1.0`, `warmup_ratio=0.1`, `ramp_ratio=0.1`
 - train entrypoint default is fixed to `--seed 42 --deterministic`
 - reproducibility env defaults are pinned to:
   `PYTHONHASHSEED=42` and `CUBLAS_WORKSPACE_CONFIG=:4096:8`
 - any `10e/20e/50e` run should be treated as a screening override, not the canonical baseline config
 - exploratory side branch:
-  `B0_bone = B0 + BoneLengthLoss`
-  `B1_bone = B1 + BoneLengthLoss`
-  `B2_bone = B2 + BoneLengthLoss`
-- extra independent ablations:
-  `A1 = Linear + Mamba(4)`
-  `A3 = Spectral + Transformer + Flow`
+  `M0_bone = M0 + BoneLengthLoss`
+  `M1_bone = M1 + BoneLengthLoss`
+  `M2_bone = M2 + BoneLengthLoss`
+- main paper ladder:
+  `M3 = Spectral + Transformer + Draft + Flow`
+  `M4 = Spectral + Mamba + Draft + Flow`
+  `M5 = Spectral + Mamba + Draft + Flow + BoneLengthLoss`
 
 ## Global Rules
 
@@ -104,13 +105,13 @@ python tools/test.py <config> <ckpt> --eval mpjpe \
 
 Config note:
 
-- [ ] `B0` should use `configs/wifi/petr_wifi.py`
-- [ ] any improved run (`B1`, `B2`, `B3`, `B4`, `B5`) must use a config whose backbone is `WifiInputAdapter(mode='spectral')`
-- [ ] `B0`, `B1`, and `B2` should not use `BoneLengthLoss`
-- [ ] `B4` should use `WiTiDARHead` with `loss_bone=None`
-- [ ] `B5` should use `WiTiDARHead` with `loss_bone=dict(...)`
-- [ ] canonical `B0` config currently uses `AdamW`, `meta_keys=[]`, and test-time `MultiScaleFlipAug`
-- [ ] legacy `B0` checkpoints from the original codebase must be evaluated with the current canonical `configs/wifi/petr_wifi.py`, not an old dumped config that still declares `ResNet`
+- [ ] `M0` should use `configs/wifi/petr_wifi.py`
+- [ ] any improved run (`M1`, `M2`, `M3`, `M4`, `M5`) must use a config whose backbone is `WifiInputAdapter(mode='spectral')`
+- [ ] `M0`, `M1`, and `M2` should not use `BoneLengthLoss`
+- [ ] `M4` should use the Draft + Flow head (`opera.WiTiDARHead`) with `loss_bone=None`
+- [ ] `M5` should use the Draft + Flow head (`opera.WiTiDARHead`) with `loss_bone=dict(...)`
+- [ ] canonical `M0` config currently uses `AdamW`, `meta_keys=[]`, and test-time `MultiScaleFlipAug`
+- [ ] legacy `M0` checkpoints from the original codebase must be evaluated with the current canonical `configs/wifi/petr_wifi.py`, not an old dumped config that still declares `ResNet`
 
 What to check in `<ID>_eval.json`:
 
@@ -137,7 +138,7 @@ Interpretation note:
 
 ### Benchmark Command
 
-Use this pattern for `B0`, `B2`, `B5`, and any model you may put into the efficiency table:
+Use this pattern for `M0`, `M2`, `M5`, and any model you may put into the efficiency table:
 
 ```bash
 python tools/analysis/benchmark.py <config> \
@@ -185,34 +186,34 @@ What to check in `experiment_log.csv`:
 Important execution rule:
 
 - [ ] if a run was created with `--cfg-options`, use the dumped config inside `work_dirs/paper/<ID>/` for later eval and benchmark
-- [ ] this is especially important for `B1` and `B4`
+- [ ] this is especially important for `M1` and `M4`
 
-### B0
+### M0
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B0
+    --work-dir work_dirs/paper/M0
 
-python tools/test.py work_dirs/paper/B0/petr_wifi.py <CKPT_B0> --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B0 \
-    --metrics-out paper_assets/logs/B0_eval.json
+python tools/test.py work_dirs/paper/M0/petr_wifi.py <CKPT_M0> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M0 \
+    --metrics-out paper_assets/logs/M0_eval.json
 
-python tools/analysis/benchmark.py work_dirs/paper/B0/petr_wifi.py \
-    --checkpoint <CKPT_B0> \
+python tools/analysis/benchmark.py work_dirs/paper/M0/petr_wifi.py \
+    --checkpoint <CKPT_M0> \
     --device cuda:0 \
     --times 100 \
     --warmup 10 \
-    --out paper_assets/logs/B0_benchmark.json
+    --out paper_assets/logs/M0_benchmark.json
 
 python tools/analysis/append_experiment_log.py \
-    --experiment-id B0 \
-    --config work_dirs/paper/B0/petr_wifi.py \
-    --checkpoint <CKPT_B0> \
-    --eval-json paper_assets/logs/B0_eval.json \
-    --benchmark-json paper_assets/logs/B0_benchmark.json \
+    --experiment-id M0 \
+    --config work_dirs/paper/M0/petr_wifi.py \
+    --checkpoint <CKPT_M0> \
+    --eval-json paper_assets/logs/M0_eval.json \
+    --benchmark-json paper_assets/logs/M0_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B0 linear baseline"
+    --notes "M0 linear baseline"
 ```
 
 Explicit shell form for maximum reproducibility:
@@ -221,117 +222,108 @@ Explicit shell form for maximum reproducibility:
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B0
+    --work-dir work_dirs/paper/M0
 ```
 
 ### Full Train Commands With Fixed Environment
 
 Use these exact commands when you want the canonical reproducible shell form.
 
-`B0`
+`M0`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B0
+    --work-dir work_dirs/paper/M0
 ```
 
-`B1`
+`M1`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B1 \
+    --work-dir work_dirs/paper/M1 \
     --cfg-options model.backbone.mode=spectral
 ```
 
-`B2`
+`M2`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi_mamba.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B2
+    --work-dir work_dirs/paper/M2
 ```
 
-`B0_bone`
+`M0_bone`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi_bone.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B0_bone
+    --work-dir work_dirs/paper/M0_bone
 ```
 
-`B1_bone`
+`M1_bone`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi_bone.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B1_bone \
+    --work-dir work_dirs/paper/M1_bone \
     --cfg-options model.backbone.mode=spectral
 ```
 
-`B2_bone`
+`M2_bone`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi_bone_mamba.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B2_bone
+    --work-dir work_dirs/paper/M2_bone
 ```
 
-`B4`
+`M4`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B4 \
+    --work-dir work_dirs/paper/M4 \
     --cfg-options model.bbox_head.loss_bone=None
 ```
 
-`B5`
+`M5`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/wi_tidir_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B5
+    --work-dir work_dirs/paper/M5
 ```
 
-`A1`
-
-```bash
-PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
-python tools/train.py configs/wifi/petr_wifi_linear_mamba.py \
-    --seed 42 --deterministic \
-    --work-dir work_dirs/paper/A1
-```
-
-`A3`
+`M3`
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/wi_tidir_wifi_transformer.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/A3
+    --work-dir work_dirs/paper/M3
 ```
 
 ### Strict Reproducibility Run
 
 Use this workflow only for reproducibility verification runs, not for fast screening.
 
-Strict train rerun for `B1`:
+Strict train rerun for `M1`:
 
 ```bash
 PYTHONHASHSEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B1_rerun_strict_01 \
+    --work-dir work_dirs/paper/M1_rerun_strict_01 \
     --cfg-options model.backbone.mode=spectral data.workers_per_gpu=0
 ```
 
@@ -339,7 +331,7 @@ Strict evaluation against an explicit checkpoint:
 
 ```bash
 python tools/test.py configs/wifi/petr_wifi.py \
-    work_dirs/paper/B1_rerun_strict_01/epoch_5.pth \
+    work_dirs/paper/M1_rerun_strict_01/epoch_5.pth \
     --eval mpjpe \
     --cfg-options model.backbone.mode=spectral data.workers_per_gpu=0
 ```
@@ -352,224 +344,218 @@ Strict-run notes:
 - [ ] with the current stack, deterministic warnings may still appear from attention/CUDA kernels even under `warn_only=True`
 - [ ] the current WiFi PETR configs use `mmcv.MultiheadAttention`; do not attribute those warnings to `MultiScaleDeformableAttention`
 
-Legacy B0 checkpoint note:
+Legacy M0 checkpoint note:
 
-- [ ] if `<CKPT_B0>` comes from the original pre-refactor codebase, do not use its old dumped config for evaluation
+- [ ] if `<CKPT_M0>` comes from the original pre-refactor codebase, do not use its old dumped config for evaluation
 - [ ] use the current canonical config `configs/wifi/petr_wifi.py`
 - [ ] make sure `/content/Person-in-WiFi-3D/opera/models/detectors/petr.py` is the patched version that remaps legacy `head.weight/head.bias` and handles WiFi `forward_test()`
 - [ ] make sure `/content/Person-in-WiFi-3D/opera/models/dense_heads/petr_head.py` and `/content/Person-in-WiFi-3D/opera/models/dense_heads/wi_tidar_head.py` are the patched versions that resolve `gt_bone_stats.json` from repo root
 
-Legacy B0 eval rerun command:
+Legacy M0 eval rerun command:
 
 ```bash
 python tools/test.py \
     /content/Person-in-WiFi-3D/configs/wifi/petr_wifi.py \
-    <CKPT_B0> \
+    <CKPT_M0> \
     --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B0 \
-    --metrics-out paper_assets/logs/B0_eval.json
+    --work-dir work_dirs/paper_eval/M0 \
+    --metrics-out paper_assets/logs/M0_eval.json
 ```
 
-### B1
+### M1
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B1 \
+    --work-dir work_dirs/paper/M1 \
     --cfg-options model.backbone.mode=spectral
 
-python tools/test.py work_dirs/paper/B1/petr_wifi.py <CKPT_B1> --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B1 \
-    --metrics-out paper_assets/logs/B1_eval.json
+python tools/test.py work_dirs/paper/M1/petr_wifi.py <CKPT_M1> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M1 \
+    --metrics-out paper_assets/logs/M1_eval.json
 
-python tools/analysis/benchmark.py work_dirs/paper/B1/petr_wifi.py \
-    --checkpoint <CKPT_B1> \
+python tools/analysis/benchmark.py work_dirs/paper/M1/petr_wifi.py \
+    --checkpoint <CKPT_M1> \
     --device cuda:0 \
     --times 100 \
     --warmup 10 \
-    --out paper_assets/logs/B1_benchmark.json
+    --out paper_assets/logs/M1_benchmark.json
 
 python tools/analysis/append_experiment_log.py \
-    --experiment-id B1 \
-    --config work_dirs/paper/B1/petr_wifi.py \
-    --checkpoint <CKPT_B1> \
-    --eval-json paper_assets/logs/B1_eval.json \
-    --benchmark-json paper_assets/logs/B1_benchmark.json \
+    --experiment-id M1 \
+    --config work_dirs/paper/M1/petr_wifi.py \
+    --checkpoint <CKPT_M1> \
+    --eval-json paper_assets/logs/M1_eval.json \
+    --benchmark-json paper_assets/logs/M1_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B1 spectral tokenizer only"
+    --notes "M1 spectral tokenizer only"
 ```
 
-### B2
+### M2
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_mamba.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B2
+    --work-dir work_dirs/paper/M2
 
-python tools/test.py work_dirs/paper/B2/petr_wifi_mamba.py <CKPT_B2> --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B2 \
-    --metrics-out paper_assets/logs/B2_eval.json
+python tools/test.py work_dirs/paper/M2/petr_wifi_mamba.py <CKPT_M2> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M2 \
+    --metrics-out paper_assets/logs/M2_eval.json
 
-python tools/analysis/benchmark.py work_dirs/paper/B2/petr_wifi_mamba.py \
-    --checkpoint <CKPT_B2> \
+python tools/analysis/benchmark.py work_dirs/paper/M2/petr_wifi_mamba.py \
+    --checkpoint <CKPT_M2> \
     --device cuda:0 \
     --times 100 \
     --warmup 10 \
-    --out paper_assets/logs/B2_benchmark.json
+    --out paper_assets/logs/M2_benchmark.json
 
 python tools/analysis/append_experiment_log.py \
-    --experiment-id B2 \
-    --config work_dirs/paper/B2/petr_wifi_mamba.py \
-    --checkpoint <CKPT_B2> \
-    --eval-json paper_assets/logs/B2_eval.json \
-    --benchmark-json paper_assets/logs/B2_benchmark.json \
+    --experiment-id M2 \
+    --config work_dirs/paper/M2/petr_wifi_mamba.py \
+    --checkpoint <CKPT_M2> \
+    --eval-json paper_assets/logs/M2_eval.json \
+    --benchmark-json paper_assets/logs/M2_benchmark.json \
     --csv paper_assets/logs/experiment_log.csv \
-    --notes "B2 spectral tokenizer + WiMamba"
+    --notes "M2 spectral tokenizer + WiMamba"
 ```
 
 ### Bone Side Branch
 
-Use this branch only if `B0_bone > B0` is promising enough to justify expanding `BoneLengthLoss` to `B1_bone` and `B2_bone`.
+Use this branch only if `M0_bone > M0` is promising enough to justify expanding `BoneLengthLoss` to `M1_bone` and `M2_bone`.
 
-`B0_bone`
+`M0_bone`
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B0_bone
+    --work-dir work_dirs/paper/M0_bone
 ```
 
-`B1_bone`
+`M1_bone`
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B1_bone \
+    --work-dir work_dirs/paper/M1_bone \
     --cfg-options model.backbone.mode=spectral
 ```
 
-`B2_bone`
+`M2_bone`
 
 ```bash
 python tools/train.py configs/wifi/petr_wifi_bone_mamba.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B2_bone
+    --work-dir work_dirs/paper/M2_bone
 ```
 
-### B3
-
-Current caveat:
-
-- [ ] `B3` is not yet a paper-clean config-only ablation in the current codebase
-- [ ] do not freeze `B3` numbers for the paper until flow can be disabled cleanly in both training and inference
-
-Temporary exploratory command only:
-
-```bash
-python tools/train.py configs/wifi/wi_tidir_wifi.py \
-    --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B3_tmp \
-    --cfg-options model.bbox_head.loss_flow_weight=0.0 model.bbox_head.loss_bone=None
-```
-
-### B4
-
-```bash
-python tools/train.py configs/wifi/wi_tidir_wifi.py \
-    --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B4 \
-    --cfg-options model.bbox_head.loss_bone=None
-
-python tools/test.py work_dirs/paper/B4/wi_tidir_wifi.py <CKPT_B4> --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B4 \
-    --metrics-out paper_assets/logs/B4_eval.json
-
-python tools/analysis/benchmark.py work_dirs/paper/B4/wi_tidir_wifi.py \
-    --checkpoint <CKPT_B4> \
-    --device cuda:0 \
-    --times 100 \
-    --warmup 10 \
-    --out paper_assets/logs/B4_benchmark.json
-
-python tools/analysis/append_experiment_log.py \
-    --experiment-id B4 \
-    --config work_dirs/paper/B4/wi_tidir_wifi.py \
-    --checkpoint <CKPT_B4> \
-    --eval-json paper_assets/logs/B4_eval.json \
-    --benchmark-json paper_assets/logs/B4_benchmark.json \
-    --csv paper_assets/logs/experiment_log.csv \
-    --notes "B4 spectral + WiMamba(4) + draft + flow, no bone"
-```
-
-### B5
-
-```bash
-python tools/train.py configs/wifi/wi_tidir_wifi.py \
-    --seed 42 --deterministic \
-    --work-dir work_dirs/paper/B5
-
-python tools/test.py work_dirs/paper/B5/wi_tidir_wifi.py <CKPT_B5> --eval mpjpe \
-    --work-dir work_dirs/paper_eval/B5 \
-    --metrics-out paper_assets/logs/B5_eval.json
-
-python tools/analysis/benchmark.py work_dirs/paper/B5/wi_tidir_wifi.py \
-    --checkpoint <CKPT_B5> \
-    --device cuda:0 \
-    --times 100 \
-    --warmup 10 \
-    --out paper_assets/logs/B5_benchmark.json
-
-python tools/analysis/append_experiment_log.py \
-    --experiment-id B5 \
-    --config work_dirs/paper/B5/wi_tidir_wifi.py \
-    --checkpoint <CKPT_B5> \
-    --eval-json paper_assets/logs/B5_eval.json \
-    --benchmark-json paper_assets/logs/B5_benchmark.json \
-    --csv paper_assets/logs/experiment_log.csv \
-    --notes "B5 spectral + WiMamba(4) + draft + flow + bone"
-```
-
-### Extra Independent Ablations
-
-`A1`
-
-```bash
-python tools/train.py configs/wifi/petr_wifi_linear_mamba.py \
-    --seed 42 --deterministic \
-    --work-dir work_dirs/paper/A1
-```
-
-`A3`
+### M3
 
 ```bash
 python tools/train.py configs/wifi/wi_tidir_wifi_transformer.py \
     --seed 42 --deterministic \
-    --work-dir work_dirs/paper/A3
+    --work-dir work_dirs/paper/M3
+
+python tools/test.py work_dirs/paper/M3/wi_tidir_wifi_transformer.py <CKPT_M3> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M3 \
+    --metrics-out paper_assets/logs/M3_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/M3/wi_tidir_wifi_transformer.py \
+    --checkpoint <CKPT_M3> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/M3_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id M3 \
+    --config work_dirs/paper/M3/wi_tidir_wifi_transformer.py \
+    --checkpoint <CKPT_M3> \
+    --eval-json paper_assets/logs/M3_eval.json \
+    --benchmark-json paper_assets/logs/M3_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "M3 spectral + Transformer + draft + flow, no bone"
+```
+
+### M4
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/M4 \
+    --cfg-options model.bbox_head.loss_bone=None
+
+python tools/test.py work_dirs/paper/M4/wi_tidir_wifi.py <CKPT_M4> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M4 \
+    --metrics-out paper_assets/logs/M4_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/M4/wi_tidir_wifi.py \
+    --checkpoint <CKPT_M4> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/M4_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id M4 \
+    --config work_dirs/paper/M4/wi_tidir_wifi.py \
+    --checkpoint <CKPT_M4> \
+    --eval-json paper_assets/logs/M4_eval.json \
+    --benchmark-json paper_assets/logs/M4_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "M4 spectral + WiMamba(4) + draft + flow, no bone"
+```
+
+### M5
+
+```bash
+python tools/train.py configs/wifi/wi_tidir_wifi.py \
+    --seed 42 --deterministic \
+    --work-dir work_dirs/paper/M5
+
+python tools/test.py work_dirs/paper/M5/wi_tidir_wifi.py <CKPT_M5> --eval mpjpe \
+    --work-dir work_dirs/paper_eval/M5 \
+    --metrics-out paper_assets/logs/M5_eval.json
+
+python tools/analysis/benchmark.py work_dirs/paper/M5/wi_tidir_wifi.py \
+    --checkpoint <CKPT_M5> \
+    --device cuda:0 \
+    --times 100 \
+    --warmup 10 \
+    --out paper_assets/logs/M5_benchmark.json
+
+python tools/analysis/append_experiment_log.py \
+    --experiment-id M5 \
+    --config work_dirs/paper/M5/wi_tidir_wifi.py \
+    --checkpoint <CKPT_M5> \
+    --eval-json paper_assets/logs/M5_eval.json \
+    --benchmark-json paper_assets/logs/M5_benchmark.json \
+    --csv paper_assets/logs/experiment_log.csv \
+    --notes "M5 spectral + WiMamba(4) + draft + flow + bone"
 ```
 
 ## Priority Order
 
 ### Tier 1
 
-- [ ] `B0` reproduced CVPR baseline with `mode='linear'`
-- [ ] `B1` switch `linear -> spectral` only
-- [ ] `B2` spectral tokenizer + WiMamba
-- [ ] `B4` spectral tokenizer + WiMamba + Draft + Flow
-- [ ] `B5` full model with BoneLengthLoss
+- [ ] `M0` reproduced CVPR baseline with `mode='linear'`
+- [ ] `M1` switch `linear -> spectral` only
+- [ ] `M2` spectral tokenizer + WiMamba
+- [ ] `M4` spectral tokenizer + WiMamba + Draft + Flow
+- [ ] `M5` full model with BoneLengthLoss
 
 ### Tier 2
 
-- [ ] `B3` Draft-only ablation
+- [ ] `M3` Draft-only ablation
 - [ ] repeat best models for stability if budget allows
 
 ## Ablation Identity Check
 
 Before launching any run, confirm the backbone mode matches the ablation claim:
 
-- [ ] `B0` -> `WifiInputAdapter(mode='linear')`
-- [ ] `B1` -> `WifiInputAdapter(mode='spectral')` with baseline encoder/decoder stack
-- [ ] `B2/B3/B4/B5` -> `WifiInputAdapter(mode='spectral')`
-- [ ] do not reuse an old spectral checkpoint and relabel it as `B0`
+- [ ] `M0` -> `WifiInputAdapter(mode='linear')`
+- [ ] `M1` -> `WifiInputAdapter(mode='spectral')` with baseline encoder/decoder stack
+- [ ] `M2/M3/M4/M5` -> `WifiInputAdapter(mode='spectral')`
+- [ ] do not reuse an old spectral checkpoint and relabel it as `M0`
 
 ## Day 1 Checklist
 
@@ -581,23 +567,23 @@ Lock baseline and evaluation pipeline.
 
 - [ ] Verify dataset path and split integrity
 - [ ] Verify `gt_bone_stats.json` exists at repo root
-- [ ] Reproduce `B0`
-- [ ] Confirm `B0` config really uses `WifiInputAdapter(mode='linear')`
-- [ ] Run eval command for `B0`
+- [ ] Reproduce `M0`
+- [ ] Confirm `M0` config really uses `WifiInputAdapter(mode='linear')`
+- [ ] Run eval command for `M0`
 - [ ] Confirm overall `MPJPE`
 - [ ] Confirm `1-person / 2-person / 3-person` breakdown export works
 - [ ] Confirm `count_1p/2p/3p` are GT denominators
 - [ ] Confirm `matched_1p/2p/3p` are exported
-- [ ] Run latency and memory benchmark command for `B0`
-- [ ] Create or update one experiment log row for `B0`
+- [ ] Run latency and memory benchmark command for `M0`
+- [ ] Create or update one experiment log row for `M0`
 
 ### End-of-Day Deliverables
 
-- [ ] `B0` final metrics
-- [ ] `paper_assets/logs/B0_eval.json`
-- [ ] `B0` checkpoint path
-- [ ] `paper_assets/logs/B0_benchmark.json`
-- [ ] `paper_assets/logs/experiment_log.csv` contains `B0`
+- [ ] `M0` final metrics
+- [ ] `paper_assets/logs/M0_eval.json`
+- [ ] `M0` checkpoint path
+- [ ] `paper_assets/logs/M0_benchmark.json`
+- [ ] `paper_assets/logs/experiment_log.csv` contains `M0`
 - [ ] one short baseline note: stable or unstable
 
 ## Day 2 Checklist
@@ -608,16 +594,16 @@ Measure representation and encoder gains.
 
 ### Tasks
 
-- [ ] Confirm `B1` is the first spectral run, not `B0`
-- [ ] Run `B1`
-- [ ] Run `B2`
-- [ ] Export metrics for `B1`
-- [ ] Export metrics for `B2`
-- [ ] Append or update CSV rows for `B1`
-- [ ] Append or update CSV rows for `B2`
-- [ ] Export benchmark numbers for `B1`
-- [ ] Export benchmark numbers for `B2`
-- [ ] Compare `B0 vs B1 vs B2`
+- [ ] Confirm `M1` is the first spectral run, not `M0`
+- [ ] Run `M1`
+- [ ] Run `M2`
+- [ ] Export metrics for `M1`
+- [ ] Export metrics for `M2`
+- [ ] Append or update CSV rows for `M1`
+- [ ] Append or update CSV rows for `M2`
+- [ ] Export benchmark numbers for `M1`
+- [ ] Export benchmark numbers for `M2`
+- [ ] Compare `M0 vs M1 vs M2`
 
 ### End-of-Day Deliverables
 
@@ -633,13 +619,13 @@ Isolate draft and refinement behavior.
 
 ### Tasks
 
-- [ ] Run `B3`
-- [ ] Run `B4`
-- [ ] Export metrics for `B3`
-- [ ] Export metrics for `B4`
-- [ ] Append or update CSV rows for `B3`
-- [ ] Append or update CSV rows for `B4`
-- [ ] Compare `B2 vs B3 vs B4`
+- [ ] Run `M3`
+- [ ] Run `M4`
+- [ ] Export metrics for `M3`
+- [ ] Export metrics for `M4`
+- [ ] Append or update CSV rows for `M3`
+- [ ] Append or update CSV rows for `M4`
+- [ ] Compare `M2 vs M3 vs M4`
 - [ ] Inspect hard cases manually
 
 ### End-of-Day Deliverables
@@ -656,11 +642,11 @@ Run and inspect full model.
 
 ### Tasks
 
-- [ ] Run `B5`
-- [ ] Export metrics for `B5`
-- [ ] Export benchmark for `B5`
-- [ ] Append or update CSV row for `B5`
-- [ ] Compare `B4 vs B5`
+- [ ] Run `M5`
+- [ ] Export metrics for `M5`
+- [ ] Export benchmark for `M5`
+- [ ] Append or update CSV row for `M5`
+- [ ] Compare `M4 vs M5`
 - [ ] Inspect bone-length realism qualitatively
 - [ ] Save candidate figures for structure improvement
 
@@ -679,10 +665,10 @@ Stabilize and verify the core claims.
 ### Tasks
 
 - [ ] Rerun any unstable key model if needed
-- [ ] Confirm best checkpoint for `B0`
-- [ ] Confirm best checkpoint for `B2`
-- [ ] Confirm best checkpoint for `B5`
-- [ ] Confirm `experiment_log.csv` rows for `B0`, `B2`, `B5` are final
+- [ ] Confirm best checkpoint for `M0`
+- [ ] Confirm best checkpoint for `M2`
+- [ ] Confirm best checkpoint for `M5`
+- [ ] Confirm `experiment_log.csv` rows for `M0`, `M2`, `M5` are final
 - [ ] Export clean benchmark summaries
 - [ ] Freeze the final numbers to be used in tables
 
@@ -778,23 +764,22 @@ Fill this table as runs finish. Keep one row per frozen result.
 
 | ID | Config | Input Adapter | Encoder | Draft | Flow | Bone | MPJPE | MPJPE 1P | MPJPE 2P | MPJPE 3P | PJDLE(h) | PJDLE(v) | PJDLE(d) | Bone Error | Latency (ms) | FPS | Params (M) | Peak Mem (MB) | Checkpoint | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| B0 | `configs/wifi/petr_wifi.py` | Linear | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B1 | `configs/wifi/petr_wifi.py + mode=spectral` | Spectral | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B2 | `configs/wifi/petr_wifi_mamba.py` | Spectral | Mamba-4 | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| A1 | `configs/wifi/petr_wifi_linear_mamba.py` | Linear | Mamba-4 | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| A3 | `configs/wifi/wi_tidir_wifi_transformer.py` | Spectral | Transformer-6 | Draft | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B0_bone | `configs/wifi/petr_wifi_bone.py` | Linear | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B1_bone | `configs/wifi/petr_wifi_bone.py + mode=spectral` | Spectral | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B2_bone | `configs/wifi/petr_wifi_bone_mamba.py` | Spectral | Mamba-4 | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B4 | `configs/wifi/wi_tidir_wifi.py + loss_bone=None` | Spectral | Mamba-4 | Draft | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| B5 | `configs/wifi/wi_tidir_wifi.py` | Spectral | Mamba-4 | Draft | Yes | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M0 | `configs/wifi/petr_wifi.py` | Linear | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M1 | `configs/wifi/petr_wifi.py + mode=spectral` | Spectral | Transformer | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M2 | `configs/wifi/petr_wifi_mamba.py` | Spectral | Mamba-4 | PETR | No | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M3 | `configs/wifi/wi_tidir_wifi_transformer.py` | Spectral | Transformer-6 | Draft + Flow | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M0_bone | `configs/wifi/petr_wifi_bone.py` | Linear | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M1_bone | `configs/wifi/petr_wifi_bone.py + mode=spectral` | Spectral | Transformer | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M2_bone | `configs/wifi/petr_wifi_bone_mamba.py` | Spectral | Mamba-4 | PETR | No | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M4 | `configs/wifi/wi_tidir_wifi.py + loss_bone=None` | Spectral | Mamba-4 | Draft + Flow | Yes | No |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| M5 | `configs/wifi/wi_tidir_wifi.py` | Spectral | Mamba-4 | Draft + Flow | Yes | Yes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
 
 ## Stop Conditions
 
 Pause and reassess if any of these happen:
 
 - [ ] baseline cannot be reproduced consistently
-- [ ] `B1` and `B2` both fail to improve anything meaningful
+- [ ] `M1` and `M2` both fail to improve anything meaningful
 - [ ] full model improves only visually but not numerically
 - [ ] WiMamba is slower in practice than Transformer under your setup
 - [ ] too many unstable runs consume more than 2 days
@@ -803,17 +788,18 @@ Pause and reassess if any of these happen:
 
 If time runs out, make sure these are complete:
 
-- [ ] `B0`
-- [ ] `B1`
-- [ ] `B2`
-- [ ] `B0` is verified as `linear`, not spectral
-- [ ] `B0/B1/B2` eval JSON files frozen
-- [ ] `B0/B2` benchmark JSON files frozen
+- [ ] `M0`
+- [ ] `M1`
+- [ ] `M2`
+- [ ] `M0` is verified as `linear`, not spectral
+- [ ] `M0/M1/M2` eval JSON files frozen
+- [ ] `M0/M2` benchmark JSON files frozen
 - [ ] `experiment_log.csv` updated and checked
-- [ ] `B4`
-- [ ] `B5`
+- [ ] `M4`
+- [ ] `M5`
 - [ ] one main comparison table
 - [ ] one efficiency table
 - [ ] one ablation table
 - [ ] one qualitative comparison figure
 - [ ] one architecture figure
+

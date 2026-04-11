@@ -7,25 +7,31 @@ NVIDIA_SMI_BIN="${NVIDIA_SMI_BIN:-nvidia-smi}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/work_dirs/paper_launch_logs}"
 DRY_RUN="${DRY_RUN:-0}"
 
-RUN_IDS=(B0 B1 B2 B4 B5)
+RUN_IDS=(M0 M1 M2 M4 M5)
+if [[ -n "${EXTRA_RUN_IDS:-}" ]]; then
+  read -r -a EXTRA_RUN_IDS_ARR <<<"$EXTRA_RUN_IDS"
+  RUN_IDS+=("${EXTRA_RUN_IDS_ARR[@]}")
+fi
 RUN_GPU_IDS=()
 PIDS=()
 FAILURES=0
 
 declare -A CONFIG_PATHS=(
-  [B0]="configs/wifi/petr_wifi.py"
-  [B1]="configs/wifi/petr_wifi.py"
-  [B2]="configs/wifi/petr_wifi_mamba.py"
-  [B4]="configs/wifi/wi_tidir_wifi.py"
-  [B5]="configs/wifi/wi_tidir_wifi.py"
+  [M0]="configs/wifi/petr_wifi.py"
+  [M1]="configs/wifi/petr_wifi.py"
+  [M2]="configs/wifi/petr_wifi_mamba.py"
+  [M4]="configs/wifi/wi_tidir_wifi.py"
+  [M5]="configs/wifi/wi_tidir_wifi.py"
+  [M5_linear]="configs/wifi/wi_tidir_wifi_linear.py"
 )
 
 declare -A CFG_OPTIONS=(
-  [B0]=""
-  [B1]="model.backbone.mode=spectral"
-  [B2]=""
-  [B4]="model.bbox_head.loss_bone=None"
-  [B5]=""
+  [M0]=""
+  [M1]="model.backbone.mode=spectral"
+  [M2]=""
+  [M4]="model.bbox_head.loss_bone=None"
+  [M5]=""
+  [M5_linear]=""
 )
 
 declare -A RUN_STATUS=()
@@ -86,8 +92,8 @@ discover_gpus() {
       --format=csv,noheader,nounits
   )
 
-  if [[ "${#out_rows_ref[@]}" -lt 5 ]]; then
-    echo "ERROR: Need at least 5 visible GPUs, found ${#out_rows_ref[@]}." >&2
+  if [[ "${#out_rows_ref[@]}" -lt "${#RUN_IDS[@]}" ]]; then
+    echo "ERROR: Need at least 5 visible GPUs by default, or ${#RUN_IDS[@]} when EXTRA_RUN_IDS is used. Found ${#out_rows_ref[@]}." >&2
     exit 1
   fi
 
@@ -106,8 +112,8 @@ validate_gpu_ids() {
   local requested visible found
   declare -A seen=()
 
-  if [[ "${#requested_ids[@]}" -ne 5 ]]; then
-    echo "ERROR: GPU_IDS must contain exactly 5 GPU IDs. Got: ${#requested_ids[@]}" >&2
+  if [[ "${#requested_ids[@]}" -ne "${#RUN_IDS[@]}" ]]; then
+    echo "ERROR: GPU_IDS must contain exactly ${#RUN_IDS[@]} GPU IDs. Got: ${#requested_ids[@]}" >&2
     exit 1
   fi
 
@@ -138,7 +144,7 @@ select_gpu_ids() {
     read -r -a RUN_GPU_IDS <<<"$GPU_IDS"
     validate_gpu_ids visible_indices_ref "${RUN_GPU_IDS[@]}"
   else
-    RUN_GPU_IDS=("${visible_indices_ref[@]:0:5}")
+    RUN_GPU_IDS=("${visible_indices_ref[@]:0:${#RUN_IDS[@]}}")
   fi
 }
 

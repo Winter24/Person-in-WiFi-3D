@@ -1,4 +1,4 @@
-# Paper Asset Checklist
+﻿# Paper Asset Checklist
 
 Reference master plan:
 [2026-03-31-balanced-arxiv-workshop-paper-plan.md](D:/Resfes_2026/Person-in-WiFi-3D/docs/paper/2026-03-31-balanced-arxiv-workshop-paper-plan.md)
@@ -26,12 +26,12 @@ Recommended folders:
 
 For every reported ablation, the asset source of truth should come from the canonical run directory:
 
-- `B0` -> `work_dirs/paper/B0/`
-- `B1` -> `work_dirs/paper/B1/`
-- `B2` -> `work_dirs/paper/B2/`
-- `B4` -> `work_dirs/paper/B4/`
-- `B5` -> `work_dirs/paper/B5/`
-- canonical `B0` artifacts are expected to come from a config using:
+- `M0` -> `work_dirs/paper/M0/`
+- `M1` -> `work_dirs/paper/M1/`
+- `M2` -> `work_dirs/paper/M2/`
+- `M4` -> `work_dirs/paper/M4/`
+- `M5` -> `work_dirs/paper/M5/`
+- canonical `M0` artifacts are expected to come from a config using:
   `WifiInputAdapter(mode='linear')`, `AdamW`, `meta_keys=[]`, and test-time `MultiScaleFlipAug`
 
 Expected fixed artifacts:
@@ -43,8 +43,8 @@ Expected fixed artifacts:
 Important note:
 
 - if a run was launched with `--cfg-options`, use the dumped config inside `work_dirs/paper/<ID>/` as the official config reference for that ablation
-- do not build final paper assets from `B3` until flow can be disabled cleanly for a paper-clean draft-only ablation
-- `B4` and `B5` should both use the 6-layer WiMamba backbone; the only intended structural difference is `loss_bone=None` vs `loss_bone=dict(...)`
+- `M3` is the Transformer-based `Draft + Flow` ablation
+- `M4` and `M5` should both use the same Spectral + Mamba + Draft + Flow stack; the only intended structural difference is `loss_bone=None` vs `loss_bone=dict(...)`
 
 ## Master Completion Check
 
@@ -61,7 +61,7 @@ Important note:
 Purpose:
 
 - compare the proposed method with the reproduced CVPR baseline
-- make it explicit that `B0` is the linear-projection baseline, not a spectral run
+- make it explicit that `M0` is the linear-projection baseline, not a spectral run
 
 Required columns:
 
@@ -76,11 +76,11 @@ Required columns:
 
 Required rows:
 
-- [ ] Baseline / `B0` (`WifiInputAdapter(mode='linear')`)
-- [ ] `B1`
-- [ ] `B2`
-- [ ] `B4`
-- [ ] `B5`
+- [ ] Baseline / `M0` (`WifiInputAdapter(mode='linear')`)
+- [ ] `M1`
+- [ ] `M2`
+- [ ] `M4`
+- [ ] `M5`
 
 Source files:
 
@@ -105,9 +105,9 @@ Required columns:
 
 Required rows:
 
-- [ ] `B0` (`linear`)
-- [ ] `B2`
-- [ ] `B5`
+- [ ] `M0` (`linear`)
+- [ ] `M2`
+- [ ] `M5`
 
 Source files:
 
@@ -134,17 +134,17 @@ Required columns:
 
 Required rows:
 
-- [ ] `B0` (`linear`)
-- [ ] `B1` (`spectral`)
-- [ ] `B2`
-- [ ] `B3`
-- [ ] `B4`
-- [ ] `B5`
+- [ ] `M0` (`linear`)
+- [ ] `M1` (`spectral`)
+- [ ] `M2`
+- [ ] `M3`
+- [ ] `M4`
+- [ ] `M5`
 
 Source files:
 
 - [ ] all ablation CSV exports
-- [ ] optional side-branch CSV exports for `B0_bone/B1_bone/B2_bone`
+- [ ] optional side-branch CSV exports for `M0_bone/M1_bone/M2_bone`
 
 Output files:
 
@@ -163,9 +163,9 @@ Required columns:
 
 Required rows:
 
-- [ ] `B0` (`linear baseline`)
-- [ ] `B4`
-- [ ] `B5`
+- [ ] `M0` (`linear baseline`)
+- [ ] `M4`
+- [ ] `M5`
 
 Source files:
 
@@ -179,7 +179,7 @@ Output files:
 
 Exploratory side branch note:
 
-- [ ] keep `B0_bone/B1_bone/B2_bone` in a separate scratch table or appendix until the branch is explicitly promoted into the main narrative
+- [ ] keep `M0_bone/M1_bone/M2_bone` in a separate scratch table or appendix until the branch is explicitly promoted into the main narrative
 
 ## Figure Checklist
 
@@ -215,7 +215,7 @@ Required cases:
 For each case, include:
 
 - [ ] GT
-- [ ] `B0` linear-baseline prediction
+- [ ] `M0` linear-baseline prediction
 - [ ] full model prediction
 - [ ] sample ID recorded
 
@@ -244,10 +244,12 @@ Asset requirements:
 
 Must show:
 
-- [ ] `B0` linear-baseline point
-- [ ] `B1`
-- [ ] `B2`
-- [ ] `B5`
+- [ ] `M0` linear-baseline point
+- [ ] `M1`
+- [ ] `M2`
+- [ ] `M3`
+- [ ] `M4`
+- [ ] `M5`
 
 Plot requirements:
 
@@ -268,7 +270,7 @@ Choose at least one of:
 Purpose:
 
 - [ ] justify why spectral tokenization is meaningful for WiFi
-- [ ] make clear that the comparison target is the baseline linear projection in `B0`
+- [ ] make clear that the comparison target is the baseline linear projection in `M0`
 
 ## CSV Checklist
 
@@ -277,7 +279,7 @@ Purpose:
 - [ ] one row per model
 - [ ] overall metrics
 - [ ] matching ablation IDs
-- [ ] `B0` row explicitly marked as `linear`
+- [ ] `M0` row explicitly marked as `linear`
 - [ ] no duplicated or stale runs
 
 ### Person-Count Breakdown CSV
@@ -285,7 +287,7 @@ Purpose:
 - [ ] `1-person`
 - [ ] `2-person`
 - [ ] `3-person`
-- [ ] `B0` row explicitly marked as `linear`
+- [ ] `M0` row explicitly marked as `linear`
 - [ ] same model naming as main metrics CSV
 
 ### Benchmark CSV
@@ -308,7 +310,7 @@ For every chosen sample:
 
 - [ ] sample ID
 - [ ] GT file saved
-- [ ] `B0` linear-baseline result saved
+- [ ] `M0` linear-baseline result saved
 - [ ] full model result saved
 - [ ] failure type tagged
 - [ ] caption note written
@@ -365,3 +367,4 @@ Every figure/table needs:
 - [ ] captions are final enough for drafting
 - [ ] all source CSV files are backed up
 - [ ] best checkpoints for all reported models are recorded
+

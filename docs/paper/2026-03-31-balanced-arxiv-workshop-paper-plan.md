@@ -1,4 +1,4 @@
-# Balanced ArXiv Workshop Paper Plan
+﻿# Balanced ArXiv Workshop Paper Plan
 
 ## Goal
 
@@ -20,11 +20,9 @@ The target is a strong `arXiv/workshop first` paper with a balanced claim:
 - evaluation scope: `official Person-in-WiFi 3D split only`
 - experimental budget: `1-2 GPU, about 1 week`
 
-### Recommended Title Direction
+### Official Paper Title
 
-- `Wi-FlowMamba: Spectral-Aware and Efficient Multi-Person 3D Pose Estimation from WiFi`
-- `SpectraMambaFlow for Multi-Person 3D WiFi Pose Estimation`
-- `Beyond Person-in-WiFi 3D: Spectral Tokenization, Linear Sequence Modeling, and Flow-Based Pose Refinement`
+- `Fast yet Accurate: Bridging the Gap in WiFi Pose Estimation via Mamba and Rectified Flow`
 
 ### One-Sentence Thesis
 
@@ -110,20 +108,24 @@ Use the following naming consistently in the manuscript:
 
 Current codebase mapping:
 
-- `B0` uses `WifiInputAdapter(mode='linear')` without `BoneLengthLoss`
-- `B1+` use `WifiInputAdapter(mode='spectral')`
+- `M0`: Linear + Transformer + DETR Regression
+- `M1`: Spectral + Transformer + DETR Regression
+- `M2`: Spectral + Mamba + DETR Regression
+- `M3`: Spectral + Transformer + Draft + Flow
+- `M4`: Spectral + Mamba + Draft + Flow
+- `M5`: Spectral + Mamba + Draft + Flow + BoneLengthLoss
 - canonical `configs/wifi/petr_wifi.py` now follows the current screening recipe:
   `batch=32`, `20 epochs`, `lr=2e-5`, `step=[450]`, `AdamW`, `MSE` regression losses
 - canonical `configs/wifi/petr_wifi.py` also keeps the currently requested config-side conventions:
   `meta_keys=[]` and test-time `MultiScaleFlipAug`
 - shorter `10e/20e/50e` runs are screening overrides for proposal-speed iteration, not the canonical CVPR-style baseline config
 - exploratory side branch:
-  `B0_bone = B0 + BoneLengthLoss`
-  `B1_bone = B1 + BoneLengthLoss`
-  `B2_bone = B2 + BoneLengthLoss`
+  `M0_bone = M0 + BoneLengthLoss`
+  `M1_bone = M1 + BoneLengthLoss`
+  `M2_bone = M2 + BoneLengthLoss`
 - all bone-enabled runs now use a global ratio-based `BoneLossWarmupHook`
   from the base config so early epochs do not over-regularize pose formation
-- `B5` keeps the same warmup schedule shape but overrides the final
+- `M5` keeps the same warmup schedule shape but overrides the final
   `BoneLengthLoss` target weight to `1.0`
 
 ## Experimental Protocol
@@ -179,26 +181,24 @@ The paper should not compare only `baseline vs full model`. It needs a clean lad
 
 ### Main Ablation Ladder
 
-| ID | Input Adapter | Encoder | Draft | Flow Refine | BoneLengthLoss | Purpose |
+| ID | Input Adapter | Backbone | Head / Decoder | BoneLengthLoss | Purpose |
 | --- | --- | --- | --- | --- | --- | --- |
-| B0 | Linear Projection | Transformer | PETR original | No | No | Reproduced CVPR baseline |
-| B1 | Spectral Tokenizer | Transformer | PETR original | No | No | Isolate tokenizer gain over linear B0 |
-| B2 | Spectral Tokenizer | WiMamba (4 layers) | PETR original or PETR-compatible decoder | No | No | Isolate encoder gain |
-| B3 | Spectral Tokenizer | WiMamba | Draft head | No | No | Isolate draft decoding |
-| B4 | Spectral Tokenizer | WiMamba (4 layers) | Draft head | Yes | No | Isolate flow refinement |
-| B5 | Spectral Tokenizer | WiMamba (4 layers) | Draft head | Yes | Yes | Full model with BoneLengthLoss |
-| A1 | Linear Projection | WiMamba (4 layers) | PETR original | No | No | Isolate encoder gain without spectral tokenizer |
-| A3 | Spectral Tokenizer | Transformer (6 layers) | Draft head | Yes | No | Compare flow head under Transformer instead of Mamba |
+| M0 | Linear Projection | Transformer | DETR Regression | No | Reproduced CVPR-style baseline |
+| M1 | Spectral Tokenizer | Transformer | DETR Regression | No | Isolate tokenizer gain over linear M0 |
+| M2 | Spectral Tokenizer | WiMamba (4 layers) | DETR Regression | No | Isolate Mamba gain over M1 |
+| M3 | Spectral Tokenizer | Transformer (6 layers) | Draft + Rectified Flow | No | Isolate decoder gain under Transformer |
+| M4 | Spectral Tokenizer | WiMamba (4 layers) | Draft + Rectified Flow | No | Isolate Mamba gain under the new decoder |
+| M5 | Spectral Tokenizer | WiMamba (4 layers) | Draft + Rectified Flow | Yes | Full model with BoneLengthLoss |
 
 ### Minimum Viable Ladder If Time Is Tight
 
 If the week gets compressed, keep at least:
 
-- `B0`
-- `B1`
-- `B2`
-- `B4`
-- `B5`
+- `M0`
+- `M1`
+- `M2`
+- `M4`
+- `M5`
 
 This is the minimum set that still tells a convincing story.
 
@@ -208,27 +208,26 @@ To keep the ablations reproducible in the current codebase:
 
 - use `work_dirs/paper/<ID>/` as the canonical run folder for each ablation
 - for runs launched with `--cfg-options`, use the dumped config inside that work dir for later eval and benchmark
-- treat `B3` as exploratory only for now; it is not yet a paper-clean config-only ablation because flow is not fully toggleable at inference
+- treat `M3` as exploratory only for now; it is not yet a paper-clean config-only ablation because flow is not fully toggleable at inference
 
 Practical mapping:
 
-- `B0`: train from `configs/wifi/petr_wifi.py`
-- `B1`: train from `configs/wifi/petr_wifi.py` with `--cfg-options model.backbone.mode=spectral`
-- `B2`: train from `configs/wifi/petr_wifi_mamba.py`
-- `A1`: train from `configs/wifi/petr_wifi_linear_mamba.py`
-- `A3`: train from `configs/wifi/wi_tidir_wifi_transformer.py`
-- `B4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None`
-- `B5`: train from `configs/wifi/wi_tidir_wifi.py`
+- `M0`: train from `configs/wifi/petr_wifi.py`
+- `M1`: train from `configs/wifi/petr_wifi.py` with `--cfg-options model.backbone.mode=spectral`
+- `M2`: train from `configs/wifi/petr_wifi_mamba.py`
+- `M3`: train from `configs/wifi/wi_tidir_wifi_transformer.py`
+- `M4`: train from `configs/wifi/wi_tidir_wifi.py` with `--cfg-options model.bbox_head.loss_bone=None`
+- `M5`: train from `configs/wifi/wi_tidir_wifi.py`
 - exploratory side branch:
-  `B0_bone`: train from `configs/wifi/petr_wifi_bone.py`
-  `B1_bone`: train from `configs/wifi/petr_wifi_bone.py` with `--cfg-options model.backbone.mode=spectral`
-  `B2_bone`: train from `configs/wifi/petr_wifi_bone_mamba.py`
+  `M0_bone`: train from `configs/wifi/petr_wifi_bone.py`
+  `M1_bone`: train from `configs/wifi/petr_wifi_bone.py` with `--cfg-options model.backbone.mode=spectral`
+  `M2_bone`: train from `configs/wifi/petr_wifi_bone_mamba.py`
 
-Legacy B0 evaluation policy:
+Legacy M0 evaluation policy:
 
-- if a `B0` checkpoint was trained in the original pre-refactor codebase, still evaluate it with the current canonical `configs/wifi/petr_wifi.py`
-- do not evaluate a legacy `B0` checkpoint with an old dumped config that still declares `ResNet`, because that config no longer reflects the actual linear-projection runtime path used by the old PETR WiFi baseline
-- the patched current codebase is the source of truth for legacy `B0` evaluation because it remaps old `head.weight/head.bias` checkpoints onto `backbone.linear_proj.*`
+- if a `M0` checkpoint was trained in the original pre-refactor codebase, still evaluate it with the current canonical `configs/wifi/petr_wifi.py`
+- do not evaluate a legacy `M0` checkpoint with an old dumped config that still declares `ResNet`, because that config no longer reflects the actual linear-projection runtime path used by the old PETR WiFi baseline
+- the patched current codebase is the source of truth for legacy `M0` evaluation because it remaps old `head.weight/head.bias` checkpoints onto `backbone.linear_proj.*`
 
 ## Hypotheses To Validate
 
@@ -236,7 +235,7 @@ Legacy B0 evaluation policy:
 
 Expected signs:
 
-- lower MPJPE than the linear-projection baseline `B0`
+- lower MPJPE than the linear-projection baseline `M0`
 - clearer gains on wrists, ankles, and depth-related errors
 - better qualitative stability in hard multi-person cases
 
@@ -244,7 +243,7 @@ Expected signs:
 
 Expected signs:
 
-- similar or better MPJPE than B1
+- similar or better MPJPE than M1
 - lower latency than Transformer encoder
 - lower or more stable GPU memory footprint
 
@@ -252,7 +251,8 @@ Expected signs:
 
 Expected signs:
 
-- B4 better than B3
+- M3 better than M1
+- M4 better than M2
 - stronger gains in 2-person and 3-person settings
 - visible correction of coarse joints after refinement
 
@@ -260,7 +260,7 @@ Expected signs:
 
 Expected signs:
 
-- B5 better bone-length consistency than B4
+- M5 better bone-length consistency than M4
 - cleaner bone-length consistency
 - fewer qualitative failure examples
 
@@ -282,11 +282,11 @@ Columns:
 Rows:
 
 - CVPR baseline
-- B0
-- B1
-- B2
-- B4
-- B5
+- M0
+- M1
+- M2
+- M4
+- M5
 
 ### Table 2: Accuracy-Efficiency Trade-Off
 
@@ -301,9 +301,9 @@ Columns:
 
 Rows:
 
-- B0
-- B2
-- B5
+- M0
+- M2
+- M5
 
 ### Table 3: Full Ablation
 
@@ -320,7 +320,7 @@ Columns:
 
 Rows:
 
-- B0 to B5
+- M0 to M5
 
 ### Table 4: Structural Realism
 
@@ -334,9 +334,9 @@ Columns:
 
 Rows:
 
-- B0
-- B4
-- B5
+- M0
+- M4
+- M5
 
 ## Figures To Prepare
 
@@ -386,10 +386,12 @@ Use:
 
 Plot:
 
-- baseline
-- B1
-- B2
-- B5
+- M0
+- M1
+- M2
+- M3
+- M4
+- M5
 
 ### Figure 5: Tokenizer / Frequency Cue Illustration
 
@@ -416,7 +418,7 @@ For each case, save:
 
 - sample ID
 - GT pose
-- B0 baseline pose
+- M0 baseline pose
 - full model pose
 - short caption describing the failure mode
 
@@ -425,23 +427,23 @@ For each case, save:
 ### Day 1
 
 - lock evaluation script
-- reproduce `B0` linear baseline result
+- reproduce `M0` linear baseline result
 - confirm logging format
 
 ### Day 2
 
-- run `B1`
-- run `B2`
+- run `M1`
+- run `M2`
 - collect first efficiency measurements
 
 ### Day 3
 
-- run `B3`
-- run `B4`
+- run `M3`
+- run `M4`
 
 ### Day 4
 
-- run `B5`
+- run `M5`
 - inspect training stability
 - export preliminary metrics
 
@@ -534,9 +536,9 @@ Before writing the paper, the following artifacts should exist:
 
 This first arXiv/workshop version is successful if:
 
-1. `B5` beats the reproduced baseline on overall MPJPE
-   baseline here means `B0` with linear projection, not a spectral checkpoint
-2. `B2` or `B5` clearly improves the accuracy-efficiency trade-off
+1. `M5` beats the reproduced baseline on overall MPJPE
+   baseline here means `M0` with linear projection, not a spectral checkpoint
+2. `M2` or `M5` clearly improves the accuracy-efficiency trade-off
 3. qualitative examples visibly support the refinement and structure claims
 4. the paper story stays clean and does not over-claim robustness beyond the official split
 
@@ -566,7 +568,7 @@ Guardrail:
 
 Guardrail:
 
-- prioritize `B0, B1, B2, B4, B5`
+- prioritize `M0, M1, M2, M4, M5`
 - drop extra robustness experiments
 
 ## Final Recommendation
@@ -576,3 +578,4 @@ For the first public version, position the paper as:
 `an efficient and structurally aware upgrade of Person-in-WiFi 3D, not a fully generalized cross-domain WiFi pose framework`
 
 That framing is the safest, clearest, and strongest match for the current codebase and the available experiment budget.
+

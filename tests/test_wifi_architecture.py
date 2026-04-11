@@ -1,4 +1,4 @@
-import importlib.util
+﻿import importlib.util
 import unittest
 from pathlib import Path
 
@@ -85,6 +85,14 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIsNone(cfg.model["bbox_head"]["mamba_cfg"])
         self.assertIsNone(cfg.model["bbox_head"]["loss_bone"])
 
+    def test_witidir_linear_config_keeps_witidar_stack_and_switches_backbone_to_linear(self):
+        cfg = _load_config_module("configs/wifi/wi_tidir_wifi_linear.py")
+        source = _read("configs/wifi/wi_tidir_wifi_linear.py")
+
+        self.assertIn("_base_ = ['./wi_tidir_wifi.py']", source)
+        self.assertEqual(cfg.model["backbone"]["mode"], "linear")
+        self.assertIn("work_dir = './work_dirs/wi_tidir_wifi_linear'", source)
+
     def test_petr_wifi_mamba_source_does_not_override_runtime_hparams(self):
         source = _read("configs/wifi/petr_wifi_mamba.py")
 
@@ -110,9 +118,24 @@ class WifiArchitectureTests(unittest.TestCase):
     def test_bone_branch_commands_are_documented(self):
         checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
 
-        self.assertIn("B0_bone", checklist)
-        self.assertIn("B1_bone", checklist)
-        self.assertIn("B2_bone", checklist)
+        self.assertIn("M0_bone", checklist)
+        self.assertIn("M1_bone", checklist)
+        self.assertIn("M2_bone", checklist)
+        self.assertNotIn("`A1`", checklist)
+
+    def test_paper_plan_uses_m0_to_m5_main_ladder(self):
+        plan = _read("docs/paper/2026-03-31-balanced-arxiv-workshop-paper-plan.md")
+
+        self.assertIn(
+            "Fast yet Accurate: Bridging the Gap in WiFi Pose Estimation via Mamba and Rectified Flow",
+            plan)
+        self.assertIn(
+            "| M0 | Linear Projection | Transformer | DETR Regression | No | Reproduced CVPR-style baseline |",
+            plan)
+        self.assertIn(
+            "| M5 | Spectral Tokenizer | WiMamba (4 layers) | Draft + Rectified Flow | Yes | Full model with BoneLengthLoss |",
+            plan)
+        self.assertNotIn("| A1 |", plan)
 
     def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
@@ -139,6 +162,31 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("CRITICAL ASSUMPTION", source)
         self.assertNotIn("xavier_uniform_(self.linear_proj.weight)", source)
 
+    def test_wifi_input_adapter_has_spatial_mixing_before_temporal_fft(self):
+        source = _read("opera/models/utils/spectral_tokenizer.py")
+
+        self.assertIn("self.spatial_norm = nn.LayerNorm(num_spatial)", source)
+        self.assertIn("self.spatial_mixer = nn.Sequential(", source)
+        self.assertIn("nn.Linear(num_spatial, num_spatial * 2)", source)
+        self.assertIn("nn.Linear(num_spatial * 2, num_spatial)", source)
+        self.assertIn("nn.init.constant_(self.spatial_mixer[2].weight, 0)", source)
+        self.assertIn("nn.init.constant_(self.spatial_mixer[2].bias, 0)", source)
+        self.assertIn("x_spatial = x_grid.permute(0, 2, 3, 1)", source)
+        self.assertIn("x_spatial = self.spatial_norm(x_spatial)", source)
+        self.assertIn("x_spatial = self.spatial_mixer(x_spatial)", source)
+        self.assertIn("x_spatial = residual + x_spatial", source)
+        self.assertIn("x_grid = x_spatial.permute(0, 3, 1, 2).contiguous()", source)
+        self.assertIn("x_permute = x_temp.permute(0, 2, 1).contiguous()", source)
+        self.assertIn("x_time = x_time.permute(0, 2, 1).contiguous()", source)
+
+        idx_spatial = source.find("x_spatial = self.spatial_mixer(")
+        idx_temporal_flatten = source.find(
+            "x_temp = x_grid.reshape(B * self.num_spatial, self.seq_len, C)")
+        idx_fft = source.find("torch.fft.rfft(")
+
+        self.assertTrue(idx_spatial < idx_temporal_flatten)
+        self.assertTrue(idx_temporal_flatten < idx_fft)
+
     def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
         source = _read("opera/models/backbones/wimamba.py")
 
@@ -147,6 +195,25 @@ class WifiArchitectureTests(unittest.TestCase):
             "@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()",
             source)
         self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
+
+    def test_wimamba_encoder_uses_factorized_spatiotemporal_blocks(self):
+        source = _read("opera/models/backbones/wimamba.py")
+
+        self.assertIn("class FactorizedWiMambaBlock", source)
+        self.assertIn("self.norm_t = nn.LayerNorm(dim)", source)
+        self.assertIn("self.mamba_t = Mamba(", source)
+        self.assertIn("self.norm_s = nn.LayerNorm(dim)", source)
+        self.assertIn("self.mamba_s_fwd = Mamba(", source)
+        self.assertIn("self.mamba_s_bwd = Mamba(", source)
+        self.assertIn("x_t = x_t.reshape(B * S, T, C)", source)
+        self.assertIn("x_s = x_s.transpose(1, 2).contiguous().view(B * T, S, C)", source)
+        self.assertIn("x_s_rev = torch.flip(x_s, dims=[1]).contiguous()", source)
+        self.assertIn("out_bwd = torch.flip(out_bwd, dims=[1]).contiguous()", source)
+        self.assertIn("out_s = out_fwd + out_bwd", source)
+        self.assertIn("x = residual_t + x_t", source)
+        self.assertIn("x = residual_s + out_s", source)
+        self.assertIn("x = x.reshape(B, self.num_spatial, self.seq_len, C)", source)
+        self.assertIn("x = x.permute(1, 0, 2).contiguous()", source)
 
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")
@@ -304,7 +371,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertIn("#!/usr/bin/env bash", source)
         self.assertIn("set -euo pipefail", source)
-        self.assertIn("RUN_IDS=(B0 B1 B2 B4 B5)", source)
+        self.assertIn("RUN_IDS=(M0 M1 M2 M4 M5)", source)
         self.assertIn("--query-gpu=index,name,memory.total,memory.used,utilization.gpu", source)
         self.assertIn("Need at least 5 visible GPUs", source)
         self.assertIn('Selected GPU IDs: ${RUN_GPU_IDS[*]}', source)
@@ -319,6 +386,13 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("Final Run Summary", source)
         self.assertIn("printf '%q '", source)
         self.assertIn('eval "$cmd" >"$log_path" 2>&1 &', source)
+
+    def test_parallel_5gpu_launcher_supports_optional_m5_linear_run(self):
+        source = _read("scripts/run_train_5gpu.sh")
+
+        self.assertIn('[M5_linear]="configs/wifi/wi_tidir_wifi_linear.py"', source)
+        self.assertIn('[M5_linear]=""', source)
+        self.assertIn("EXTRA_RUN_IDS", source)
 
     def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
         base_cfg = _read("configs/wifi/petr_wifi.py")
@@ -350,7 +424,7 @@ class WifiArchitectureTests(unittest.TestCase):
     def test_docs_include_strict_repro_run_workflow(self):
         checklist = _read("docs/paper/2026-03-31-experiment-daily-checklist.md")
 
-        self.assertIn("B1_rerun_strict_01", checklist)
+        self.assertIn("M1_rerun_strict_01", checklist)
         self.assertIn("data.workers_per_gpu=0", checklist)
         self.assertIn("epoch_5.pth", checklist)
         self.assertIn("latest.pth", checklist)
@@ -358,3 +432,4 @@ class WifiArchitectureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

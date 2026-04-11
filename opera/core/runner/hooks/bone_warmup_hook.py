@@ -10,7 +10,7 @@ class BoneLossWarmupHook(Hook):
     The hook is intentionally "structurally aware": it inspects the model at
     runtime and only applies when ``loss_bone`` exists and is not ``None``.
     This lets us register the hook globally in the base config without
-    affecting non-bone ablations such as B0/B1/B2/B4.
+    affecting non-bone ablations such as M0/M1/M2/M4.
     """
 
     def __init__(self,

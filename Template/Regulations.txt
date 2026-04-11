@@ -1,0 +1,34 @@
+2. SUBMISSION REQUIREMENTS
+Each research topic can be registered under only one sub-committee. The Board of Reviewers will check for similarity and eligibility of all submissions.
+The official language for both oral and written presentations is English.
+All submitted papers must follow the ResFes 2026 mandatory format. Submissions that do not meet the requirements will be disqualified.
+Presentation slides can follow a free-style format.
+Turnitin similarity must not exceed 25%
+Research teams must check their plagiarism on Turnitin before submission (if possible)
+Teams whose similarity index exceeds 25% will be disqualified for the Preliminary Round or The Finale.
+3. COMPETITION ROUNDS
+Round 1: Preliminary Round (Online Mode)
+Each team must submit their Proposal via the registration link
+For the Proposal Template, please access the provided Template.
+All research teams must comply with and sign in the commitment on responsible usage of AI in their Proposal.
+Research proposal format:
+Language: English
+Paper size: A4
+Layout: Single column
+Font: Times New Roman, size 11
+Maximum length: 10 pages (excluding references and appendices)
+For citations and references, please refer to:
+IEEE style should be applied for Information Technology. For more details, please visit IEEE Style Guidelines.
+APA style should be applied for Business Administration, Linguistics, Multimedia Communication, and Digital Arts & Design. For more details, please visit APA Style Guidelines.
+Research teams with the highest scores in each sub-committee will advance to the Finale.
+Presentation time per team: 20 minutes
+10-minute presentation
+10-minute Q&A
+Round 2: The Finale (On-Site at FPT University, Can Tho Campus, Vietnam)
+Finalist teams must prepare and submit:
+Full research paper
+Presentation slides (mandatory)
+Other visual aids (optional)
+Presentation time per team: 30 minutes
+10-minute presentation
+20-minute Q&A

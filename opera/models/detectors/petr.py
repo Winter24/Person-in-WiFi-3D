@@ -47,7 +47,7 @@ class PETR(DETR):
                               missing_keys, unexpected_keys, error_msgs):
         """Remap legacy WiFi baseline checkpoints onto the unified backbone.
 
-        Older B0 checkpoints stored the input projection as top-level
+        Older M0 / linear-baseline checkpoints stored the input projection as top-level
         ``head.weight`` / ``head.bias``. An intermediate refactor stored the
         same layer under ``backbone.linear_proj.*``. The canonical name is now
         ``backbone.head.*`` and we adapt both older layouts on load.

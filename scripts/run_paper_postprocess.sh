@@ -4,16 +4,16 @@ set -euo pipefail
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$ROOT_DIR"
 
-RUN_IDS=(A3 B0 B1 B2 B4 B5)
+RUN_IDS=(M0 M1 M2 M3 M4 M5)
 
 # Optional manual checkpoint overrides.
 # Leave empty to use latest.pth, or the highest epoch_*.pth as fallback.
-A3_CKPT=""
-B0_CKPT=""
-B1_CKPT=""
-B2_CKPT=""
-B4_CKPT=""
-B5_CKPT=""
+M0_CKPT=""
+M1_CKPT=""
+M2_CKPT=""
+M3_CKPT=""
+M4_CKPT=""
+M5_CKPT=""
 
 BENCHMARK_DEVICE="${BENCHMARK_DEVICE:-cuda:0}"
 BENCHMARK_TIMES="${BENCHMARK_TIMES:-100}"
@@ -21,18 +21,21 @@ BENCHMARK_WARMUP="${BENCHMARK_WARMUP:-10}"
 
 LOG_ROOT="paper_assets/logs"
 CSV_PATH="$LOG_ROOT/experiment_log.csv"
+FIGURE_ROOT="paper_assets/figures"
+FIGURE1_PREFIX="paper_assets/figures/figure1_teaser"
 
 mkdir -p "$LOG_ROOT"
+mkdir -p "$FIGURE_ROOT"
 
 get_ckpt_override() {
   local run_id="$1"
   case "$run_id" in
-    A3) printf '%s\n' "$A3_CKPT" ;;
-    B0) printf '%s\n' "$B0_CKPT" ;;
-    B1) printf '%s\n' "$B1_CKPT" ;;
-    B2) printf '%s\n' "$B2_CKPT" ;;
-    B4) printf '%s\n' "$B4_CKPT" ;;
-    B5) printf '%s\n' "$B5_CKPT" ;;
+    M0) printf '%s\n' "$M0_CKPT" ;;
+    M1) printf '%s\n' "$M1_CKPT" ;;
+    M2) printf '%s\n' "$M2_CKPT" ;;
+    M3) printf '%s\n' "$M3_CKPT" ;;
+    M4) printf '%s\n' "$M4_CKPT" ;;
+    M5) printf '%s\n' "$M5_CKPT" ;;
     *) return 1 ;;
   esac
 }
@@ -40,12 +43,12 @@ get_ckpt_override() {
 get_run_note() {
   local run_id="$1"
   case "$run_id" in
-    A3) printf '%s\n' "A3 spectral tokenizer + Transformer(6) + draft + flow refine, no BoneLengthLoss" ;;
-    B0) printf '%s\n' "B0 linear transformer baseline, no BoneLengthLoss" ;;
-    B1) printf '%s\n' "B1 spectral tokenizer over B0, transformer, no BoneLengthLoss" ;;
-    B2) printf '%s\n' "B2 spectral tokenizer + WiMamba(6), no BoneLengthLoss" ;;
-    B4) printf '%s\n' "B4 spectral + WiMamba(6) + draft + flow refine, no BoneLengthLoss" ;;
-    B5) printf '%s\n' "B5 spectral + WiMamba(6) + draft + flow refine + BoneLengthLoss" ;;
+    M0) printf '%s\n' "M0 linear input adapter + Transformer backbone + DETR regression, no bone loss" ;;
+    M1) printf '%s\n' "M1 spectral input adapter + Transformer backbone + DETR regression, no bone loss" ;;
+    M2) printf '%s\n' "M2 spectral input adapter + Mamba backbone + DETR regression, no bone loss" ;;
+    M3) printf '%s\n' "M3 spectral input adapter + Transformer backbone + draft and rectified flow decoder, no bone loss" ;;
+    M4) printf '%s\n' "M4 spectral input adapter + Mamba backbone + draft and rectified flow decoder, no bone loss" ;;
+    M5) printf '%s\n' "M5 spectral input adapter + Mamba backbone + draft and rectified flow decoder with bone loss (ours)" ;;
     *) printf '%s\n' "" ;;
   esac
 }
@@ -204,5 +207,12 @@ for run_id in "${RUN_IDS[@]}"; do
   fi
   run_one "$run_id"
 done
+
+python tools/analysis/plot_teaser_figure.py \
+  --csv "$CSV_PATH" \
+  --out-prefix "$FIGURE1_PREFIX" \
+  --runs M0 M1 M2 M3 M4 M5 \
+  --highlight M5 \
+  --xmax 200
 
 echo "Done. Updated $CSV_PATH"
