@@ -38,11 +38,11 @@ class WifiInputAdapter(nn.Module):
         self.head = nn.Linear(in_channels, embed_dims)
 
         if self.mode == 'spectral':
-            self.spatial_norm = nn.LayerNorm(num_spatial)
+            self.spatial_norm = nn.LayerNorm(in_channels)
             self.spatial_mixer = nn.Sequential(
-                nn.Linear(num_spatial, num_spatial * 2),
+                nn.Conv1d(num_spatial, num_spatial * 2, kernel_size=1),
                 nn.GELU(),
-                nn.Linear(num_spatial * 2, num_spatial))
+                nn.Conv1d(num_spatial * 2, num_spatial, kernel_size=1))
             self.time_conv = nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=embed_dims,
@@ -108,20 +108,22 @@ class WifiInputAdapter(nn.Module):
 
         # Mix antenna-link information at each time step before temporal FFT.
         x_grid = x.reshape(B, self.num_spatial, self.seq_len, C)
-        x_spatial = x_grid.permute(0, 2, 3, 1)
+        x_spatial = x_grid.transpose(1, 2).contiguous().view(
+            B * self.seq_len, self.num_spatial, C)
         residual = x_spatial
         x_spatial = self.spatial_norm(x_spatial)
         x_spatial = self.spatial_mixer(x_spatial)
         x_spatial = residual + x_spatial
-        x_grid = x_spatial.permute(0, 3, 1, 2).contiguous()
+        x_grid = x_spatial.view(B, self.seq_len, self.num_spatial, C)
+        x_grid = x_grid.transpose(1, 2).contiguous()
 
         # Recover the temporal axis so temporal Conv/FFT operate on the
         # real time dimension rather than on the flattened token axis.
         x_temp = x_grid.reshape(B * self.num_spatial, self.seq_len, C)
 
-        x_permute = x_temp.permute(0, 2, 1).contiguous()
+        x_permute = x_temp.transpose(1, 2).contiguous()
         x_time = self.time_act(self.time_conv(x_permute))
-        x_time = x_time.permute(0, 2, 1).contiguous()
+        x_time = x_time.transpose(1, 2).contiguous()
 
         x_freq_feat = self.freq_proj(x_temp)
         original_dtype = x_freq_feat.dtype
