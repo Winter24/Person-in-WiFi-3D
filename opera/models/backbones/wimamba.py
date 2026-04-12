@@ -34,11 +34,11 @@ class FastFactorizedWiMambaBlock(nn.Module):
             expand=expand_t)
         self.drop_t = nn.Dropout(dropout)
 
-        self.norm_s = nn.LayerNorm(dim)
+        self.norm_s = nn.LayerNorm(num_spatial)
         self.spatial_mixer = nn.Sequential(
-            nn.Conv1d(num_spatial, num_spatial * 2, kernel_size=1),
+            nn.Linear(num_spatial, num_spatial * 2),
             nn.GELU(),
-            nn.Conv1d(num_spatial * 2, num_spatial, kernel_size=1))
+            nn.Linear(num_spatial * 2, num_spatial))
         self.drop_s = nn.Dropout(dropout)
         self._init_weights()
 
@@ -62,11 +62,11 @@ class FastFactorizedWiMambaBlock(nn.Module):
         x = residual_t + x_t
 
         residual_s = x
-        x_s = self.norm_s(x)
-        x_s = x_s.transpose(1, 2).contiguous().view(B * T, S, C)
-
+        x_s = x.permute(0, 2, 3, 1)
+        x_s = self.norm_s(x_s)
         x_s = self.spatial_mixer(x_s)
-        x_s = self.drop_s(x_s).view(B, T, S, C).transpose(1, 2).contiguous()
+        x_s = self.drop_s(x_s)
+        x_s = x_s.permute(0, 3, 1, 2)
         x = residual_s + x_s
 
         return x
