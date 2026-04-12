@@ -9,15 +9,7 @@ from ..builder import BACKBONES as OPERA_BACKBONES
 @MMDET_BACKBONES.register_module()
 @OPERA_BACKBONES.register_module()
 class WifiInputAdapter(nn.Module):
-    """Wi-Fi input adapter with switchable baseline and spectral modes.
-
-    [CRITICAL ASSUMPTION]
-    This module expects x with shape (B, 180, C), where 180 comes from
-    flattening (Rx=3, Tx=3, Time=20) in C-contiguous order. Every 20
-    contiguous tokens must represent the temporal sequence of one
-    (Rx, Tx) antenna link. If upstream layout changes, the spectral
-    branch will silently become mathematically invalid.
-    """
+    """Wi-Fi input adapter with switchable baseline and spectral modes."""
 
     def __init__(self,
                  in_channels,
@@ -38,11 +30,7 @@ class WifiInputAdapter(nn.Module):
         self.head = nn.Linear(in_channels, embed_dims)
 
         if self.mode == 'spectral':
-            self.spatial_norm = nn.LayerNorm(num_spatial)
-            self.spatial_mixer = nn.Sequential(
-                nn.Linear(num_spatial, num_spatial * 2),
-                nn.GELU(),
-                nn.Linear(num_spatial * 2, num_spatial))
+            # CHỈ XỬ LÝ TIME & FREQUENCY (KHÔNG MIX SPATIAL Ở ĐÂY ĐỂ TRÁNH MẤT AoA)
             self.time_conv = nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=embed_dims,
@@ -70,11 +58,6 @@ class WifiInputAdapter(nn.Module):
         if self.mode != 'spectral':
             return
 
-        nn.init.xavier_uniform_(self.spatial_mixer[0].weight)
-        nn.init.constant_(self.spatial_mixer[0].bias, 0)
-        nn.init.constant_(self.spatial_mixer[2].weight, 0)
-        nn.init.constant_(self.spatial_mixer[2].bias, 0)
-
         nn.init.kaiming_normal_(
             self.time_conv.weight, mode='fan_out', nonlinearity='relu')
         if self.time_conv.bias is not None:
@@ -88,8 +71,7 @@ class WifiInputAdapter(nn.Module):
         if self.fusion.bias is not None:
             nn.init.constant_(self.fusion.bias, 0)
 
-        # Start from an identity frequency filter to avoid injecting
-        # artificial spectral noise in the first optimization steps.
+        # Giữ nguyên Identity Filter cho công bằng Ablation
         nn.init.constant_(self.complex_weight[..., 0], 1.0)
         nn.init.constant_(self.complex_weight[..., 1], 0.0)
 
@@ -106,23 +88,15 @@ class WifiInputAdapter(nn.Module):
                 f"Expected sequence length {self.num_spatial * self.seq_len}, "
                 f"got {L}")
 
-        # Mix antenna-link information at each time step before temporal FFT.
-        x_grid = x.reshape(B, self.num_spatial, self.seq_len, C)
-        x_spatial = x_grid.permute(0, 2, 3, 1)
-        residual = x_spatial
-        x_spatial = self.spatial_norm(x_spatial)
-        x_spatial = self.spatial_mixer(x_spatial)
-        x_spatial = residual + x_spatial
-        x_grid = x_spatial.permute(0, 3, 1, 2).contiguous()
+        # TÁCH 180 TOKENS RA TỪNG CẶP ANTEN (KHÔNG MIX CHÚNG VỚI NHAU)
+        x_temp = x.view(B * self.num_spatial, self.seq_len, C)
 
-        # Recover the temporal axis so temporal Conv/FFT operate on the
-        # real time dimension rather than on the flattened token axis.
-        x_temp = x_grid.reshape(B * self.num_spatial, self.seq_len, C)
-
-        x_permute = x_temp.permute(0, 2, 1)
+        # 1. Xử lý Thời gian (Temporal)
+        x_permute = x_temp.permute(0, 2, 1).contiguous()
         x_time = self.time_act(self.time_conv(x_permute))
-        x_time = x_time.permute(0, 2, 1)
+        x_time = x_time.permute(0, 2, 1).contiguous()
 
+        # 2. Xử lý Phổ (Spectral / FFT)
         x_freq_feat = self.freq_proj(x_temp)
         original_dtype = x_freq_feat.dtype
         x_fft_1d = torch.fft.rfft(
@@ -136,10 +110,12 @@ class WifiInputAdapter(nn.Module):
             x_fft_1d, n=self.seq_len, dim=1, norm='ortho')
         x_freq = x_freq_32.to(original_dtype)
 
+        # 3. Fusion
         x_combined = torch.cat([x_time, x_freq], dim=-1)
         x_out = self.fusion(x_combined)
-        x_out = x_out.reshape(B, self.num_spatial, self.seq_len, self.embed_dims)
-        x_out = x_out.reshape(B, L, self.embed_dims)
+        
+        # Đưa về (B, 180, Embed_dims) để chuyển tiếp cho Backbone (Mamba/Transformer)
+        x_out = x_out.view(B, L, self.embed_dims)
         return self.norm(x_out + x_linear)
 
 
