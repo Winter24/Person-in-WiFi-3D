@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$ROOT_DIR"
 
+MODE="${1:-default}"
+if (($# > 0)); then
+  shift
+fi
+
 RUN_IDS=(M0 M1 M2 M3 M4 M5)
 
 # Optional manual checkpoint overrides.
@@ -24,8 +29,19 @@ CSV_PATH="$LOG_ROOT/experiment_log.csv"
 FIGURE_ROOT="paper_assets/figures"
 FIGURE1_PREFIX="paper_assets/figures/figure1_teaser"
 
-mkdir -p "$LOG_ROOT"
-mkdir -p "$FIGURE_ROOT"
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/run_paper_postprocess.sh [default]
+  scripts/run_paper_postprocess.sh root-paper [args...]
+  scripts/run_paper_postprocess.sh colab [args...]
+
+Modes:
+  default     Run the original local paper postprocess for M0..M5.
+  root-paper  Delegate to tools/analysis/run_root_paper_postprocess.py.
+  colab       Delegate to tools/analysis/run_colab_paper_postprocess.py.
+EOF
+}
 
 get_ckpt_override() {
   local run_id="$1"
@@ -200,19 +216,45 @@ run_one() {
     --notes "$notes"
 }
 
-for run_id in "${RUN_IDS[@]}"; do
-  if ! run_dir="$(resolve_run_dir "$run_id")"; then
-    echo "WARNING: Missing run directory and override for $run_id. Skipping." >&2
-    continue
-  fi
-  run_one "$run_id"
-done
+run_default_mode() {
+  mkdir -p "$LOG_ROOT"
+  mkdir -p "$FIGURE_ROOT"
 
-python tools/analysis/plot_teaser_figure.py \
-  --csv "$CSV_PATH" \
-  --out-prefix "$FIGURE1_PREFIX" \
-  --runs M0 M1 M2 M3 M4 M5 \
-  --highlight M5 \
-  --xmax 200
+  local run_dir
+  for run_id in "${RUN_IDS[@]}"; do
+    if ! run_dir="$(resolve_run_dir "$run_id")"; then
+      echo "WARNING: Missing run directory and override for $run_id. Skipping." >&2
+      continue
+    fi
+    run_one "$run_id"
+  done
 
-echo "Done. Updated $CSV_PATH"
+  python tools/analysis/plot_teaser_figure.py \
+    --csv "$CSV_PATH" \
+    --out-prefix "$FIGURE1_PREFIX" \
+    --runs M0 M1 M2 M3 M4 M5 \
+    --highlight M5 \
+    --xmax 200
+
+  echo "Done. Updated $CSV_PATH"
+}
+
+case "$MODE" in
+  default)
+    run_default_mode "$@"
+    ;;
+  root-paper)
+    python tools/analysis/run_root_paper_postprocess.py "$@"
+    ;;
+  colab)
+    python tools/analysis/run_colab_paper_postprocess.py "$@"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    echo "ERROR: Unknown mode: $MODE" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

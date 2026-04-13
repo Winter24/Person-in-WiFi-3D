@@ -12,6 +12,22 @@ class TestPaperPostprocessScript(unittest.TestCase):
             SCRIPT_PATH.exists(),
             f'Missing script: {SCRIPT_PATH}')
 
+    def test_script_exposes_wrapper_modes(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('MODE="${1:-default}"', text)
+        self.assertIn('case "$MODE" in', text)
+        self.assertIn('default)', text)
+        self.assertIn('root-paper)', text)
+        self.assertIn('colab)', text)
+
+    def test_script_delegates_root_paper_mode_to_helper(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('python tools/analysis/run_root_paper_postprocess.py "$@"', text)
+
+    def test_script_delegates_colab_mode_to_helper(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('python tools/analysis/run_colab_paper_postprocess.py "$@"', text)
+
     def test_script_has_checkpoint_overrides(self):
         text = SCRIPT_PATH.read_text(encoding='utf-8')
         for run_id in ('M0', 'M1', 'M2', 'M3', 'M4', 'M5'):
