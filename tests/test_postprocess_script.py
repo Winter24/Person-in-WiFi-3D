@@ -109,10 +109,12 @@ class TestPaperPostprocessScript(unittest.TestCase):
         self.assertIn('restore_backbone_files()', text)
         self.assertIn('trap restore_backbone_files EXIT', text)
         self.assertIn('select_variant_file()', text)
+        self.assertIn('apply_variant_file()', text)
         self.assertIn('*_v1*)', text)
         self.assertIn('*_v2*)', text)
         self.assertIn('*_v3*)', text)
-        self.assertIn('cp "$VARIANT_FILE" "$LIVE_FILE"', text)
+        self.assertIn('if [[ "$variant_file" == "$LIVE_FILE" ]]; then', text)
+        self.assertIn('apply_variant_file "$VARIANT_FILE"', text)
 
     def test_colab_variant_batch_script_runs_eval_benchmark_and_csv_append(self):
         text = COLAB_BATCH_SCRIPT_PATH.read_text(encoding='utf-8')

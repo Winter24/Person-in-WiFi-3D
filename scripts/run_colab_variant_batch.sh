@@ -70,6 +70,14 @@ select_variant_file() {
   esac
 }
 
+apply_variant_file() {
+  local variant_file="$1"
+  if [[ "$variant_file" == "$LIVE_FILE" ]]; then
+    return 0
+  fi
+  cp "$variant_file" "$LIVE_FILE"
+}
+
 resolve_config_path() {
   local run_dir="$1"
   local config_path
@@ -115,7 +123,7 @@ for RUN_NAME in "${RUNS[@]}"; do
   CKPT_PATH="$(resolve_checkpoint_path "$RUN_DIR")"
   VARIANT_FILE="$(select_variant_file "$RUN_NAME")"
 
-  cp "$VARIANT_FILE" "$LIVE_FILE"
+  apply_variant_file "$VARIANT_FILE"
 
   python tools/test.py \
     "$CONFIG_PATH" \
