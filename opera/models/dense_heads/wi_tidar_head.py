@@ -18,7 +18,7 @@ except ImportError:
     VelocityMLP = None
 
 try:
-    from opera.models.backbones.wimamba_v1 import WiMambaEncoder
+    from opera.models.backbones.wimamba import WiMambaEncoder
 except ImportError:
     WiMambaEncoder = None
 
