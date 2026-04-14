@@ -14,15 +14,15 @@ except ImportError:
     Mamba = None
 
 
-class FactorizedWiMambaBlock(nn.Module):
-    """Factorized spatio-temporal Mamba block for WiFi CSI tokens."""
+class FastFactorizedWiMambaBlock(nn.Module):
+    """Fast asymmetric spatio-temporal block for WiFi CSI tokens."""
 
     def __init__(self,
                  dim,
                  d_state=16,
                  d_conv=4,
                  expand_t=2,
-                 expand_s=1,
+                 num_spatial=9,
                  dropout=0.1):
         super().__init__()
 
@@ -35,17 +35,18 @@ class FactorizedWiMambaBlock(nn.Module):
         self.drop_t = nn.Dropout(dropout)
 
         self.norm_s = nn.LayerNorm(dim)
-        self.mamba_s_fwd = Mamba(
-            d_model=dim,
-            d_state=d_state,
-            d_conv=d_conv,
-            expand=expand_s)
-        self.mamba_s_bwd = Mamba(
-            d_model=dim,
-            d_state=d_state,
-            d_conv=d_conv,
-            expand=expand_s)
+        self.spatial_mixer = nn.Sequential(
+            nn.Conv1d(num_spatial, num_spatial * 2, kernel_size=1),
+            nn.GELU(),
+            nn.Conv1d(num_spatial * 2, num_spatial, kernel_size=1))
         self.drop_s = nn.Dropout(dropout)
+        self._init_weights()
+
+    def _init_weights(self):
+        nn.init.xavier_uniform_(self.spatial_mixer[0].weight)
+        nn.init.constant_(self.spatial_mixer[0].bias, 0)
+        nn.init.constant_(self.spatial_mixer[2].weight, 0)
+        nn.init.constant_(self.spatial_mixer[2].bias, 0)
 
     def forward(self, x):
         """Forward with x in shape (B, S, T, C)."""
@@ -64,16 +65,9 @@ class FactorizedWiMambaBlock(nn.Module):
         x_s = self.norm_s(x)
         x_s = x_s.transpose(1, 2).contiguous().view(B * T, S, C)
 
-        out_fwd = self.mamba_s_fwd(x_s)
-
-        x_s_rev = torch.flip(x_s, dims=[1]).contiguous()
-        out_bwd = self.mamba_s_bwd(x_s_rev)
-        out_bwd = torch.flip(out_bwd, dims=[1]).contiguous()
-
-        out_s = out_fwd + out_bwd
-        out_s = self.drop_s(out_s)
-        out_s = out_s.view(B, T, S, C).transpose(1, 2).contiguous()
-        x = residual_s + out_s
+        x_s = self.spatial_mixer(x_s)
+        x_s = self.drop_s(x_s).view(B, T, S, C).transpose(1, 2).contiguous()
+        x = residual_s + x_s
 
         return x
 
@@ -109,12 +103,12 @@ class WiMambaEncoder(BaseModule):
         self.seq_len = seq_len
 
         self.layers = nn.ModuleList([
-            FactorizedWiMambaBlock(
+            FastFactorizedWiMambaBlock(
                 dim=embed_dims,
                 d_state=d_state,
                 d_conv=d_conv,
                 expand_t=expand,
-                expand_s=1,
+                num_spatial=num_spatial,
                 dropout=dropout)
             for _ in range(num_layers)
         ])

@@ -28,6 +28,21 @@ LOG_ROOT="paper_assets/logs"
 CSV_PATH="$LOG_ROOT/experiment_log.csv"
 FIGURE_ROOT="paper_assets/figures"
 FIGURE1_PREFIX="paper_assets/figures/figure1_teaser"
+WIMAMBA_LIVE="$ROOT_DIR/opera/models/backbones/wimamba.py"
+WIMAMBA_V1="$ROOT_DIR/opera/models/backbones/wimamba_v1.py"
+WIMAMBA_V2="$ROOT_DIR/opera/models/backbones/wimamba_v2.py"
+WIMAMBA_V3="$ROOT_DIR/opera/models/backbones/wimamba_v3.py"
+WIMAMBA_BACKUP="${WIMAMBA_BACKUP:-$(mktemp)}"
+
+cp "$WIMAMBA_LIVE" "$WIMAMBA_BACKUP"
+
+restore_wimamba_default() {
+  if [[ -f "$WIMAMBA_BACKUP" ]]; then
+    cp "$WIMAMBA_BACKUP" "$WIMAMBA_LIVE"
+  fi
+}
+
+trap restore_wimamba_default EXIT
 
 usage() {
   cat <<'EOF'
@@ -41,6 +56,32 @@ Modes:
   root-paper  Delegate to tools/analysis/run_root_paper_postprocess.py.
   colab       Delegate to tools/analysis/run_colab_paper_postprocess.py.
 EOF
+}
+
+select_wimamba_source() {
+  local run_dir="$1"
+  local run_name
+  run_name="$(basename "$run_dir")"
+
+  case "$run_name" in
+    *_v1*) printf '%s\n' "$WIMAMBA_V1" ;;
+    *_v2*) printf '%s\n' "$WIMAMBA_V2" ;;
+    *_v3*) printf '%s\n' "$WIMAMBA_V3" ;;
+    *) printf '%s\n' "$WIMAMBA_BACKUP" ;;
+  esac
+}
+
+apply_wimamba_source() {
+  local run_dir="$1"
+  local source_path
+  source_path="$(select_wimamba_source "$run_dir")"
+
+  if [[ ! -f "$source_path" ]]; then
+    echo "ERROR: Missing WiMamba source for $run_dir: $source_path" >&2
+    return 1
+  fi
+
+  cp "$source_path" "$WIMAMBA_LIVE"
 }
 
 get_ckpt_override() {
@@ -181,6 +222,7 @@ run_one() {
   config_path="$(resolve_config "$config_dir")"
   checkpoint_path="$(resolve_checkpoint "$run_id" "$run_dir")"
   notes="$(get_run_note "$run_id")"
+  apply_wimamba_source "$run_dir"
 
   mkdir -p "$eval_work_dir"
 

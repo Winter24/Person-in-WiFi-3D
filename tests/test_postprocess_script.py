@@ -68,6 +68,25 @@ class TestPaperPostprocessScript(unittest.TestCase):
         self.assertIn('resolve_run_dir', text)
         self.assertIn('run_dir="$(resolve_run_dir "$run_id")"', text)
 
+    def test_script_selects_wimamba_variant_from_run_directory_name(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('select_wimamba_source()', text)
+        self.assertIn('wimamba_v1.py', text)
+        self.assertIn('wimamba_v2.py', text)
+        self.assertIn('wimamba_v3.py', text)
+        self.assertIn('wimamba.py', text)
+        self.assertIn('*_v1*)', text)
+        self.assertIn('*_v2*)', text)
+        self.assertIn('*_v3*)', text)
+
+    def test_script_restores_and_applies_selected_wimamba_source(self):
+        text = SCRIPT_PATH.read_text(encoding='utf-8')
+        self.assertIn('WIMAMBA_BACKUP=', text)
+        self.assertIn('restore_wimamba_default()', text)
+        self.assertIn('trap restore_wimamba_default EXIT', text)
+        self.assertIn('apply_wimamba_source "$run_dir"', text)
+        self.assertIn('cp "$source_path" "$WIMAMBA_LIVE"', text)
+
 
 if __name__ == '__main__':
     unittest.main()
