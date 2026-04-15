@@ -325,12 +325,12 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             matched_error_mm=158.43,
             poor_match_count=1)
 
-        self.assertIn('Sample 1121', footer)
+        self.assertIn('S1121', footer)
         self.assertIn('0507-2-00123', footer)
-        self.assertIn('Match 2/2', footer)
+        self.assertIn('M2/2', footer)
         self.assertIn('FP 1', footer)
-        self.assertIn('Matched Error 158.4 mm', footer)
-        self.assertIn('Poor 1', footer)
+        self.assertIn('P1', footer)
+        self.assertIn('E158.4', footer)
 
     def test_validate_dataset_signatures_rejects_mismatch(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)

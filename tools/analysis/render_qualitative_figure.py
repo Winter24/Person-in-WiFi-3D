@@ -371,8 +371,8 @@ def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_p
                         poor_match_count=0):
     error_text = 'n/a' if matched_error_mm is None else f'{matched_error_mm:.1f} mm'
     return (
-        f'Sample {sample_index} | {img_name}\n'
-        f'Match {matched_count}/{gt_count} | FP {false_positives} | Poor {poor_match_count} | Matched Error {error_text}'
+        f'S{sample_index} | {img_name}\n'
+        f'M{matched_count}/{gt_count} | FP {false_positives} | P{poor_match_count} | E{error_text}'
     )
 
 
@@ -533,7 +533,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             0.01,
             gt_footer,
             transform=gt_ax.transAxes,
-            fontsize=7.0)
+            fontsize=6.4)
 
         for col_idx, (model_entry, display) in enumerate(zip(row['models'], prepared_displays), start=1):
             model_asset = model_entry['asset']
@@ -560,7 +560,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                     matched_error_mm=metric['matched_error_mm'],
                     poor_match_count=display['poor_match_count']),
                 transform=axis.transAxes,
-                fontsize=7.0)
+                fontsize=6.4)
 
     fig.suptitle('Figure 4. Selected challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
     fig.subplots_adjust(left=0.02, right=0.995, bottom=0.02, top=0.93, wspace=0.03, hspace=0.12)
