@@ -85,7 +85,7 @@ def parse_args():
     parser.add_argument('--models', nargs='+', default=DEFAULT_MODELS)
     parser.add_argument('--sample-indices', type=int, nargs='*', default=None)
     parser.add_argument('--num-samples', type=int, default=3)
-    parser.add_argument('--min-people', type=int, default=2)
+    parser.add_argument('--min-people', type=int, default=1)
     parser.add_argument('--score-thr', type=float, default=0.2)
     parser.add_argument('--output-prefix', default=str(DEFAULT_OUTPUT_PREFIX))
     parser.add_argument('--device', default=None)
@@ -327,7 +327,31 @@ def select_best_sample_indices(sample_summaries, num_samples):
     ranked = sorted(
         sample_summaries,
         key=lambda item: (-score_sample_candidate(item), -item.get('gt_count', 0), item.get('sample_index', 0)))
-    return [item['sample_index'] for item in ranked[:num_samples]]
+    selected = []
+    selected_indices = set()
+
+    desired_buckets = [1, 2, 3] if num_samples >= 3 else []
+    for bucket in desired_buckets:
+        for item in ranked:
+            if item.get('gt_count') != bucket:
+                continue
+            sample_index = item.get('sample_index')
+            if sample_index in selected_indices:
+                continue
+            selected.append(sample_index)
+            selected_indices.add(sample_index)
+            break
+
+    for item in ranked:
+        if len(selected) >= num_samples:
+            break
+        sample_index = item.get('sample_index')
+        if sample_index in selected_indices:
+            continue
+        selected.append(sample_index)
+        selected_indices.add(sample_index)
+
+    return selected[:num_samples]
 
 
 def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives, matched_error_mm,

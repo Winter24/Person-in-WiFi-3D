@@ -248,6 +248,66 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         self.assertEqual(chosen, [7, 3])
 
+    def test_select_best_sample_indices_prefers_one_two_three_person_buckets(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 101,
+                'gt_count': 1,
+                'crowding_score': 0.0,
+                'metrics': {'M0': {'matched_error_mm': 120.0, 'matched_count': 1, 'false_positives': 0}},
+            },
+            {
+                'sample_index': 202,
+                'gt_count': 2,
+                'crowding_score': 0.8,
+                'metrics': {'M0': {'matched_error_mm': 170.0, 'matched_count': 2, 'false_positives': 1}},
+            },
+            {
+                'sample_index': 303,
+                'gt_count': 3,
+                'crowding_score': 1.6,
+                'metrics': {'M0': {'matched_error_mm': 210.0, 'matched_count': 2, 'false_positives': 2}},
+            },
+            {
+                'sample_index': 304,
+                'gt_count': 3,
+                'crowding_score': 0.4,
+                'metrics': {'M0': {'matched_error_mm': 160.0, 'matched_count': 3, 'false_positives': 0}},
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(summaries, num_samples=3)
+
+        self.assertEqual(chosen, [101, 202, 303])
+
+    def test_select_best_sample_indices_falls_back_when_bucket_missing(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 201,
+                'gt_count': 2,
+                'crowding_score': 0.7,
+                'metrics': {'M0': {'matched_error_mm': 170.0, 'matched_count': 2, 'false_positives': 1}},
+            },
+            {
+                'sample_index': 301,
+                'gt_count': 3,
+                'crowding_score': 1.8,
+                'metrics': {'M0': {'matched_error_mm': 220.0, 'matched_count': 2, 'false_positives': 3}},
+            },
+            {
+                'sample_index': 302,
+                'gt_count': 3,
+                'crowding_score': 1.2,
+                'metrics': {'M0': {'matched_error_mm': 180.0, 'matched_count': 3, 'false_positives': 1}},
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(summaries, num_samples=3)
+
+        self.assertEqual(chosen, [201, 301, 302])
+
     def test_format_panel_footer_includes_sample_and_matching_metrics(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
 
