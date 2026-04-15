@@ -391,9 +391,9 @@ def format_panel_title(base_title, sample_index=None, top_row=False):
 
 def get_render_style_config():
     return {
-        'title_font_size': 22,
+        'title_font_size': 11,
         'title_pad': 3,
-        'footer_font_size': 14.4,
+        'footer_font_size': 7.2,
         'bounds_min_range': 0.12,
         'bounds_margin_scale': 0.04,
     }

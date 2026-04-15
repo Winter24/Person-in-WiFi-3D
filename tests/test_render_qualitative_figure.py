@@ -378,8 +378,8 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         config = module.get_render_style_config()
 
-        self.assertEqual(config['title_font_size'], 22)
-        self.assertEqual(config['footer_font_size'], 14.4)
+        self.assertEqual(config['title_font_size'], 11)
+        self.assertEqual(config['footer_font_size'], 7.2)
         self.assertEqual(config['bounds_min_range'], 0.12)
         self.assertEqual(config['bounds_margin_scale'], 0.04)
 
