@@ -341,23 +341,23 @@ class TestRenderQualitativeFigure(unittest.TestCase):
                 ('M3', ('data/wifipose/test_data_v2', 'test')),
             ])
 
-    def test_panel_grid_position_uses_two_columns_and_six_rows_for_three_samples(self):
+    def test_panel_grid_position_uses_four_columns_and_three_rows_for_three_samples(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
 
         self.assertEqual(module.get_panel_grid_position(0, 'gt'), (0, 0))
         self.assertEqual(module.get_panel_grid_position(0, 'model_0'), (0, 1))
-        self.assertEqual(module.get_panel_grid_position(0, 'model_1'), (1, 0))
-        self.assertEqual(module.get_panel_grid_position(0, 'model_2'), (1, 1))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_1'), (0, 2))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_2'), (0, 3))
 
-        self.assertEqual(module.get_panel_grid_position(1, 'gt'), (2, 0))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_0'), (2, 1))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_1'), (3, 0))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_2'), (3, 1))
+        self.assertEqual(module.get_panel_grid_position(1, 'gt'), (1, 0))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_0'), (1, 1))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_1'), (1, 2))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_2'), (1, 3))
 
-        self.assertEqual(module.get_panel_grid_position(2, 'gt'), (4, 0))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_0'), (4, 1))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_1'), (5, 0))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (5, 1))
+        self.assertEqual(module.get_panel_grid_position(2, 'gt'), (2, 0))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_0'), (2, 1))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_1'), (2, 2))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (2, 3))
 
 
 if __name__ == '__main__':
