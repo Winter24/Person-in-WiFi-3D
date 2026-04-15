@@ -117,6 +117,14 @@ def _style_for_record(experiment_id, highlight):
     return dict(color='#94a3b8', edgecolor='#475569', alpha=0.75, linewidth=1.2, zorder=4)
 
 
+def annotation_spec(experiment_id, highlight='M5'):
+    if experiment_id == 'M0':
+        return dict(dx=-3.0, dy=-1.4, ha='right', fontweight='normal')
+    if experiment_id == highlight:
+        return dict(dx=4.5, dy=-2.4, ha='left', fontweight='bold')
+    return dict(dx=3.0, dy=-1.4, ha='left', fontweight='normal')
+
+
 def _load_pyplot():
     try:
         import matplotlib
@@ -140,21 +148,20 @@ def plot_teaser_figure(records, output_prefix, xmax=200, highlight='M5'):
 
     for record in records:
         style = _style_for_record(record['experiment_id'], highlight)
+        label = annotation_spec(record['experiment_id'], highlight=highlight)
         ax.scatter(
             record['fps'],
             record['mpjpe'],
             s=sizes[record['experiment_id']],
             **style)
 
-        dx = 3.0 if record['experiment_id'] != highlight else 4.5
-        dy = -1.4 if record['experiment_id'] != highlight else -2.4
-        weight = 'bold' if record['experiment_id'] == highlight else 'normal'
         ax.text(
-            record['fps'] + dx,
-            record['mpjpe'] + dy,
+            record['fps'] + label['dx'],
+            record['mpjpe'] + label['dy'],
             record['display_name'],
             fontsize=10.5,
-            fontweight=weight,
+            fontweight=label['fontweight'],
+            ha=label['ha'],
             color=style['edgecolor'])
 
     mpjpe_values = [record['mpjpe'] for record in records]

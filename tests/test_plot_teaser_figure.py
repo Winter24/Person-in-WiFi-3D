@@ -95,6 +95,15 @@ class TestPlotTeaserFigure(unittest.TestCase):
         self.assertGreater(sizes['M0'], sizes['M2'])
         self.assertGreater(sizes['M2'], sizes['M5'])
 
+    def test_annotation_spec_moves_m0_label_left_to_avoid_overlap(self):
+        module = _load_module('plot_teaser_figure', SCRIPT_PATH)
+
+        spec = module.annotation_spec('M0', highlight='M4')
+
+        self.assertLess(spec['dx'], 0.0)
+        self.assertEqual(spec['ha'], 'right')
+        self.assertEqual(spec['fontweight'], 'normal')
+
     def test_plot_teaser_figure_writes_publication_outputs_and_inverts_y_axis(self):
         if importlib.util.find_spec('matplotlib') is None:
             self.skipTest('matplotlib is not available in this environment')
