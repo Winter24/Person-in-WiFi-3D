@@ -90,6 +90,7 @@ def parse_args():
     parser.add_argument('--output-prefix', default=str(DEFAULT_OUTPUT_PREFIX))
     parser.add_argument('--device', default=None)
     parser.add_argument('--dpi', type=int, default=220)
+    parser.add_argument('--show-unmatched', action='store_true')
     return parser.parse_args()
 
 
@@ -181,6 +182,39 @@ def _panel_colors(count):
     return ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2'][:count]
 
 
+def prepare_display_predictions(pred_keypoints, matches, gt_colors, gt_labels, show_unmatched=False):
+    pred_keypoints = list(pred_keypoints)
+    matched_by_gt = sorted(matches, key=lambda item: item[0])
+    shown_poses = []
+    shown_colors = []
+    shown_labels = []
+    used_pred_indices = set()
+
+    for gt_idx, pred_idx in matched_by_gt:
+        shown_poses.append(pred_keypoints[pred_idx])
+        shown_colors.append(gt_colors[gt_idx])
+        shown_labels.append(gt_labels[gt_idx])
+        used_pred_indices.add(pred_idx)
+
+    if show_unmatched:
+        for pred_idx, pose in enumerate(pred_keypoints):
+            if pred_idx in used_pred_indices:
+                continue
+            shown_poses.append(pose)
+            shown_colors.append('#7f7f7f')
+            shown_labels.append(f'U{pred_idx + 1}')
+
+    return {
+        'poses': shown_poses,
+        'colors': shown_colors,
+        'labels': shown_labels,
+        'shown_count': len(shown_poses),
+        'matched_count': len(matched_by_gt),
+        'total_count': len(pred_keypoints),
+        'hidden_unmatched': len(pred_keypoints) - len(matched_by_gt),
+    }
+
+
 def _plot_pose_set(ax, poses, colors, labels, title, Line2D):
     ax.set_title(title, fontsize=12, pad=10)
     all_points = []
@@ -222,7 +256,8 @@ def _plot_pose_set(ax, poses, colors, labels, title, Line2D):
     ax.grid(False)
 
 
-def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220):
+def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
+                              show_unmatched=False):
     np, torch, plt, Line2D, _, linear_sum_assignment, _, _ = _lazy_runtime_imports()
     device = _normalize_device(device, torch)
     output_prefix = Path(output_prefix)
@@ -261,11 +296,12 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             model_asset = model_entry['asset']
             pred_keypoints = model_entry['pred_keypoints']
             matches = _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np)
-            pred_colors = ['#7f7f7f'] * len(pred_keypoints)
-            pred_labels = [f'U{i + 1}' for i in range(len(pred_keypoints))]
-            for gt_idx, pred_idx in matches:
-                pred_colors[pred_idx] = gt_colors[gt_idx]
-                pred_labels[pred_idx] = gt_labels[gt_idx]
+            display = prepare_display_predictions(
+                pred_keypoints=pred_keypoints,
+                matches=matches,
+                gt_colors=gt_colors,
+                gt_labels=gt_labels,
+                show_unmatched=show_unmatched)
 
             axis = fig.add_subplot(
                 len(rows),
@@ -276,11 +312,11 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 title = titles[col_idx]
             else:
                 title = f'{model_asset["model_id"]}\nSample {row["sample_index"]}'
-            _plot_pose_set(axis, pred_keypoints, pred_colors, pred_labels, title, Line2D)
+            _plot_pose_set(axis, display['poses'], display['colors'], display['labels'], title, Line2D)
             axis.text2D(
                 0.02,
                 0.02,
-                f'Pred: {len(pred_keypoints)} / GT: {len(gt_keypoints)}',
+                f'Shown: {display["shown_count"]} | Matched: {display["matched_count"]} | Total: {display["total_count"]} | GT: {len(gt_keypoints)}',
                 transform=axis.transAxes,
                 fontsize=8)
 
@@ -317,7 +353,8 @@ def main():
         output_prefix=args.output_prefix,
         score_thr=args.score_thr,
         device=args.device,
-        dpi=args.dpi)
+        dpi=args.dpi,
+        show_unmatched=args.show_unmatched)
     print('Figure 4 outputs:')
     for output_path in outputs:
         print(output_path)

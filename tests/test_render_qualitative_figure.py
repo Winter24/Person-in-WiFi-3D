@@ -97,6 +97,52 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             titles,
             ['Ground Truth', 'M0: Person-in-WiFi 3D', 'M3: FlowPose-WiFi (Transformer)', 'M4: FlowPose-WiFi (Ours)'])
 
+    def test_prepare_display_predictions_hides_unmatched_by_default(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        pred_keypoints = [
+            [[0.0, 0.0, 0.0] for _ in range(14)]
+            for _ in range(4)
+        ]
+        matches = [(1, 2), (0, 0)]
+        gt_colors = ['blue', 'green']
+        gt_labels = ['P1', 'P2']
+
+        display = module.prepare_display_predictions(
+            pred_keypoints=pred_keypoints,
+            matches=matches,
+            gt_colors=gt_colors,
+            gt_labels=gt_labels,
+            show_unmatched=False)
+
+        self.assertEqual(display['shown_count'], 2)
+        self.assertEqual(display['total_count'], 4)
+        self.assertEqual(display['labels'], ['P1', 'P2'])
+        self.assertEqual(display['colors'], ['blue', 'green'])
+        self.assertEqual(display['hidden_unmatched'], 2)
+
+    def test_prepare_display_predictions_can_append_unmatched(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        pred_keypoints = [
+            [[0.0, 0.0, 0.0] for _ in range(14)]
+            for _ in range(3)
+        ]
+        matches = [(0, 1)]
+        gt_colors = ['blue']
+        gt_labels = ['P1']
+
+        display = module.prepare_display_predictions(
+            pred_keypoints=pred_keypoints,
+            matches=matches,
+            gt_colors=gt_colors,
+            gt_labels=gt_labels,
+            show_unmatched=True)
+
+        self.assertEqual(display['shown_count'], 3)
+        self.assertEqual(display['labels'][0], 'P1')
+        self.assertEqual(display['colors'][0], 'blue')
+        self.assertEqual(display['labels'][1:], ['U1', 'U3'])
+        self.assertEqual(display['colors'][1:], ['#7f7f7f', '#7f7f7f'])
+
 
 if __name__ == '__main__':
     unittest.main()
