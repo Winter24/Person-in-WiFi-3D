@@ -10,22 +10,22 @@ The chart compares WiFi pose models on:
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 DISPLAY_NAMES = {
-    'M0': 'M0 (Baseline)',
+    'M0': 'M0',
     'M1': 'M1',
     'M2': 'M2',
     'M3': 'M3',
     'M4': 'M4',
-    'M5': 'M5 (Ours)',
 }
 
 DEFAULT_ALIAS_PATH = Path(__file__).with_name('experiment_id_aliases.json')
 
 PAPER_TITLE = (
-    'Fast yet Accurate: Bridging the Gap in WiFi Pose Estimation '
-    'via Mamba and Rectified Flow'
+    'FlowPose-WiFi Improves the WiFi Pose Accuracy-Efficiency Frontier'
 )
 
 
@@ -109,20 +109,60 @@ def bubble_size_scale(rows, min_size=500, max_size=2800):
     return size_map
 
 
-def _style_for_record(experiment_id, highlight):
+def _style_for_record(experiment_id, highlight, best_mpjpe='M3'):
     if experiment_id == highlight:
         return dict(color='#0f766e', edgecolor='#042f2e', alpha=0.95, linewidth=2.2, zorder=5)
+    if experiment_id == best_mpjpe:
+        return dict(color='#2563eb', edgecolor='#1e3a8a', alpha=0.9, linewidth=2.0, zorder=5)
     if experiment_id == 'M0':
         return dict(color='#c2410c', edgecolor='#7c2d12', alpha=0.55, linewidth=1.6, zorder=3)
     return dict(color='#94a3b8', edgecolor='#475569', alpha=0.75, linewidth=1.2, zorder=4)
 
 
-def annotation_spec(experiment_id, highlight='M5'):
+def annotation_spec(experiment_id, highlight='M4', best_mpjpe='M3'):
     if experiment_id == 'M0':
-        return dict(dx=-3.0, dy=-1.4, ha='right', fontweight='normal')
+        return dict(dx=-3.0, dy=-2.3, ha='right', fontweight='normal')
+    if experiment_id == best_mpjpe:
+        return dict(dx=3.0, dy=-3.2, ha='left', fontweight='bold')
     if experiment_id == highlight:
         return dict(dx=4.5, dy=-2.4, ha='left', fontweight='bold')
-    return dict(dx=3.0, dy=-1.4, ha='left', fontweight='normal')
+    return dict(dx=3.0, dy=-2.3, ha='left', fontweight='normal')
+
+
+def add_role_callouts(ax, records, highlight='M4', best_mpjpe='M3'):
+    record_map = {record['experiment_id']: record for record in records}
+    callouts = {
+        'M0': dict(
+            text='Baseline',
+            xytext=(-34, -40),
+            color='#7c2d12',
+            edgecolor='#7c2d12'),
+        best_mpjpe: dict(
+            text='Best MPJPE',
+            xytext=(-86, 18),
+            color='#1e3a8a',
+            edgecolor='#1e3a8a'),
+        highlight: dict(
+            text='Ours / Best Trade-off',
+            xytext=(22, 0),
+            color='#042f2e',
+            edgecolor='#042f2e'),
+    }
+
+    for experiment_id, spec in callouts.items():
+        record = record_map.get(experiment_id)
+        if record is None:
+            continue
+        ax.annotate(
+            spec['text'],
+            xy=(record['fps'], record['mpjpe']),
+            xytext=spec['xytext'],
+            textcoords='offset points',
+            fontsize=10,
+            fontweight='bold',
+            color=spec['color'],
+            bbox=dict(boxstyle='round,pad=0.25', fc='white', ec=spec['edgecolor'], alpha=0.92),
+            arrowprops=dict(arrowstyle='->', color=spec['edgecolor'], lw=1.2))
 
 
 def _load_pyplot():
@@ -138,17 +178,165 @@ def _load_pyplot():
     return plt
 
 
-def plot_teaser_figure(records, output_prefix, xmax=200, highlight='M5'):
-    plt = _load_pyplot()
+def _fallback_radius_scale(records, min_radius=18.0, max_radius=40.0):
+    params = [record['params_m'] for record in records]
+    low = min(params)
+    high = max(params)
+    if math.isclose(low, high):
+        mid = (min_radius + max_radius) / 2.0
+        return {record['experiment_id']: mid for record in records}
+
+    radii = {}
+    for record in records:
+        norm = (record['params_m'] - low) / (high - low)
+        radii[record['experiment_id']] = min_radius + norm * (max_radius - min_radius)
+    return radii
+
+
+def _write_fallback_svg(records, output_prefix, xmax=200, highlight='M4', best_mpjpe='M3'):
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
+
+    width = 1600
+    height = 980
+    plot_left = 160
+    plot_right = 1500
+    plot_top = 100
+    plot_bottom = 820
+
+    mpjpe_values = [record['mpjpe'] for record in records]
+    ymin = min(mpjpe_values) - 6
+    ymax = max(mpjpe_values) + 8
+    radii = _fallback_radius_scale(records)
+
+    def map_x(value):
+        return plot_left + (value / xmax) * (plot_right - plot_left)
+
+    def map_y(value):
+        span = ymax - ymin
+        return plot_bottom - ((value - ymin) / span) * (plot_bottom - plot_top)
+
+    def tick_values(start, end, step):
+        current = math.floor(start / step) * step
+        ticks = []
+        while current <= end:
+            if current >= start - 1e-6:
+                ticks.append(current)
+            current += step
+        return ticks
+
+    x_ticks = [0, 50, 100, 150, 200]
+    y_ticks = tick_values(ymin, ymax, 5)
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+    ]
+
+    for tick in x_ticks:
+        x = map_x(tick)
+        parts.append(
+            f'<line x1="{x:.2f}" y1="{plot_top}" x2="{x:.2f}" y2="{plot_bottom}" '
+            'stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 8" opacity="0.25"/>')
+        parts.append(
+            f'<text x="{x:.2f}" y="{plot_bottom + 38}" text-anchor="middle" '
+            'font-family="Arial" font-size="20" fill="#334155">'
+            f'{tick}</text>')
+
+    for tick in y_ticks:
+        y = map_y(tick)
+        parts.append(
+            f'<line x1="{plot_left}" y1="{y:.2f}" x2="{plot_right}" y2="{y:.2f}" '
+            'stroke="#94a3b8" stroke-width="2" stroke-dasharray="8 8" opacity="0.25"/>')
+        parts.append(
+            f'<text x="{plot_left - 14}" y="{y + 7:.2f}" text-anchor="end" '
+            'font-family="Arial" font-size="20" fill="#334155">'
+            f'{tick:.0f}</text>')
+
+    parts.append(
+        f'<rect x="{plot_left}" y="{plot_top}" width="{plot_right - plot_left}" height="{plot_bottom - plot_top}" '
+        'fill="none" stroke="#334155" stroke-width="3"/>')
+    parts.append(
+        '<text x="800" y="46" text-anchor="middle" font-family="Arial" font-size="28" '
+        'font-weight="700" fill="#0f172a">'
+        f'{escape(PAPER_TITLE)}</text>')
+    parts.append(
+        '<text x="800" y="930" text-anchor="middle" font-family="Arial" font-size="22" fill="#0f172a">'
+        'Inference Speed (FPS)</text>')
+    parts.append(
+        '<g transform="translate(38,460) rotate(-90)"><text x="0" y="0" text-anchor="middle" '
+        'font-family="Arial" font-size="22" fill="#0f172a">MPJPE (mm, lower is better)</text></g>')
+    parts.append(
+        '<text x="1495" y="795" text-anchor="end" font-family="Arial" font-size="18" fill="#334155">'
+        'Bubble size: Parameters (M)</text>')
+
+    for record in records:
+        style = _style_for_record(record['experiment_id'], highlight, best_mpjpe=best_mpjpe)
+        label = annotation_spec(record['experiment_id'], highlight=highlight, best_mpjpe=best_mpjpe)
+        x = map_x(record['fps'])
+        y = map_y(record['mpjpe'])
+        radius = radii[record['experiment_id']]
+        parts.append(
+            f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{radius:.2f}" fill="{style["color"]}" '
+            f'fill-opacity="{style["alpha"]:.2f}" stroke="{style["edgecolor"]}" '
+            f'stroke-width="{style["linewidth"]:.2f}"/>')
+        parts.append(
+            f'<text x="{x + label["dx"] * 4.5:.2f}" y="{y + label["dy"] * 4.5:.2f}" '
+            f'text-anchor="{"end" if label["ha"] == "right" else "start"}" '
+            'font-family="Arial" font-size="20" '
+            f'font-weight="{"700" if label["fontweight"] == "bold" else "500"}" '
+            f'fill="{style["edgecolor"]}">{escape(record["display_name"])}</text>')
+
+    role_specs = {
+        'M0': dict(text='Baseline', dx=44, dy=-28),
+        best_mpjpe: dict(text='Best MPJPE', dx=-110, dy=24),
+        highlight: dict(text='Ours / Best Trade-off', dx=40, dy=90),
+    }
+    for experiment_id, spec in role_specs.items():
+        matching = next((record for record in records if record['experiment_id'] == experiment_id), None)
+        if matching is None:
+            continue
+        style = _style_for_record(experiment_id, highlight, best_mpjpe=best_mpjpe)
+        x = map_x(matching['fps'])
+        y = map_y(matching['mpjpe'])
+        box_x = x + spec['dx']
+        box_y = y + spec['dy']
+        text_width = 9.8 * len(spec['text']) + 24
+        parts.append(
+            f'<rect x="{box_x:.2f}" y="{box_y - 24:.2f}" width="{text_width:.2f}" height="34" rx="10" ry="10" '
+            'fill="#ffffff" fill-opacity="0.92" '
+            f'stroke="{style["edgecolor"]}" stroke-width="2"/>')
+        parts.append(
+            f'<text x="{box_x + text_width / 2:.2f}" y="{box_y:.2f}" text-anchor="middle" '
+            'font-family="Arial" font-size="17" font-weight="700" '
+            f'fill="{style["edgecolor"]}">{escape(spec["text"])}</text>')
+
+    parts.append('</svg>')
+    output_prefix.with_suffix('.svg').write_text('\n'.join(parts) + '\n', encoding='utf-8')
+
+    return output_prefix.with_suffix('.svg')
+
+
+def plot_teaser_figure(records, output_prefix, xmax=200, highlight='M4', best_mpjpe='M3'):
+    output_prefix = Path(output_prefix)
+    output_prefix.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        plt = _load_pyplot()
+    except RuntimeError:
+        svg_path = _write_fallback_svg(
+            records,
+            output_prefix,
+            xmax=xmax,
+            highlight=highlight,
+            best_mpjpe=best_mpjpe)
+        return svg_path, None
 
     sizes = bubble_size_scale(records)
     fig, ax = plt.subplots(figsize=(10.5, 6.2))
 
     for record in records:
-        style = _style_for_record(record['experiment_id'], highlight)
-        label = annotation_spec(record['experiment_id'], highlight=highlight)
+        style = _style_for_record(record['experiment_id'], highlight, best_mpjpe=best_mpjpe)
+        label = annotation_spec(record['experiment_id'], highlight=highlight, best_mpjpe=best_mpjpe)
         ax.scatter(
             record['fps'],
             record['mpjpe'],
@@ -163,6 +351,8 @@ def plot_teaser_figure(records, output_prefix, xmax=200, highlight='M5'):
             fontweight=label['fontweight'],
             ha=label['ha'],
             color=style['edgecolor'])
+
+    add_role_callouts(ax, records, highlight=highlight, best_mpjpe=best_mpjpe)
 
     mpjpe_values = [record['mpjpe'] for record in records]
     ymin = min(mpjpe_values) - 6
@@ -215,12 +405,16 @@ def parse_args(argv=None):
     parser.add_argument(
         '--runs',
         nargs='+',
-        default=['M0', 'M1', 'M2', 'M3', 'M4', 'M5'],
+        default=['M0', 'M1', 'M2', 'M3', 'M4'],
         help='experiment IDs to plot')
     parser.add_argument(
         '--highlight',
-        default='M5',
+        default='M4',
         help='experiment ID to emphasize')
+    parser.add_argument(
+        '--best-mpjpe',
+        default='M3',
+        help='experiment ID to mark as the best-MPJPE variant')
     parser.add_argument(
         '--xmax',
         type=float,
@@ -234,12 +428,16 @@ def main(argv=None):
     rows = load_experiment_rows(args.csv, runs=args.runs, alias_path=args.alias_path)
     if not rows:
         raise RuntimeError(f'No valid rows found in {args.csv} for runs {args.runs}')
-    plot_teaser_figure(
+    figure_obj, _ = plot_teaser_figure(
         rows,
         args.out_prefix,
         xmax=args.xmax,
-        highlight=args.highlight)
-    print(f'Teaser figure written to {args.out_prefix}.[png|pdf|svg]')
+        highlight=args.highlight,
+        best_mpjpe=args.best_mpjpe)
+    if isinstance(figure_obj, Path):
+        print(f'Teaser figure written to {figure_obj} (SVG fallback mode; matplotlib unavailable)')
+    else:
+        print(f'Teaser figure written to {args.out_prefix}.[png|pdf|svg]')
 
 
 if __name__ == '__main__':
