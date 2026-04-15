@@ -95,7 +95,12 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         self.assertEqual(
             titles,
-            ['Ground Truth', 'M0: Person-in-WiFi 3D', 'M3: FlowPose-WiFi (Transformer)', 'M4: FlowPose-WiFi (Ours)'])
+            [
+                'Ground Truth',
+                'M0: Person-in-WiFi 3D',
+                'M3: Draft-to-Refine Rectified Flow with Transformer',
+                'M4: Draft-to-Refine Rectified Flow with Mamba',
+            ])
 
     def test_prepare_display_predictions_hides_unmatched_by_default(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -335,6 +340,24 @@ class TestRenderQualitativeFigure(unittest.TestCase):
                 ('M0', ('data/wifipose/test_data', 'test')),
                 ('M3', ('data/wifipose/test_data_v2', 'test')),
             ])
+
+    def test_panel_grid_position_uses_two_columns_and_six_rows_for_three_samples(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        self.assertEqual(module.get_panel_grid_position(0, 'gt'), (0, 0))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_0'), (0, 1))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_1'), (1, 0))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_2'), (1, 1))
+
+        self.assertEqual(module.get_panel_grid_position(1, 'gt'), (2, 0))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_0'), (2, 1))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_1'), (3, 0))
+        self.assertEqual(module.get_panel_grid_position(1, 'model_2'), (3, 1))
+
+        self.assertEqual(module.get_panel_grid_position(2, 'gt'), (4, 0))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_0'), (4, 1))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_1'), (5, 0))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (5, 1))
 
 
 if __name__ == '__main__':

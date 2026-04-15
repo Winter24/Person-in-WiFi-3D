@@ -143,7 +143,7 @@ def add_role_callouts(ax, records, highlight='M4', best_mpjpe='M3'):
             color='#1e3a8a',
             edgecolor='#1e3a8a'),
         highlight: dict(
-            text='Ours / Best Trade-off',
+            text='Best Trade-off',
             xytext=(22, 0),
             color='#042f2e',
             edgecolor='#042f2e'),
@@ -290,7 +290,7 @@ def _write_fallback_svg(records, output_prefix, xmax=200, highlight='M4', best_m
     role_specs = {
         'M0': dict(text='Baseline', dx=44, dy=-28),
         best_mpjpe: dict(text='Best MPJPE', dx=-110, dy=24),
-        highlight: dict(text='Ours / Best Trade-off', dx=40, dy=90),
+        highlight: dict(text='Best Trade-off', dx=40, dy=90),
     }
     for experiment_id, spec in role_specs.items():
         matching = next((record for record in records if record['experiment_id'] == experiment_id), None)

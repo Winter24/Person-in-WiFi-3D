@@ -12,14 +12,15 @@ MODEL_DISPLAY_NAMES = {
     'M0': 'Person-in-WiFi 3D',
     'M1': 'Person-in-WiFi 3D + Spectral Tokens',
     'M2': 'Person-in-WiFi 3D + Mamba',
-    'M3': 'FlowPose-WiFi (Transformer)',
-    'M4': 'FlowPose-WiFi (Ours)',
+    'M3': 'Draft-to-Refine Rectified Flow with Transformer',
+    'M4': 'Draft-to-Refine Rectified Flow with Mamba',
 }
 LIMBS = [
     [0, 1], [1, 2], [2, 5], [3, 0], [4, 2], [5, 7], [6, 3], [7, 3],
     [8, 4], [9, 5], [10, 6], [11, 7], [12, 9], [13, 11],
 ]
 LABEL_ANCHOR_JOINT_IDX = 13
+DEFAULT_BLOCK_PANEL_ORDER = ('gt', 'model_0', 'model_1', 'model_2')
 
 
 def load_experiment_specs(csv_path):
@@ -76,6 +77,19 @@ def build_panel_titles(model_ids):
         f'{model_id}: {MODEL_DISPLAY_NAMES.get(model_id, model_id)}'
         for model_id in model_ids
     ]
+
+
+def get_panel_grid_position(sample_idx, panel_key):
+    panel_offsets = {
+        'gt': (0, 0),
+        'model_0': (0, 1),
+        'model_1': (1, 0),
+        'model_2': (1, 1),
+    }
+    if panel_key not in panel_offsets:
+        raise KeyError(f'Unsupported panel key: {panel_key}')
+    row_offset, col_idx = panel_offsets[panel_key]
+    return sample_idx * 2 + row_offset, col_idx
 
 
 def parse_args():
@@ -477,7 +491,18 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
         row_lookup = {row['sample_index']: row for row in precomputed_rows}
         rows = [row_lookup[sample_index] for sample_index in sample_indices if sample_index in row_lookup]
 
-    fig = plt.figure(figsize=(4.4 * (len(model_assets) + 1), 4.1 * len(rows)))
+    use_two_column_block_layout = len(model_assets) == 3
+    if use_two_column_block_layout:
+        figure_width = 9.6
+        figure_height = 4.35 * len(rows) * 2
+        grid_rows = len(rows) * 2
+        grid_cols = 2
+    else:
+        figure_width = 4.4 * (len(model_assets) + 1)
+        figure_height = 4.1 * len(rows)
+        grid_rows = len(rows)
+        grid_cols = len(model_assets) + 1
+    fig = plt.figure(figsize=(figure_width, figure_height))
     titles = build_panel_titles([asset['model_id'] for asset in model_assets])
 
     for row_idx, row in enumerate(rows):
@@ -506,8 +531,14 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             row_display_sets.append(display['matched_poses'])
         row_bounds = compute_shared_pose_bounds(row_display_sets)
 
-        gt_ax = fig.add_subplot(len(rows), len(model_assets) + 1, row_idx * (len(model_assets) + 1) + 1, projection='3d')
-        gt_title = titles[0] if row_idx == 0 else f'Ground Truth\nSample {row["sample_index"]}'
+        if use_two_column_block_layout:
+            gt_row_idx, gt_col_idx = get_panel_grid_position(row_idx, 'gt')
+            gt_subplot_idx = gt_row_idx * grid_cols + gt_col_idx + 1
+            gt_title = titles[0]
+        else:
+            gt_subplot_idx = row_idx * (len(model_assets) + 1) + 1
+            gt_title = titles[0] if row_idx == 0 else f'Ground Truth\nSample {row["sample_index"]}'
+        gt_ax = fig.add_subplot(grid_rows, grid_cols, gt_subplot_idx, projection='3d')
         _plot_pose_set(gt_ax, gt_keypoints, gt_colors, gt_labels, gt_title, Line2D, bounds=row_bounds)
         gt_ax.text2D(
             0.02,
@@ -520,15 +551,18 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             model_asset = model_entry['asset']
             metric = row['metrics'][model_asset['model_id']]
 
-            axis = fig.add_subplot(
-                len(rows),
-                len(model_assets) + 1,
-                row_idx * (len(model_assets) + 1) + col_idx + 1,
-                projection='3d')
-            if row_idx == 0:
+            if use_two_column_block_layout:
+                grid_row_idx, grid_col_idx = get_panel_grid_position(row_idx, f'model_{col_idx - 1}')
+                subplot_idx = grid_row_idx * grid_cols + grid_col_idx + 1
                 title = titles[col_idx]
             else:
-                title = f'{model_asset["model_id"]}\nSample {row["sample_index"]}'
+                subplot_idx = row_idx * (len(model_assets) + 1) + col_idx + 1
+                title = titles[col_idx] if row_idx == 0 else f'{model_asset["model_id"]}\nSample {row["sample_index"]}'
+            axis = fig.add_subplot(
+                grid_rows,
+                grid_cols,
+                subplot_idx,
+                projection='3d')
             _plot_pose_set(axis, display['poses'], display['colors'], display['labels'], title, Line2D, bounds=row_bounds)
             axis.text2D(
                 0.02,
