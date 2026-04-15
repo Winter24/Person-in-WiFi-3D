@@ -103,13 +103,16 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             [[0.0, 0.0, 0.0] for _ in range(14)]
             for _ in range(4)
         ]
-        matches = [(1, 2), (0, 0)]
+        match_details = [
+            {'gt_idx': 1, 'pred_idx': 2, 'error_mm': 145.0},
+            {'gt_idx': 0, 'pred_idx': 0, 'error_mm': 120.0},
+        ]
         gt_colors = ['blue', 'green']
         gt_labels = ['P1', 'P2']
 
         display = module.prepare_display_predictions(
             pred_keypoints=pred_keypoints,
-            matches=matches,
+            match_details=match_details,
             gt_colors=gt_colors,
             gt_labels=gt_labels,
             show_unmatched=False)
@@ -126,13 +129,13 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             [[0.0, 0.0, 0.0] for _ in range(14)]
             for _ in range(3)
         ]
-        matches = [(0, 1)]
+        match_details = [{'gt_idx': 0, 'pred_idx': 1, 'error_mm': 135.0}]
         gt_colors = ['blue']
         gt_labels = ['P1']
 
         display = module.prepare_display_predictions(
             pred_keypoints=pred_keypoints,
-            matches=matches,
+            match_details=match_details,
             gt_colors=gt_colors,
             gt_labels=gt_labels,
             show_unmatched=True)
@@ -142,6 +145,25 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(display['colors'][0], 'blue')
         self.assertEqual(display['labels'][1:], ['U1', 'U3'])
         self.assertEqual(display['colors'][1:], ['#7f7f7f', '#7f7f7f'])
+
+    def test_prepare_display_predictions_grays_poor_match_beyond_threshold(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        pred_keypoints = [
+            [[0.0, 0.0, 0.0] for _ in range(14)],
+        ]
+        match_details = [{'gt_idx': 0, 'pred_idx': 0, 'error_mm': 260.0}]
+
+        display = module.prepare_display_predictions(
+            pred_keypoints=pred_keypoints,
+            match_details=match_details,
+            gt_colors=['blue'],
+            gt_labels=['P1'],
+            show_unmatched=False,
+            match_quality_thr_mm=200.0)
+
+        self.assertEqual(display['colors'], ['#7f7f7f'])
+        self.assertEqual(display['labels'], ['P1'])
+        self.assertEqual(display['poor_match_count'], 1)
 
     def test_compute_shared_pose_bounds_uses_all_panels_in_row(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -160,30 +182,32 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(bounds['ylim'], (0.0, 3.1))
         self.assertEqual(bounds['zlim'], (4.3, 0.0))
 
-    def test_score_sample_candidate_prefers_clear_flow_improvements(self):
+    def test_score_sample_candidate_prefers_crowded_and_difficult_samples(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
-        strong = {
+        crowded = {
             'sample_index': 10,
             'gt_count': 3,
+            'crowding_score': 2.5,
             'metrics': {
-                'M0': {'matched_mpjpe': 190.0, 'matched_count': 2, 'false_positives': 2},
-                'M3': {'matched_mpjpe': 150.0, 'matched_count': 3, 'false_positives': 1},
-                'M4': {'matched_mpjpe': 158.0, 'matched_count': 3, 'false_positives': 1},
+                'M0': {'matched_error_mm': 190.0, 'matched_count': 2, 'false_positives': 2},
+                'M3': {'matched_error_mm': 150.0, 'matched_count': 3, 'false_positives': 3},
+                'M4': {'matched_error_mm': 158.0, 'matched_count': 3, 'false_positives': 2},
             },
         }
-        weak = {
+        easy = {
             'sample_index': 11,
             'gt_count': 2,
+            'crowding_score': 0.5,
             'metrics': {
-                'M0': {'matched_mpjpe': 160.0, 'matched_count': 2, 'false_positives': 0},
-                'M3': {'matched_mpjpe': 170.0, 'matched_count': 2, 'false_positives': 2},
-                'M4': {'matched_mpjpe': 175.0, 'matched_count': 2, 'false_positives': 2},
+                'M0': {'matched_error_mm': 160.0, 'matched_count': 2, 'false_positives': 0},
+                'M3': {'matched_error_mm': 162.0, 'matched_count': 2, 'false_positives': 0},
+                'M4': {'matched_error_mm': 159.0, 'matched_count': 2, 'false_positives': 0},
             },
         }
 
         self.assertGreater(
-            module.score_sample_candidate(strong),
-            module.score_sample_candidate(weak))
+            module.score_sample_candidate(crowded),
+            module.score_sample_candidate(easy))
 
     def test_select_best_sample_indices_sorts_by_candidate_score(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -191,28 +215,31 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             {
                 'sample_index': 3,
                 'gt_count': 2,
+                'crowding_score': 1.2,
                 'metrics': {
-                    'M0': {'matched_mpjpe': 180.0, 'matched_count': 2, 'false_positives': 1},
-                    'M3': {'matched_mpjpe': 155.0, 'matched_count': 2, 'false_positives': 1},
-                    'M4': {'matched_mpjpe': 160.0, 'matched_count': 2, 'false_positives': 1},
+                    'M0': {'matched_error_mm': 180.0, 'matched_count': 2, 'false_positives': 1},
+                    'M3': {'matched_error_mm': 155.0, 'matched_count': 2, 'false_positives': 1},
+                    'M4': {'matched_error_mm': 160.0, 'matched_count': 2, 'false_positives': 1},
                 },
             },
             {
                 'sample_index': 7,
                 'gt_count': 3,
+                'crowding_score': 2.8,
                 'metrics': {
-                    'M0': {'matched_mpjpe': 200.0, 'matched_count': 2, 'false_positives': 2},
-                    'M3': {'matched_mpjpe': 145.0, 'matched_count': 3, 'false_positives': 1},
-                    'M4': {'matched_mpjpe': 150.0, 'matched_count': 3, 'false_positives': 1},
+                    'M0': {'matched_error_mm': 200.0, 'matched_count': 2, 'false_positives': 2},
+                    'M3': {'matched_error_mm': 145.0, 'matched_count': 3, 'false_positives': 4},
+                    'M4': {'matched_error_mm': 150.0, 'matched_count': 3, 'false_positives': 3},
                 },
             },
             {
                 'sample_index': 9,
                 'gt_count': 2,
+                'crowding_score': 0.3,
                 'metrics': {
-                    'M0': {'matched_mpjpe': 155.0, 'matched_count': 2, 'false_positives': 0},
-                    'M3': {'matched_mpjpe': 165.0, 'matched_count': 2, 'false_positives': 1},
-                    'M4': {'matched_mpjpe': 170.0, 'matched_count': 2, 'false_positives': 1},
+                    'M0': {'matched_error_mm': 155.0, 'matched_count': 2, 'false_positives': 0},
+                    'M3': {'matched_error_mm': 165.0, 'matched_count': 2, 'false_positives': 1},
+                    'M4': {'matched_error_mm': 170.0, 'matched_count': 2, 'false_positives': 1},
                 },
             },
         ]
@@ -230,13 +257,24 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             gt_count=2,
             matched_count=2,
             false_positives=1,
-            matched_mpjpe=158.43)
+            matched_error_mm=158.43,
+            poor_match_count=1)
 
         self.assertIn('Sample 1121', footer)
         self.assertIn('0507-2-00123', footer)
         self.assertIn('Match 2/2', footer)
         self.assertIn('FP 1', footer)
-        self.assertIn('mMPJPE 158.4 mm', footer)
+        self.assertIn('Matched Error 158.4 mm', footer)
+        self.assertIn('Poor 1', footer)
+
+    def test_validate_dataset_signatures_rejects_mismatch(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        with self.assertRaises(ValueError):
+            module.validate_dataset_signatures([
+                ('M0', ('data/wifipose/test_data', 'test')),
+                ('M3', ('data/wifipose/test_data_v2', 'test')),
+            ])
 
 
 if __name__ == '__main__':

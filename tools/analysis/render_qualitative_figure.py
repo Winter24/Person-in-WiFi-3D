@@ -91,6 +91,7 @@ def parse_args():
     parser.add_argument('--device', default=None)
     parser.add_argument('--dpi', type=int, default=220)
     parser.add_argument('--show-unmatched', action='store_true')
+    parser.add_argument('--match-quality-thr-mm', type=float, default=200.0)
     return parser.parse_args()
 
 
@@ -117,6 +118,24 @@ def _build_visual_dataset(config_path, Config, build_dataset):
     cfg.data.test.pipeline = vis_pipeline
     dataset = build_dataset(cfg.data.test)
     return cfg, dataset
+
+
+def extract_test_dataset_signature(cfg):
+    test_cfg = cfg.data.test
+    dataset_root = getattr(test_cfg, 'dataset_root', None)
+    mode = getattr(test_cfg, 'mode', None)
+    return (dataset_root, mode)
+
+
+def validate_dataset_signatures(signatures):
+    if not signatures:
+        return
+    baseline_model, baseline_signature = signatures[0]
+    for model_id, signature in signatures[1:]:
+        if signature != baseline_signature:
+            raise ValueError(
+                f'Mismatched test dataset signature: {model_id}={signature} differs from '
+                f'{baseline_model}={baseline_signature}')
 
 
 def collect_candidate_indices(config_path, min_people):
@@ -201,17 +220,39 @@ def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
     }
 
 
-def prepare_display_predictions(pred_keypoints, matches, gt_colors, gt_labels, show_unmatched=False):
+def build_match_details(pred_keypoints, gt_keypoints, matches, np):
+    details = []
+    for gt_idx, pred_idx in sorted(matches, key=lambda item: item[0]):
+        error_mm = float(np.mean(np.linalg.norm(gt_keypoints[gt_idx] - pred_keypoints[pred_idx], axis=1)) * 1000.0)
+        details.append({
+            'gt_idx': gt_idx,
+            'pred_idx': pred_idx,
+            'error_mm': error_mm,
+        })
+    return details
+
+
+def prepare_display_predictions(pred_keypoints, match_details, gt_colors, gt_labels, show_unmatched=False,
+                                match_quality_thr_mm=None):
     pred_keypoints = list(pred_keypoints)
-    matched_by_gt = sorted(matches, key=lambda item: item[0])
+    matched_by_gt = sorted(match_details, key=lambda item: item['gt_idx'])
     shown_poses = []
     shown_colors = []
     shown_labels = []
     used_pred_indices = set()
+    matched_poses = []
+    poor_match_count = 0
 
-    for gt_idx, pred_idx in matched_by_gt:
+    for detail in matched_by_gt:
+        gt_idx = detail['gt_idx']
+        pred_idx = detail['pred_idx']
         shown_poses.append(pred_keypoints[pred_idx])
-        shown_colors.append(gt_colors[gt_idx])
+        matched_poses.append(pred_keypoints[pred_idx])
+        if match_quality_thr_mm is not None and detail['error_mm'] > match_quality_thr_mm:
+            shown_colors.append('#7f7f7f')
+            poor_match_count += 1
+        else:
+            shown_colors.append(gt_colors[gt_idx])
         shown_labels.append(gt_labels[gt_idx])
         used_pred_indices.add(pred_idx)
 
@@ -225,43 +266,60 @@ def prepare_display_predictions(pred_keypoints, matches, gt_colors, gt_labels, s
 
     return {
         'poses': shown_poses,
+        'matched_poses': matched_poses,
         'colors': shown_colors,
         'labels': shown_labels,
         'shown_count': len(shown_poses),
         'matched_count': len(matched_by_gt),
         'total_count': len(pred_keypoints),
         'hidden_unmatched': len(pred_keypoints) - len(matched_by_gt),
+        'poor_match_count': poor_match_count,
     }
 
 
 def summarize_prediction_quality(pred_keypoints, gt_keypoints, matches, np):
-    matched_errors = []
-    for gt_idx, pred_idx in matches:
-        matched_errors.append(np.mean(np.linalg.norm(gt_keypoints[gt_idx] - pred_keypoints[pred_idx], axis=1)))
-    matched_mpjpe = float(np.mean(matched_errors) * 1000.0) if matched_errors else None
+    match_details = build_match_details(pred_keypoints, gt_keypoints, matches, np)
+    matched_errors = [detail['error_mm'] for detail in match_details]
+    matched_error_mm = float(sum(matched_errors) / len(matched_errors)) if matched_errors else None
     return {
-        'matched_mpjpe': matched_mpjpe,
+        'match_details': match_details,
+        'matched_error_mm': matched_error_mm,
         'matched_count': len(matches),
         'false_positives': max(0, len(pred_keypoints) - len(matches)),
         'false_negatives': max(0, len(gt_keypoints) - len(matches)),
     }
 
 
+def compute_crowding_score(gt_keypoints, np):
+    if len(gt_keypoints) < 2:
+        return 0.0
+    centers = [np.mean(person, axis=0) for person in gt_keypoints]
+    nearest_distances = []
+    for idx, center in enumerate(centers):
+        others = [np.linalg.norm(center - other) for j, other in enumerate(centers) if j != idx]
+        if others:
+            nearest_distances.append(min(others))
+    if not nearest_distances:
+        return 0.0
+    mean_nearest = float(sum(nearest_distances) / len(nearest_distances))
+    return 1.0 / max(mean_nearest, 1e-6)
+
+
 def score_sample_candidate(summary):
     metrics = summary.get('metrics', {})
-    baseline = metrics.get('M0', {})
-    baseline_mpjpe = baseline.get('matched_mpjpe')
-    baseline_matches = baseline.get('matched_count', 0)
-    baseline_fp = baseline.get('false_positives', 0)
     gt_count = summary.get('gt_count', 0)
+    crowding_score = summary.get('crowding_score', 0.0)
+    all_metrics = list(metrics.values())
+    avg_false_positives = sum(metric.get('false_positives', 0) for metric in all_metrics) / max(len(all_metrics), 1)
+    avg_false_negatives = sum(metric.get('false_negatives', 0) for metric in all_metrics) / max(len(all_metrics), 1)
+    matched_errors = [metric.get('matched_error_mm') for metric in all_metrics if metric.get('matched_error_mm') is not None]
+    error_spread = (max(matched_errors) - min(matched_errors)) if len(matched_errors) >= 2 else 0.0
 
-    score = max(0, gt_count - 1) * 10.0
-    for model_id, weight in (('M3', 1.0), ('M4', 1.2)):
-        metric = metrics.get(model_id, {})
-        if baseline_mpjpe is not None and metric.get('matched_mpjpe') is not None:
-            score += weight * max(0.0, baseline_mpjpe - metric['matched_mpjpe'])
-        score += weight * 20.0 * max(0, metric.get('matched_count', 0) - baseline_matches)
-        score -= weight * 5.0 * max(0, metric.get('false_positives', 0) - baseline_fp)
+    score = 40.0 * gt_count
+    score += 25.0 * crowding_score
+    score += 6.0 * avg_false_positives
+    score += 10.0 * avg_false_negatives
+    score += 0.05 * error_spread
     return score
 
 
@@ -272,11 +330,12 @@ def select_best_sample_indices(sample_summaries, num_samples):
     return [item['sample_index'] for item in ranked[:num_samples]]
 
 
-def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives, matched_mpjpe):
-    mpjpe_text = 'n/a' if matched_mpjpe is None else f'{matched_mpjpe:.1f} mm'
+def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives, matched_error_mm,
+                        poor_match_count=0):
+    error_text = 'n/a' if matched_error_mm is None else f'{matched_error_mm:.1f} mm'
     return (
         f'Sample {sample_index} | {img_name}\n'
-        f'Match {matched_count}/{gt_count} | FP {false_positives} | mMPJPE {mpjpe_text}'
+        f'Match {matched_count}/{gt_count} | FP {false_positives} | Poor {poor_match_count} | Matched Error {error_text}'
     )
 
 
@@ -314,7 +373,15 @@ def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None):
 def prepare_runtime(model_assets, device=None):
     np, torch, plt, Line2D, Config, linear_sum_assignment, init_detector, build_dataset = _lazy_runtime_imports()
     device = _normalize_device(device, torch)
-    _, dataset = _build_visual_dataset(model_assets[0]['config'], Config, build_dataset)
+    loaded_cfgs = []
+    for asset in model_assets:
+        cfg, _ = _build_visual_dataset(asset['config'], Config, build_dataset)
+        loaded_cfgs.append((asset['model_id'], cfg))
+    validate_dataset_signatures([
+        (model_id, extract_test_dataset_signature(cfg))
+        for model_id, cfg in loaded_cfgs
+    ])
+    dataset = _build_visual_dataset(model_assets[0]['config'], Config, build_dataset)[1]
     models = {}
     for asset in model_assets:
         model = init_detector(str(asset['config']), str(asset['checkpoint']), device=device)
@@ -346,6 +413,7 @@ def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
         'img_name': data['img_metas'].data['img_name'],
         'gt_keypoints': gt_keypoints,
         'gt_count': len(gt_keypoints),
+        'crowding_score': compute_crowding_score(gt_keypoints, np),
         'models': [],
         'metrics': {},
     }
@@ -367,7 +435,7 @@ def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
 
 
 def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
-                              show_unmatched=False, precomputed_rows=None):
+                              show_unmatched=False, precomputed_rows=None, match_quality_thr_mm=200.0):
     runtime = None
     if precomputed_rows is None:
         runtime = prepare_runtime(model_assets, device=device)
@@ -398,18 +466,20 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             gt_count=len(gt_keypoints),
             matched_count=len(gt_keypoints),
             false_positives=0,
-            matched_mpjpe=0.0)
+            matched_error_mm=None)
         row_display_sets = [gt_keypoints]
         prepared_displays = []
         for model_entry in row['models']:
+            metric = row['metrics'][model_entry['asset']['model_id']]
             display = prepare_display_predictions(
                 pred_keypoints=model_entry['pred_keypoints'],
-                matches=model_entry['matches'],
+                match_details=metric['match_details'],
                 gt_colors=gt_colors,
                 gt_labels=gt_labels,
-                show_unmatched=show_unmatched)
+                show_unmatched=show_unmatched,
+                match_quality_thr_mm=match_quality_thr_mm)
             prepared_displays.append(display)
-            row_display_sets.append(display['poses'])
+            row_display_sets.append(display['matched_poses'])
         row_bounds = compute_shared_pose_bounds(row_display_sets)
 
         gt_ax = fig.add_subplot(len(rows), len(model_assets) + 1, row_idx * (len(model_assets) + 1) + 1, projection='3d')
@@ -445,11 +515,12 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                     gt_count=len(gt_keypoints),
                     matched_count=metric['matched_count'],
                     false_positives=metric['false_positives'],
-                    matched_mpjpe=metric['matched_mpjpe']),
+                    matched_error_mm=metric['matched_error_mm'],
+                    poor_match_count=display['poor_match_count']),
                 transform=axis.transAxes,
                 fontsize=7.5)
 
-    fig.suptitle('Figure 4. Qualitative comparison on challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
+    fig.suptitle('Figure 4. Selected challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
 
     outputs = []
@@ -492,7 +563,8 @@ def main():
         device=args.device,
         dpi=args.dpi,
         show_unmatched=args.show_unmatched,
-        precomputed_rows=precomputed_rows)
+        precomputed_rows=precomputed_rows,
+        match_quality_thr_mm=args.match_quality_thr_mm)
     print('Figure 4 outputs:')
     for output_path in outputs:
         print(output_path)
