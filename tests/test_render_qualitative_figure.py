@@ -143,6 +143,101 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(display['labels'][1:], ['U1', 'U3'])
         self.assertEqual(display['colors'][1:], ['#7f7f7f', '#7f7f7f'])
 
+    def test_compute_shared_pose_bounds_uses_all_panels_in_row(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        pose_sets = [
+            [
+                [[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]],
+            ],
+            [
+                [[2.0, 3.0, 4.0], [2.2, 3.1, 4.3]],
+            ],
+        ]
+
+        bounds = module.compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.0)
+
+        self.assertEqual(bounds['xlim'], (0.0, 2.2))
+        self.assertEqual(bounds['ylim'], (0.0, 3.1))
+        self.assertEqual(bounds['zlim'], (4.3, 0.0))
+
+    def test_score_sample_candidate_prefers_clear_flow_improvements(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        strong = {
+            'sample_index': 10,
+            'gt_count': 3,
+            'metrics': {
+                'M0': {'matched_mpjpe': 190.0, 'matched_count': 2, 'false_positives': 2},
+                'M3': {'matched_mpjpe': 150.0, 'matched_count': 3, 'false_positives': 1},
+                'M4': {'matched_mpjpe': 158.0, 'matched_count': 3, 'false_positives': 1},
+            },
+        }
+        weak = {
+            'sample_index': 11,
+            'gt_count': 2,
+            'metrics': {
+                'M0': {'matched_mpjpe': 160.0, 'matched_count': 2, 'false_positives': 0},
+                'M3': {'matched_mpjpe': 170.0, 'matched_count': 2, 'false_positives': 2},
+                'M4': {'matched_mpjpe': 175.0, 'matched_count': 2, 'false_positives': 2},
+            },
+        }
+
+        self.assertGreater(
+            module.score_sample_candidate(strong),
+            module.score_sample_candidate(weak))
+
+    def test_select_best_sample_indices_sorts_by_candidate_score(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 3,
+                'gt_count': 2,
+                'metrics': {
+                    'M0': {'matched_mpjpe': 180.0, 'matched_count': 2, 'false_positives': 1},
+                    'M3': {'matched_mpjpe': 155.0, 'matched_count': 2, 'false_positives': 1},
+                    'M4': {'matched_mpjpe': 160.0, 'matched_count': 2, 'false_positives': 1},
+                },
+            },
+            {
+                'sample_index': 7,
+                'gt_count': 3,
+                'metrics': {
+                    'M0': {'matched_mpjpe': 200.0, 'matched_count': 2, 'false_positives': 2},
+                    'M3': {'matched_mpjpe': 145.0, 'matched_count': 3, 'false_positives': 1},
+                    'M4': {'matched_mpjpe': 150.0, 'matched_count': 3, 'false_positives': 1},
+                },
+            },
+            {
+                'sample_index': 9,
+                'gt_count': 2,
+                'metrics': {
+                    'M0': {'matched_mpjpe': 155.0, 'matched_count': 2, 'false_positives': 0},
+                    'M3': {'matched_mpjpe': 165.0, 'matched_count': 2, 'false_positives': 1},
+                    'M4': {'matched_mpjpe': 170.0, 'matched_count': 2, 'false_positives': 1},
+                },
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(summaries, num_samples=2)
+
+        self.assertEqual(chosen, [7, 3])
+
+    def test_format_panel_footer_includes_sample_and_matching_metrics(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        footer = module.format_panel_footer(
+            sample_index=1121,
+            img_name='0507-2-00123',
+            gt_count=2,
+            matched_count=2,
+            false_positives=1,
+            matched_mpjpe=158.43)
+
+        self.assertIn('Sample 1121', footer)
+        self.assertIn('0507-2-00123', footer)
+        self.assertIn('Match 2/2', footer)
+        self.assertIn('FP 1', footer)
+        self.assertIn('mMPJPE 158.4 mm', footer)
+
 
 if __name__ == '__main__':
     unittest.main()

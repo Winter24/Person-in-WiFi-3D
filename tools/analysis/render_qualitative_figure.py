@@ -137,30 +137,13 @@ def _normalize_device(device, torch):
     return 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
-def _predict_sample(model_asset, sample_index, score_thr, device):
-    np, torch, _, _, Config, _, init_detector, build_dataset = _lazy_runtime_imports()
-    cfg, dataset = _build_visual_dataset(model_asset['config'], Config, build_dataset)
-    data = dataset[sample_index]
-    img_tensor = data['img'].data.to(device).unsqueeze(0)
-    img_metas = [{'img_name': data['img_metas'].data['img_name']}]
-
-    model = init_detector(str(model_asset['config']), str(model_asset['checkpoint']), device=device)
-    model.eval()
-    with torch.no_grad():
-        result = model.simple_test(img_tensor, img_metas, rescale=False)
-
+def _predict_from_result(result, score_thr):
     bbox_kpt_results = result[0]
     pred_bboxes_all = bbox_kpt_results[0][0]
     pred_keypoints_all = bbox_kpt_results[1][0]
     scores = pred_bboxes_all[:, -1]
     keep_mask = scores > score_thr
-    return {
-        'gt_keypoints': data['gt_keypoints'].data.numpy(),
-        'pred_keypoints': pred_keypoints_all[keep_mask],
-        'img_name': data['img_metas'].data['img_name'],
-        'cfg': cfg,
-        'num_pred': int(keep_mask.sum()),
-    }
+    return pred_keypoints_all[keep_mask]
 
 
 def _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np):
@@ -180,6 +163,42 @@ def _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np):
 
 def _panel_colors(count):
     return ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2'][:count]
+
+
+def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
+    points = []
+    for poses in pose_sets:
+        for pose in poses:
+            points.extend(pose)
+    if not points:
+        return {
+            'xlim': (-1.0, 1.0),
+            'ylim': (-1.0, 1.0),
+            'zlim': (1.0, -1.0),
+        }
+
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    zs = [point[2] for point in points]
+    min_vals = [min(xs), min(ys), min(zs)]
+    max_vals = [max(xs), max(ys), max(zs)]
+    spans = [max_vals[i] - min_vals[i] for i in range(3)]
+    max_span = max(max(spans), min_range)
+    margin = max_span * margin_scale
+
+    def _axis_bounds(axis_index):
+        center = (min_vals[axis_index] + max_vals[axis_index]) / 2.0
+        half = max(max_vals[axis_index] - min_vals[axis_index], min_range) / 2.0 + margin
+        return (center - half, center + half)
+
+    xlim = _axis_bounds(0)
+    ylim = _axis_bounds(1)
+    z_low, z_high = _axis_bounds(2)
+    return {
+        'xlim': xlim,
+        'ylim': ylim,
+        'zlim': (z_high, z_low),
+    }
 
 
 def prepare_display_predictions(pred_keypoints, matches, gt_colors, gt_labels, show_unmatched=False):
@@ -215,12 +234,56 @@ def prepare_display_predictions(pred_keypoints, matches, gt_colors, gt_labels, s
     }
 
 
-def _plot_pose_set(ax, poses, colors, labels, title, Line2D):
+def summarize_prediction_quality(pred_keypoints, gt_keypoints, matches, np):
+    matched_errors = []
+    for gt_idx, pred_idx in matches:
+        matched_errors.append(np.mean(np.linalg.norm(gt_keypoints[gt_idx] - pred_keypoints[pred_idx], axis=1)))
+    matched_mpjpe = float(np.mean(matched_errors) * 1000.0) if matched_errors else None
+    return {
+        'matched_mpjpe': matched_mpjpe,
+        'matched_count': len(matches),
+        'false_positives': max(0, len(pred_keypoints) - len(matches)),
+        'false_negatives': max(0, len(gt_keypoints) - len(matches)),
+    }
+
+
+def score_sample_candidate(summary):
+    metrics = summary.get('metrics', {})
+    baseline = metrics.get('M0', {})
+    baseline_mpjpe = baseline.get('matched_mpjpe')
+    baseline_matches = baseline.get('matched_count', 0)
+    baseline_fp = baseline.get('false_positives', 0)
+    gt_count = summary.get('gt_count', 0)
+
+    score = max(0, gt_count - 1) * 10.0
+    for model_id, weight in (('M3', 1.0), ('M4', 1.2)):
+        metric = metrics.get(model_id, {})
+        if baseline_mpjpe is not None and metric.get('matched_mpjpe') is not None:
+            score += weight * max(0.0, baseline_mpjpe - metric['matched_mpjpe'])
+        score += weight * 20.0 * max(0, metric.get('matched_count', 0) - baseline_matches)
+        score -= weight * 5.0 * max(0, metric.get('false_positives', 0) - baseline_fp)
+    return score
+
+
+def select_best_sample_indices(sample_summaries, num_samples):
+    ranked = sorted(
+        sample_summaries,
+        key=lambda item: (-score_sample_candidate(item), -item.get('gt_count', 0), item.get('sample_index', 0)))
+    return [item['sample_index'] for item in ranked[:num_samples]]
+
+
+def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives, matched_mpjpe):
+    mpjpe_text = 'n/a' if matched_mpjpe is None else f'{matched_mpjpe:.1f} mm'
+    return (
+        f'Sample {sample_index} | {img_name}\n'
+        f'Match {matched_count}/{gt_count} | FP {false_positives} | mMPJPE {mpjpe_text}'
+    )
+
+
+def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None):
     ax.set_title(title, fontsize=12, pad=10)
-    all_points = []
     for person_idx, person_kpts in enumerate(poses):
         color = colors[person_idx]
-        all_points.extend(person_kpts)
         x, y, z = person_kpts[:, 0], person_kpts[:, 1], person_kpts[:, 2]
         ax.scatter(x, y, z, c=color, marker='o', s=18)
         for limb in LIMBS:
@@ -234,18 +297,10 @@ def _plot_pose_set(ax, poses, colors, labels, title, Line2D):
         anchor_joint = person_kpts[LABEL_ANCHOR_JOINT_IDX]
         ax.text(anchor_joint[0], anchor_joint[1], anchor_joint[2] + 0.05, labels[person_idx], color=color, fontsize=8)
 
-    if all_points:
-        import numpy as np  # local only for plotting bounds
-        all_points = np.array(all_points)
-        min_vals = np.min(all_points, axis=0)
-        max_vals = np.max(all_points, axis=0)
-        mid_vals = (min_vals + max_vals) / 2
-        max_range = max((max_vals - min_vals).max() * 0.6, 0.35)
-        ax.set_xlim(mid_vals[0] - max_range, mid_vals[0] + max_range)
-        ax.set_ylim(mid_vals[1] - max_range, mid_vals[1] + max_range)
-        z_min = mid_vals[2] - max_range
-        z_max = mid_vals[2] + max_range
-        ax.set_zlim(z_max, z_min)
+    if bounds:
+        ax.set_xlim(*bounds['xlim'])
+        ax.set_ylim(*bounds['ylim'])
+        ax.set_zlim(*bounds['zlim'])
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_zticks([])
@@ -256,30 +311,79 @@ def _plot_pose_set(ax, poses, colors, labels, title, Line2D):
     ax.grid(False)
 
 
-def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
-                              show_unmatched=False):
-    np, torch, plt, Line2D, _, linear_sum_assignment, _, _ = _lazy_runtime_imports()
+def prepare_runtime(model_assets, device=None):
+    np, torch, plt, Line2D, Config, linear_sum_assignment, init_detector, build_dataset = _lazy_runtime_imports()
     device = _normalize_device(device, torch)
+    _, dataset = _build_visual_dataset(model_assets[0]['config'], Config, build_dataset)
+    models = {}
+    for asset in model_assets:
+        model = init_detector(str(asset['config']), str(asset['checkpoint']), device=device)
+        model.eval()
+        models[asset['model_id']] = model
+    return {
+        'np': np,
+        'torch': torch,
+        'plt': plt,
+        'Line2D': Line2D,
+        'linear_sum_assignment': linear_sum_assignment,
+        'dataset': dataset,
+        'device': device,
+        'models': models,
+    }
+
+
+def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
+    np = runtime['np']
+    torch = runtime['torch']
+    linear_sum_assignment = runtime['linear_sum_assignment']
+    data = runtime['dataset'][sample_index]
+    gt_keypoints = data['gt_keypoints'].data.numpy()
+    img_tensor = data['img'].data.to(runtime['device']).unsqueeze(0)
+    img_metas = [{'img_name': data['img_metas'].data['img_name']}]
+
+    summary = {
+        'sample_index': sample_index,
+        'img_name': data['img_metas'].data['img_name'],
+        'gt_keypoints': gt_keypoints,
+        'gt_count': len(gt_keypoints),
+        'models': [],
+        'metrics': {},
+    }
+
+    for asset in model_assets:
+        model = runtime['models'][asset['model_id']]
+        with torch.no_grad():
+            result = model.simple_test(img_tensor, img_metas, rescale=False)
+        pred_keypoints = _predict_from_result(result, score_thr=score_thr)
+        matches = _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np)
+        metrics = summarize_prediction_quality(pred_keypoints, gt_keypoints, matches, np)
+        summary['models'].append({
+            'asset': asset,
+            'pred_keypoints': pred_keypoints,
+            'matches': matches,
+        })
+        summary['metrics'][asset['model_id']] = metrics
+    return summary
+
+
+def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
+                              show_unmatched=False, precomputed_rows=None):
+    runtime = None
+    if precomputed_rows is None:
+        runtime = prepare_runtime(model_assets, device=device)
+        plt = runtime['plt']
+        Line2D = runtime['Line2D']
+    else:
+        _, _, plt, Line2D, _, _, _, _ = _lazy_runtime_imports()
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
 
-    rows = []
-    for sample_index in sample_indices:
-        row = {'sample_index': sample_index, 'models': []}
-        gt_keypoints = None
-        img_name = None
-        for asset in model_assets:
-            result = _predict_sample(asset, sample_index, score_thr=score_thr, device=device)
-            if gt_keypoints is None:
-                gt_keypoints = result['gt_keypoints']
-                img_name = result['img_name']
-            row['models'].append({
-                'asset': asset,
-                'pred_keypoints': result['pred_keypoints'],
-            })
-        row['gt_keypoints'] = gt_keypoints
-        row['img_name'] = img_name
-        rows.append(row)
+    if precomputed_rows is None:
+        rows = [collect_sample_summary(runtime, model_assets, sample_index, score_thr=score_thr)
+                for sample_index in sample_indices]
+    else:
+        row_lookup = {row['sample_index']: row for row in precomputed_rows}
+        rows = [row_lookup[sample_index] for sample_index in sample_indices if sample_index in row_lookup]
 
     fig = plt.figure(figsize=(4.4 * (len(model_assets) + 1), 4.1 * len(rows)))
     titles = build_panel_titles([asset['model_id'] for asset in model_assets])
@@ -288,20 +392,39 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
         gt_keypoints = row['gt_keypoints']
         gt_labels = [f'P{i + 1}' for i in range(len(gt_keypoints))]
         gt_colors = _panel_colors(len(gt_keypoints))
-        gt_ax = fig.add_subplot(len(rows), len(model_assets) + 1, row_idx * (len(model_assets) + 1) + 1, projection='3d')
-        gt_title = titles[0] if row_idx == 0 else f'Ground Truth\nSample {row["sample_index"]}'
-        _plot_pose_set(gt_ax, gt_keypoints, gt_colors, gt_labels, gt_title, Line2D)
-
-        for col_idx, model_entry in enumerate(row['models'], start=1):
-            model_asset = model_entry['asset']
-            pred_keypoints = model_entry['pred_keypoints']
-            matches = _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np)
+        gt_footer = format_panel_footer(
+            sample_index=row['sample_index'],
+            img_name=row['img_name'],
+            gt_count=len(gt_keypoints),
+            matched_count=len(gt_keypoints),
+            false_positives=0,
+            matched_mpjpe=0.0)
+        row_display_sets = [gt_keypoints]
+        prepared_displays = []
+        for model_entry in row['models']:
             display = prepare_display_predictions(
-                pred_keypoints=pred_keypoints,
-                matches=matches,
+                pred_keypoints=model_entry['pred_keypoints'],
+                matches=model_entry['matches'],
                 gt_colors=gt_colors,
                 gt_labels=gt_labels,
                 show_unmatched=show_unmatched)
+            prepared_displays.append(display)
+            row_display_sets.append(display['poses'])
+        row_bounds = compute_shared_pose_bounds(row_display_sets)
+
+        gt_ax = fig.add_subplot(len(rows), len(model_assets) + 1, row_idx * (len(model_assets) + 1) + 1, projection='3d')
+        gt_title = titles[0] if row_idx == 0 else f'Ground Truth\nSample {row["sample_index"]}'
+        _plot_pose_set(gt_ax, gt_keypoints, gt_colors, gt_labels, gt_title, Line2D, bounds=row_bounds)
+        gt_ax.text2D(
+            0.02,
+            0.02,
+            gt_footer,
+            transform=gt_ax.transAxes,
+            fontsize=7.5)
+
+        for col_idx, (model_entry, display) in enumerate(zip(row['models'], prepared_displays), start=1):
+            model_asset = model_entry['asset']
+            metric = row['metrics'][model_asset['model_id']]
 
             axis = fig.add_subplot(
                 len(rows),
@@ -312,13 +435,19 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 title = titles[col_idx]
             else:
                 title = f'{model_asset["model_id"]}\nSample {row["sample_index"]}'
-            _plot_pose_set(axis, display['poses'], display['colors'], display['labels'], title, Line2D)
+            _plot_pose_set(axis, display['poses'], display['colors'], display['labels'], title, Line2D, bounds=row_bounds)
             axis.text2D(
                 0.02,
                 0.02,
-                f'Shown: {display["shown_count"]} | Matched: {display["matched_count"]} | Total: {display["total_count"]} | GT: {len(gt_keypoints)}',
+                format_panel_footer(
+                    sample_index=row['sample_index'],
+                    img_name=row['img_name'],
+                    gt_count=len(gt_keypoints),
+                    matched_count=metric['matched_count'],
+                    false_positives=metric['false_positives'],
+                    matched_mpjpe=metric['matched_mpjpe']),
                 transform=axis.transAxes,
-                fontsize=8)
+                fontsize=7.5)
 
     fig.suptitle('Figure 4. Qualitative comparison on challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
@@ -341,9 +470,17 @@ def main():
     ]
     if args.sample_indices:
         sample_indices = args.sample_indices
+        precomputed_rows = None
     else:
         candidates, _ = collect_candidate_indices(model_assets[0]['config'], args.min_people)
-        sample_indices = candidates[:args.num_samples]
+        runtime = prepare_runtime(model_assets, device=args.device)
+        summaries = [
+            collect_sample_summary(runtime, model_assets, sample_index, score_thr=args.score_thr)
+            for sample_index in candidates
+        ]
+        sample_indices = select_best_sample_indices(summaries, args.num_samples)
+        print('Auto-selected sample indices:', sample_indices)
+        precomputed_rows = summaries
     if not sample_indices:
         raise RuntimeError('No candidate samples found for qualitative rendering.')
 
@@ -354,7 +491,8 @@ def main():
         score_thr=args.score_thr,
         device=args.device,
         dpi=args.dpi,
-        show_unmatched=args.show_unmatched)
+        show_unmatched=args.show_unmatched,
+        precomputed_rows=precomputed_rows)
     print('Figure 4 outputs:')
     for output_path in outputs:
         print(output_path)
