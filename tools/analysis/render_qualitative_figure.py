@@ -389,8 +389,19 @@ def format_panel_title(base_title, sample_index=None, top_row=False):
     return f'{prefix}\nS{sample_index}'
 
 
+def get_render_style_config():
+    return {
+        'title_font_size': 11,
+        'title_pad': 3,
+        'footer_font_size': 7.2,
+        'bounds_min_range': 0.16,
+        'bounds_margin_scale': 0.08,
+    }
+
+
 def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None):
-    ax.set_title(title, fontsize=10, pad=3)
+    style_config = get_render_style_config()
+    ax.set_title(title, fontsize=style_config['title_font_size'], pad=style_config['title_pad'])
     for person_idx, person_kpts in enumerate(poses):
         color = colors[person_idx]
         x, y, z = person_kpts[:, 0], person_kpts[:, 1], person_kpts[:, 2]
@@ -495,6 +506,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
         _, _, plt, Line2D, _, _, _, _ = _lazy_runtime_imports()
     output_prefix = Path(output_prefix)
     output_prefix.parent.mkdir(parents=True, exist_ok=True)
+    style_config = get_render_style_config()
 
     if precomputed_rows is None:
         rows = [collect_sample_summary(runtime, model_assets, sample_index, score_thr=score_thr)
@@ -534,7 +546,10 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 match_quality_thr_mm=match_quality_thr_mm)
             prepared_displays.append(display)
             row_display_sets.append(display['matched_poses'])
-        row_bounds = compute_shared_pose_bounds(row_display_sets, min_range=0.22, margin_scale=0.18)
+        row_bounds = compute_shared_pose_bounds(
+            row_display_sets,
+            min_range=style_config['bounds_min_range'],
+            margin_scale=style_config['bounds_margin_scale'])
 
         gt_row_idx, gt_col_idx = get_panel_grid_position(row_idx, 'gt')
         gt_subplot_idx = gt_row_idx * grid_cols + gt_col_idx + 1
@@ -546,7 +561,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             0.01,
             gt_footer,
             transform=gt_ax.transAxes,
-            fontsize=6.4)
+            fontsize=style_config['footer_font_size'])
 
         for col_idx, (model_entry, display) in enumerate(zip(row['models'], prepared_displays), start=1):
             model_asset = model_entry['asset']
@@ -576,7 +591,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                     matched_error_mm=metric['matched_error_mm'],
                     poor_match_count=display['poor_match_count']),
                 transform=axis.transAxes,
-                fontsize=6.4)
+                fontsize=style_config['footer_font_size'])
 
     fig.suptitle('Figure 4. Selected challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
     fig.subplots_adjust(left=0.02, right=0.995, bottom=0.02, top=0.93, wspace=0.03, hspace=0.12)

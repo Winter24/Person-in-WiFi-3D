@@ -373,6 +373,16 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         lower = module.format_panel_title('M3: Draft-to-Refine Rectified Flow with Transformer', sample_index=1121)
         self.assertEqual(lower, 'M3\nS1121')
 
+    def test_render_style_config_prefers_larger_text_and_tighter_zoom(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        config = module.get_render_style_config()
+
+        self.assertEqual(config['title_font_size'], 11)
+        self.assertEqual(config['footer_font_size'], 7.2)
+        self.assertEqual(config['bounds_min_range'], 0.16)
+        self.assertEqual(config['bounds_margin_scale'], 0.08)
+
 
 if __name__ == '__main__':
     unittest.main()
