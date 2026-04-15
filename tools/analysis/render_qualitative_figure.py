@@ -376,8 +376,21 @@ def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_p
     )
 
 
+def format_panel_title(base_title, sample_index=None, top_row=False):
+    if top_row:
+        if ': ' in base_title:
+            prefix, remainder = base_title.split(': ', 1)
+            remainder = remainder.replace(' with ', '\nwith ')
+            return f'{prefix}:\n{remainder}'
+        return base_title
+    prefix = base_title.split(':', 1)[0]
+    if sample_index is None:
+        return prefix
+    return f'{prefix}\nS{sample_index}'
+
+
 def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None):
-    ax.set_title(title, fontsize=11, pad=5)
+    ax.set_title(title, fontsize=10, pad=3)
     for person_idx, person_kpts in enumerate(poses):
         color = colors[person_idx]
         x, y, z = person_kpts[:, 0], person_kpts[:, 1], person_kpts[:, 2]
@@ -521,11 +534,11 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 match_quality_thr_mm=match_quality_thr_mm)
             prepared_displays.append(display)
             row_display_sets.append(display['matched_poses'])
-        row_bounds = compute_shared_pose_bounds(row_display_sets)
+        row_bounds = compute_shared_pose_bounds(row_display_sets, min_range=0.22, margin_scale=0.18)
 
         gt_row_idx, gt_col_idx = get_panel_grid_position(row_idx, 'gt')
         gt_subplot_idx = gt_row_idx * grid_cols + gt_col_idx + 1
-        gt_title = titles[0] if row_idx == 0 else f'Ground Truth\nSample {row["sample_index"]}'
+        gt_title = format_panel_title(titles[0], sample_index=row['sample_index'], top_row=(row_idx == 0))
         gt_ax = fig.add_subplot(grid_rows, grid_cols, gt_subplot_idx, projection='3d')
         _plot_pose_set(gt_ax, gt_keypoints, gt_colors, gt_labels, gt_title, Line2D, bounds=row_bounds)
         gt_ax.text2D(
@@ -541,7 +554,10 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
 
             grid_row_idx, grid_col_idx = get_panel_grid_position(row_idx, f'model_{col_idx - 1}')
             subplot_idx = grid_row_idx * grid_cols + grid_col_idx + 1
-            title = titles[col_idx] if row_idx == 0 else f'{model_asset["model_id"]}\nSample {row["sample_index"]}'
+            title = format_panel_title(
+                titles[col_idx],
+                sample_index=row['sample_index'],
+                top_row=(row_idx == 0))
             axis = fig.add_subplot(
                 grid_rows,
                 grid_cols,

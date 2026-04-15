@@ -359,6 +359,20 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(module.get_panel_grid_position(2, 'model_1'), (2, 2))
         self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (2, 3))
 
+    def test_format_panel_title_wraps_long_model_titles(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        wrapped = module.format_panel_title(
+            'M3: Draft-to-Refine Rectified Flow with Transformer',
+            sample_index=1121,
+            top_row=True)
+
+        self.assertIn('\n', wrapped)
+        self.assertIn('Transformer', wrapped)
+
+        lower = module.format_panel_title('M3: Draft-to-Refine Rectified Flow with Transformer', sample_index=1121)
+        self.assertEqual(lower, 'M3\nS1121')
+
 
 if __name__ == '__main__':
     unittest.main()
