@@ -193,3 +193,34 @@ class TestRenderPresentationVideo(unittest.TestCase):
             baseline_asset={'model_id': 'M0'})
 
         self.assertEqual([asset['model_id'] for asset in model_assets], ['M0', 'M3'])
+
+    def test_reorder_gt_by_previous_frame_preserves_identity_order(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+        import numpy as np
+
+        previous = np.array([
+            [[0.0, 0.0, 0.0]] * 14,
+            [[10.0, 0.0, 0.0]] * 14,
+            [[20.0, 0.0, 0.0]] * 14,
+        ])
+        current_swapped = np.array([
+            [[20.1, 0.0, 0.0]] * 14,
+            [[0.1, 0.0, 0.0]] * 14,
+            [[10.1, 0.0, 0.0]] * 14,
+        ])
+
+        reordered = module.reorder_gt_by_previous_frame(current_swapped, previous, np)
+
+        self.assertAlmostEqual(float(reordered[0, 0, 0]), 0.1)
+        self.assertAlmostEqual(float(reordered[1, 0, 0]), 10.1)
+        self.assertAlmostEqual(float(reordered[2, 0, 0]), 20.1)
+
+    def test_precompute_global_bounds_uses_all_gt_frames(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+
+        bounds = module.precompute_global_bounds([
+            {'gt_keypoints': [[[0.0, 0.0, 0.0]]]},
+            {'gt_keypoints': [[[2.0, 0.0, 0.0]]]},
+        ], min_range=0.1, margin_scale=0.0)
+
+        self.assertEqual(bounds['xlim'], (0.0, 2.0))

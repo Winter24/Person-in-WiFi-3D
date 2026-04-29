@@ -304,6 +304,58 @@ def build_video_model_assets(target_asset, baseline_asset=None):
     return [baseline_asset, target_asset]
 
 
+def reorder_gt_by_previous_frame(current_gt, previous_gt, np):
+    """Reorder current GT people to keep visual identities stable over time."""
+    current_gt = np.asarray(current_gt)
+    if previous_gt is None or len(previous_gt) == 0 or len(current_gt) == 0:
+        return current_gt
+    previous_gt = np.asarray(previous_gt)
+    if len(previous_gt) != len(current_gt):
+        return current_gt
+    try:
+        from scipy.optimize import linear_sum_assignment
+    except ImportError:
+        return current_gt
+
+    cost_matrix = np.zeros((len(previous_gt), len(current_gt)), dtype=float)
+    for prev_idx in range(len(previous_gt)):
+        for curr_idx in range(len(current_gt)):
+            cost_matrix[prev_idx, curr_idx] = np.mean(
+                np.linalg.norm(previous_gt[prev_idx] - current_gt[curr_idx], axis=1))
+    previous_indices, current_indices = linear_sum_assignment(cost_matrix)
+    reordered = np.empty_like(current_gt)
+    used_current = set()
+    for prev_idx, curr_idx in zip(previous_indices, current_indices):
+        reordered[prev_idx] = current_gt[curr_idx]
+        used_current.add(curr_idx)
+    remaining_current = [idx for idx in range(len(current_gt)) if idx not in used_current]
+    for idx in range(len(current_gt)):
+        if idx in previous_indices:
+            continue
+        if remaining_current:
+            reordered[idx] = current_gt[remaining_current.pop(0)]
+    return reordered
+
+
+def precompute_global_bounds(frame_summaries, min_range=0.12, margin_scale=0.04):
+    pose_sets = []
+    for summary in frame_summaries:
+        gt_keypoints = summary.get('gt_keypoints')
+        if gt_keypoints is not None:
+            pose_sets.append(gt_keypoints)
+        for output in summary.get('model_outputs', []):
+            display = output.get('display')
+            if display:
+                pose_sets.append(display.get('matched_poses', []))
+    if not pose_sets:
+        return None
+    qualitative = _load_qualitative_module()
+    return qualitative.compute_shared_pose_bounds(
+        pose_sets,
+        min_range=min_range,
+        margin_scale=margin_scale)
+
+
 def _prepare_video_runtime(model_assets, data_root, splits, device=None):
     qualitative = _load_qualitative_module()
     np, torch, plt, Line2D, Config, linear_sum_assignment, init_detector, build_dataset = (
@@ -390,7 +442,7 @@ def _predict_record(runtime, record, model_id, score_thr):
     return gt_keypoints, pred_keypoints, metrics
 
 
-def _predict_models_for_record(runtime, record, model_assets, score_thr):
+def _predict_models_for_record(runtime, record, model_assets, score_thr, previous_gt_keypoints=None):
     gt_keypoints = None
     outputs = []
     for asset in model_assets:
@@ -400,7 +452,21 @@ def _predict_models_for_record(runtime, record, model_assets, score_thr):
             asset['model_id'],
             score_thr=score_thr)
         if gt_keypoints is None:
-            gt_keypoints = current_gt
+            gt_keypoints = reorder_gt_by_previous_frame(
+                current_gt,
+                previous_gt_keypoints,
+                runtime['np'])
+        if gt_keypoints is not current_gt:
+            matches = runtime['qualitative']._match_predictions(
+                pred_keypoints,
+                gt_keypoints,
+                runtime['linear_sum_assignment'],
+                runtime['np'])
+            metrics = runtime['qualitative'].summarize_prediction_quality(
+                pred_keypoints,
+                gt_keypoints,
+                matches,
+                runtime['np'])
         outputs.append({
             'asset': asset,
             'pred_keypoints': pred_keypoints,
@@ -439,17 +505,8 @@ def _normalize_video_frame(frame_rgb):
     return np.ascontiguousarray(frame)
 
 
-def _render_frame(runtime, record, model_outputs, gt_keypoints,
-                  rgb_frame=None, show_unmatched=False, match_quality_thr_mm=200.0):
+def _prepare_model_displays(runtime, gt_keypoints, model_outputs, show_unmatched=False, match_quality_thr_mm=200.0):
     qualitative = runtime['qualitative']
-    np = runtime['np']
-    plt = runtime['plt']
-    Line2D = runtime['Line2D']
-
-    has_rgb = rgb_frame is not None
-    model_count = len(model_outputs)
-    grid_cols = (1 if has_rgb else 0) + 1 + model_count
-    fig = plt.figure(figsize=(3.6 * grid_cols, 4.8), facecolor='white')
     gt_labels = [f'P{i + 1}' for i in range(len(gt_keypoints))]
     gt_colors = qualitative._panel_colors(len(gt_keypoints))
     displays = []
@@ -462,10 +519,34 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             show_unmatched=show_unmatched,
             match_quality_thr_mm=match_quality_thr_mm)
         displays.append(display)
-    bounds = qualitative.compute_shared_pose_bounds(
-        [gt_keypoints] + [display['matched_poses'] for display in displays],
-        min_range=0.12,
-        margin_scale=0.04)
+    return gt_labels, gt_colors, displays
+
+
+def _render_frame(runtime, record, model_outputs, gt_keypoints,
+                  rgb_frame=None, show_unmatched=False, match_quality_thr_mm=200.0,
+                  bounds=None, prepared_displays=None):
+    qualitative = runtime['qualitative']
+    np = runtime['np']
+    plt = runtime['plt']
+    Line2D = runtime['Line2D']
+
+    has_rgb = rgb_frame is not None
+    model_count = len(model_outputs)
+    grid_cols = (1 if has_rgb else 0) + 1 + model_count
+    fig = plt.figure(figsize=(3.6 * grid_cols, 4.8), facecolor='white')
+    gt_labels, gt_colors, displays = _prepare_model_displays(
+        runtime,
+        gt_keypoints,
+        model_outputs,
+        show_unmatched=show_unmatched,
+        match_quality_thr_mm=match_quality_thr_mm)
+    if prepared_displays is not None:
+        displays = prepared_displays
+    if bounds is None:
+        bounds = qualitative.compute_shared_pose_bounds(
+            [gt_keypoints] + [display['matched_poses'] for display in displays],
+            min_range=0.12,
+            margin_scale=0.04)
 
     col = 1
     if has_rgb:
@@ -564,7 +645,8 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                               source_video=None, source_frame_offset=0, source_time_list=None,
                               source_frame_dir=None,
                               source_frame_pattern='{sample_name}.jpg', show_unmatched=False,
-                              match_quality_thr_mm=200.0, keep_frames_dir=None, model_assets=None):
+                              match_quality_thr_mm=200.0, keep_frames_dir=None, model_assets=None,
+                              use_global_bounds=True):
     if not records:
         raise ValueError('No records selected for rendering.')
     if model_assets is None:
@@ -589,7 +671,34 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
 
     writer = None
     try:
+        frame_summaries = []
+        previous_gt_keypoints = None
+        for record in records:
+            gt_keypoints, model_outputs = _predict_models_for_record(
+                runtime,
+                record,
+                model_assets,
+                score_thr=score_thr,
+                previous_gt_keypoints=previous_gt_keypoints)
+            _, _, displays = _prepare_model_displays(
+                runtime,
+                gt_keypoints,
+                model_outputs,
+                show_unmatched=show_unmatched,
+                match_quality_thr_mm=match_quality_thr_mm)
+            for output, display in zip(model_outputs, displays):
+                output['display'] = display
+            frame_summaries.append({
+                'record': record,
+                'gt_keypoints': gt_keypoints,
+                'model_outputs': model_outputs,
+                'displays': displays,
+            })
+            previous_gt_keypoints = gt_keypoints
+        global_bounds = precompute_global_bounds(frame_summaries) if use_global_bounds else None
+
         for frame_index, record in enumerate(records):
+            summary = frame_summaries[frame_index]
             rgb_frame = (
                 _load_rgb_frame_from_dir(source_frame_dir, source_frame_pattern, record)
                 or _load_rgb_frame_from_video(
@@ -598,19 +707,16 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                     source_frame_offset,
                     time_index_map=time_index_map)
             )
-            gt_keypoints, model_outputs = _predict_models_for_record(
-                runtime,
-                record,
-                model_assets,
-                score_thr=score_thr)
             frame = _render_frame(
                 runtime=runtime,
                 record=record,
-                model_outputs=model_outputs,
-                gt_keypoints=gt_keypoints,
+                model_outputs=summary['model_outputs'],
+                gt_keypoints=summary['gt_keypoints'],
                 rgb_frame=rgb_frame,
                 show_unmatched=show_unmatched,
-                match_quality_thr_mm=match_quality_thr_mm)
+                match_quality_thr_mm=match_quality_thr_mm,
+                bounds=global_bounds,
+                prepared_displays=summary['displays'])
             if keep_frames_dir:
                 frame_path = Path(keep_frames_dir) / f'{frame_index:05d}_{record.sample_name}.png'
                 runtime['plt'].imsave(frame_path, frame)
@@ -669,6 +775,10 @@ def build_arg_parser():
     parser.add_argument('--show-unmatched', action='store_true')
     parser.add_argument('--match-quality-thr-mm', type=float, default=200.0)
     parser.add_argument('--keep-frames-dir', default=None)
+    parser.add_argument(
+        '--per-frame-bounds',
+        action='store_true',
+        help='Use per-frame 3D camera bounds. Default uses global bounds to reduce video jitter.')
     parser.add_argument('--dry-run', action='store_true', help='Only print selected frame records; do not render.')
     return parser
 
@@ -748,7 +858,8 @@ def main(argv: Optional[Sequence[str]] = None):
         show_unmatched=args.show_unmatched,
         match_quality_thr_mm=args.match_quality_thr_mm,
         keep_frames_dir=args.keep_frames_dir,
-        model_assets=model_assets)
+        model_assets=model_assets,
+        use_global_bounds=not args.per_frame_bounds)
     print(f'Video written to: {output_path}')
     return 0
 
