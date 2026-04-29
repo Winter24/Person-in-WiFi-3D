@@ -381,7 +381,13 @@ def _predict_record(runtime, record, score_thr):
 def _figure_to_rgb_array(fig, np):
     fig.canvas.draw()
     width, height = fig.canvas.get_width_height()
-    return np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).reshape(height, width, 3)
+    if hasattr(fig.canvas, 'buffer_rgba'):
+        rgba = np.asarray(fig.canvas.buffer_rgba())
+        return rgba[:, :, :3].copy()
+    if hasattr(fig.canvas, 'tostring_rgb'):
+        return np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).reshape(height, width, 3)
+    argb = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).reshape(height, width, 4)
+    return argb[:, :, [1, 2, 3]].copy()
 
 
 def _render_frame(runtime, record, model_id, display_name, gt_keypoints, pred_keypoints, metrics,

@@ -160,3 +160,16 @@ class TestRenderPresentationVideo(unittest.TestCase):
         frame_index = module.resolve_source_frame_index(frame_id=308, frame_offset=0, time_index_map={308: 17})
 
         self.assertEqual(frame_index, 17)
+
+    def test_figure_to_rgb_array_uses_buffer_rgba_when_available(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+        import numpy as np
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure(figsize=(1, 1))
+        frame = module._figure_to_rgb_array(fig, np)
+        plt.close(fig)
+
+        self.assertEqual(frame.shape[2], 3)
