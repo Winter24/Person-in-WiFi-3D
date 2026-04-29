@@ -298,15 +298,27 @@ def _build_split_dataset(config_path, data_root, split, Config, build_dataset):
     return build_dataset(cfg.data.test)
 
 
-def _prepare_video_runtime(model_asset, data_root, splits, device=None):
+def build_video_model_assets(target_asset, baseline_asset=None):
+    if baseline_asset is None:
+        return [target_asset]
+    return [baseline_asset, target_asset]
+
+
+def _prepare_video_runtime(model_assets, data_root, splits, device=None):
     qualitative = _load_qualitative_module()
     np, torch, plt, Line2D, Config, linear_sum_assignment, init_detector, build_dataset = (
         qualitative._lazy_runtime_imports())
     device = qualitative._normalize_device(device, torch)
-    model = init_detector(str(model_asset['config']), str(model_asset['checkpoint']), device=device)
-    model.eval()
+    model_assets = list(model_assets)
+    if not model_assets:
+        raise ValueError('At least one model asset is required.')
+    models = {}
+    for asset in model_assets:
+        model = init_detector(str(asset['config']), str(asset['checkpoint']), device=device)
+        model.eval()
+        models[asset['model_id']] = model
     datasets = {
-        split: _build_split_dataset(model_asset['config'], data_root, split, Config, build_dataset)
+        split: _build_split_dataset(model_assets[0]['config'], data_root, split, Config, build_dataset)
         for split in splits
     }
     return {
@@ -316,7 +328,7 @@ def _prepare_video_runtime(model_asset, data_root, splits, device=None):
         'plt': plt,
         'Line2D': Line2D,
         'linear_sum_assignment': linear_sum_assignment,
-        'model': model,
+        'models': models,
         'datasets': datasets,
         'device': device,
     }
@@ -355,7 +367,7 @@ def _load_rgb_frame_from_dir(frame_dir, pattern, record):
     return Image.open(frame_path).convert('RGB')
 
 
-def _predict_record(runtime, record, score_thr):
+def _predict_record(runtime, record, model_id, score_thr):
     qualitative = runtime['qualitative']
     torch = runtime['torch']
     data = runtime['datasets'][record.split][record.dataset_index]
@@ -363,7 +375,7 @@ def _predict_record(runtime, record, score_thr):
     img_tensor = data['img'].data.to(runtime['device']).unsqueeze(0)
     img_metas = [{'img_name': data['img_metas'].data['img_name']}]
     with torch.no_grad():
-        result = runtime['model'].simple_test(img_tensor, img_metas, rescale=False)
+        result = runtime['models'][model_id].simple_test(img_tensor, img_metas, rescale=False)
     pred_keypoints = qualitative._predict_from_result(result, score_thr=score_thr)
     matches = qualitative._match_predictions(
         pred_keypoints,
@@ -376,6 +388,25 @@ def _predict_record(runtime, record, score_thr):
         matches,
         runtime['np'])
     return gt_keypoints, pred_keypoints, metrics
+
+
+def _predict_models_for_record(runtime, record, model_assets, score_thr):
+    gt_keypoints = None
+    outputs = []
+    for asset in model_assets:
+        current_gt, pred_keypoints, metrics = _predict_record(
+            runtime,
+            record,
+            asset['model_id'],
+            score_thr=score_thr)
+        if gt_keypoints is None:
+            gt_keypoints = current_gt
+        outputs.append({
+            'asset': asset,
+            'pred_keypoints': pred_keypoints,
+            'metrics': metrics,
+        })
+    return gt_keypoints, outputs
 
 
 def _figure_to_rgb_array(fig, np):
@@ -408,7 +439,7 @@ def _normalize_video_frame(frame_rgb):
     return np.ascontiguousarray(frame)
 
 
-def _render_frame(runtime, record, model_id, display_name, gt_keypoints, pred_keypoints, metrics,
+def _render_frame(runtime, record, model_outputs, gt_keypoints,
                   rgb_frame=None, show_unmatched=False, match_quality_thr_mm=200.0):
     qualitative = runtime['qualitative']
     np = runtime['np']
@@ -416,19 +447,23 @@ def _render_frame(runtime, record, model_id, display_name, gt_keypoints, pred_ke
     Line2D = runtime['Line2D']
 
     has_rgb = rgb_frame is not None
-    fig = plt.figure(figsize=(12.8 if has_rgb else 9.6, 4.8), facecolor='white')
-    grid_cols = 3 if has_rgb else 2
+    model_count = len(model_outputs)
+    grid_cols = (1 if has_rgb else 0) + 1 + model_count
+    fig = plt.figure(figsize=(3.6 * grid_cols, 4.8), facecolor='white')
     gt_labels = [f'P{i + 1}' for i in range(len(gt_keypoints))]
     gt_colors = qualitative._panel_colors(len(gt_keypoints))
-    display = qualitative.prepare_display_predictions(
-        pred_keypoints=pred_keypoints,
-        match_details=metrics['match_details'],
-        gt_colors=gt_colors,
-        gt_labels=gt_labels,
-        show_unmatched=show_unmatched,
-        match_quality_thr_mm=match_quality_thr_mm)
+    displays = []
+    for output in model_outputs:
+        display = qualitative.prepare_display_predictions(
+            pred_keypoints=output['pred_keypoints'],
+            match_details=output['metrics']['match_details'],
+            gt_colors=gt_colors,
+            gt_labels=gt_labels,
+            show_unmatched=show_unmatched,
+            match_quality_thr_mm=match_quality_thr_mm)
+        displays.append(display)
     bounds = qualitative.compute_shared_pose_bounds(
-        [gt_keypoints, display['matched_poses']],
+        [gt_keypoints] + [display['matched_poses'] for display in displays],
         min_range=0.12,
         margin_scale=0.04)
 
@@ -444,21 +479,25 @@ def _render_frame(runtime, record, model_id, display_name, gt_keypoints, pred_ke
     qualitative._plot_pose_set(ax_gt, gt_keypoints, gt_colors, gt_labels, 'Ground Truth 3D Pose', Line2D, bounds=bounds)
     col += 1
 
-    ax_pred = fig.add_subplot(1, grid_cols, col, projection='3d')
-    qualitative._plot_pose_set(
-        ax_pred,
-        display['poses'],
-        display['colors'],
-        display['labels'],
-        f'{model_id}: {display_name}',
-        Line2D,
-        bounds=bounds)
-    error_text = 'n/a' if metrics['matched_error_mm'] is None else f'{metrics["matched_error_mm"]:.1f} mm'
-    footer = (
-        f'{record.sample_name} | split={record.split}\n'
-        f'Match {metrics["matched_count"]}/{len(gt_keypoints)} | '
-        f'FP {metrics["false_positives"]} | Error {error_text}'
-    )
+    footer_parts = [f'{record.sample_name} | split={record.split}']
+    for output, display in zip(model_outputs, displays):
+        asset = output['asset']
+        metrics = output['metrics']
+        ax_pred = fig.add_subplot(1, grid_cols, col, projection='3d')
+        qualitative._plot_pose_set(
+            ax_pred,
+            display['poses'],
+            display['colors'],
+            display['labels'],
+            f'{asset["model_id"]}: {asset.get("display_name", asset["model_id"])}',
+            Line2D,
+            bounds=bounds)
+        error_text = 'n/a' if metrics['matched_error_mm'] is None else f'{metrics["matched_error_mm"]:.1f} mm'
+        footer_parts.append(
+            f'{asset["model_id"]} M{metrics["matched_count"]}/{len(gt_keypoints)} '
+            f'FP{metrics["false_positives"]} E{error_text}')
+        col += 1
+    footer = '\n'.join(footer_parts)
     fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
     fig.suptitle('No camera. No wearable. Just WiFi signals.', fontsize=16, fontweight='bold', y=0.98)
     fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.86, wspace=0.02)
@@ -525,12 +564,16 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                               source_video=None, source_frame_offset=0, source_time_list=None,
                               source_frame_dir=None,
                               source_frame_pattern='{sample_name}.jpg', show_unmatched=False,
-                              match_quality_thr_mm=200.0, keep_frames_dir=None):
+                              match_quality_thr_mm=200.0, keep_frames_dir=None, model_assets=None):
     if not records:
         raise ValueError('No records selected for rendering.')
+    if model_assets is None:
+        model_assets = [model_asset]
+    else:
+        model_assets = list(model_assets)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    runtime = _prepare_video_runtime(model_asset, data_root, splits, device=device)
+    runtime = _prepare_video_runtime(model_assets, data_root, splits, device=device)
 
     video_capture = None
     time_index_map = load_time_index_map(source_time_list, video_id=records[0].video_id)
@@ -555,15 +598,16 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                     source_frame_offset,
                     time_index_map=time_index_map)
             )
-            gt_keypoints, pred_keypoints, metrics = _predict_record(runtime, record, score_thr=score_thr)
+            gt_keypoints, model_outputs = _predict_models_for_record(
+                runtime,
+                record,
+                model_assets,
+                score_thr=score_thr)
             frame = _render_frame(
                 runtime=runtime,
                 record=record,
-                model_id=model_asset['model_id'],
-                display_name=model_asset.get('display_name', model_asset['model_id']),
+                model_outputs=model_outputs,
                 gt_keypoints=gt_keypoints,
-                pred_keypoints=pred_keypoints,
-                metrics=metrics,
                 rgb_frame=rgb_frame,
                 show_unmatched=show_unmatched,
                 match_quality_thr_mm=match_quality_thr_mm)
@@ -594,6 +638,9 @@ def build_arg_parser():
     parser.add_argument('--model', default=DEFAULT_MODEL)
     parser.add_argument('--config', default=None, help='Optional model config override.')
     parser.add_argument('--checkpoint', default=None, help='Optional checkpoint override.')
+    parser.add_argument('--baseline-model', default=None, help='Optional baseline model id, e.g. M0.')
+    parser.add_argument('--baseline-config', default=None, help='Optional baseline config override.')
+    parser.add_argument('--baseline-checkpoint', default=None, help='Optional baseline checkpoint override.')
     parser.add_argument('--output', default=None)
     parser.add_argument('--segment', choices=['longest', 'first', 'all'], default='longest')
     parser.add_argument('--start-frame', type=int, default=None)
@@ -657,6 +704,18 @@ def main(argv: Optional[Sequence[str]] = None):
         specs,
         config_override=args.config,
         checkpoint_override=args.checkpoint)
+    baseline_asset = None
+    if args.baseline_model:
+        baseline_asset = qualitative.resolve_model_assets(
+            PROJECT_ROOT,
+            args.paper_dir,
+            args.baseline_model,
+            specs,
+            config_override=args.baseline_config,
+            checkpoint_override=args.baseline_checkpoint)
+    model_assets = build_video_model_assets(
+        target_asset=model_asset,
+        baseline_asset=baseline_asset)
     output_path = Path(args.output) if args.output else (
         DEFAULT_OUTPUT_DIR / f'presentation_{args.video_id}_{args.model}.mp4')
     source_video = resolve_source_video_path(
@@ -688,7 +747,8 @@ def main(argv: Optional[Sequence[str]] = None):
         source_frame_pattern=args.source_frame_pattern,
         show_unmatched=args.show_unmatched,
         match_quality_thr_mm=args.match_quality_thr_mm,
-        keep_frames_dir=args.keep_frames_dir)
+        keep_frames_dir=args.keep_frames_dir,
+        model_assets=model_assets)
     print(f'Video written to: {output_path}')
     return 0
 

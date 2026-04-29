@@ -184,3 +184,12 @@ class TestRenderPresentationVideo(unittest.TestCase):
         self.assertEqual(normalized.dtype, np.uint8)
         self.assertEqual(normalized.shape, (11, 13, 3))
         self.assertTrue(normalized.flags['C_CONTIGUOUS'])
+
+    def test_build_video_model_assets_places_baseline_before_target(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+
+        model_assets = module.build_video_model_assets(
+            target_asset={'model_id': 'M3'},
+            baseline_asset={'model_id': 'M0'})
+
+        self.assertEqual([asset['model_id'] for asset in model_assets], ['M0', 'M3'])
