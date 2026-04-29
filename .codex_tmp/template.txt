@@ -1,0 +1,142 @@
+--- PAGE 1 ---
+ 
+ 
+1 
+ 
+ 
+ 
+ RESEARCH PROPOSAL TEMPLATE  
+ 
+Research title 
+ (English) 
+ 
+Sub-committee 
+ 
+Group name 
+ 
+Authors 
+List the team members 
+Mentor 
+ 
+ 
+Abstract 
+Research objectives, research questions, research problems, research methodology (maximum 250 
+words). 
+Key words:  
+1. Introduction 
+1.1. Literature review  
+Review and discuss the related research work(s) done by Vietnamese and foreign scientists.  
+Evaluate the quality and relevance of the sources and identify any gaps or inconsistencies in the 
+literature.  
+Review the applications of related works. 
+Summarize the key findings of the literature review and identify the implications for future research 
+or practice.  
+1.2. The necessity of the research 
+Clearly define the problem or hypothesis to be addressed.  
+Originality, relevance, and scientific significance of the question under investigation.  
+1.3. Feasibility of research  
+Analyze the feasibility of research.  
++ Research question: A clear statement of the research question and objectives that the study aims 
+to address.  
++ Research design: An outline of the proposed research design, including the methodology, data 
+collection methods, and data analysis techniques.  
++ Sample size and population: A description of the intended study population and sample size, 
+including the sampling method and the criteria for inclusion and exclusion. 
++ Data sources: A description of the data sources to be used in the study, including any existing 
+datasets, surveys, or interviews.  
++ Budget and funding (in any): A detailed breakdown of the estimated costs of conducting the study 
+and the sources of funding available.  
+
+--- PAGE 2 ---
+ 
+ 
+2 
+ 
++ Timeframe: An estimated timeline for completing the study, including key milestones and 
+deadlines.  
++ Potential challenges and risks: An assessment of potential challenges and risks that may arise 
+during the research process and how they will be addressed.  
+2. Research objectives  
+Clearly outline the research objectives as a basis for determining research content and 
+implementation plan.  
+3. Research scope  
+Clearly define the key study topics and the research scope.  
+4. Approach and Method 
+Describe research methodology and techniques appropriate for each issue of the research. 
+5. Research plan  
+Describe the research plan (Give a concise description of each task, and their expected results, 
+schedule, and person in charge as in the following table).  
+No. 
+Date 
+Task 
+Output 
+Person in charge 
+1 
+dd/mm/yyyy – 
+dd/mm/yyyy 
+ 
+ 
+ 
+2 
+ 
+ 
+ 
+ 
+... 
+ 
+ 
+ 
+ 
+6. Expected results  
+For example: theoretical, methodological, and practical implications; and plans to apply this research 
+in practical. 
+References  
+Appendices (if any) 
+ 
+ 
+
+--- PAGE 3 ---
+ 
+ 
+3 
+ 
+COMMITMENT  
+ON RESPONSIBLE ARTIFICIAL INTELLIGENCE USAGE IN RESEARCH 
+ 
+We are authors of the research paper titled “...”, would like to ensure that all members comply 
+with the rules relevant to Artificial Intelligence (AI) regulations and ethical guidelines in 
+research practices, which are described in details as follows: 
+1. AI is only used as assistant in correcting grammar, structure and phrasing in academic 
+writing; 
+2. AI usage should NOT be engaged with the creation of content or drafting the research 
+paper, production of fake data or literature synthesis; 
+3. AI usage should be checked and confirmed by all authors. Each author shall bear full 
+responsibility in the accuracy, transparency and originality of their sections, including 
+citations and reference; 
+4. All authors should disclose the use of generative AI and AI-assisted technologies to 
+other co-authors, helping them understand where and how AI was applied in research 
+preparation.  
+Hereby, we would like to confirm and take full responsibility for the accuracy and transparency 
+of the provided details.  
+Author 1 
+Author 2 
+Author 3 
+(Signature & Full name) 
+(Signature & Full name) 
+(Signature & Full name) 
+ 
+ 
+ 
+ 
+Note:  
+- 
+Research proposal must be presented in English, A4 paper, single column, Times New Roman 
+11, and a maximum length of 10 pages (excluding references and appendices)  
+- 
+For citations and references, please refer to: 
+o IEEE style should be applied for Information Technology. For more details, please 
+visit: https://owl.purdue.edu/owl/research_and_citation/ieee_style/index.html   
+o APA style should be applied for Business Administration, Linguistics, Communication 
+Technology, and Digital Art & Design. For more details, please visit: 
+https://owl.purdue.edu/owl/research_and_citation/apa_style/index.html 
+

@@ -1,0 +1,891 @@
+--- PAGE 1 ---
+ 
+ RESEARCH PROPOSAL TEMPLATE  
+ 
+Research title 
+ (English) 
+Flow is All You Need for WiFi: Rectifying 3D Human Poses without 
+Complex Architectures. 
+Sub-committee 
+Information Technology 
+Group name 
+NTN 
+Authors 
+CE182108 - Nguyen Vinh Nghi – Leader 
+CE180615 - Le Ngoc Anh Thu   
+CE181939 - Nguyen Ngo Nhat Nam 
+Mentor 
+Tran Ngoc Hoang 
+Abstract 
+WiFi-based human pose estimation offers a privacy-preserving and occlusion-resilient alternative to 
+cameras. However, translating noisy, low-resolution Channel State Information (CSI) into precise 3D 
+skeletons remains a fundamental challenge. Existing architectures heavily rely on complex 
+Transformer backbones and one-shot direct regression models like DETR or PETR. These models 
+often struggle with signal ambiguity and multipath noise, leading to unstable multi-person pose 
+predictions and high computational overhead. To address these limitations, we propose replacing 
+direct regression with a generative trajectory learning approach using Rectified Flow. We 
+systematically upgrade an established baseline (M0) by introducing Spectral Tokenization to filter 
+static noise and a linear-time WiMamba encoder to mitigate the quadratic complexity of Transformers. 
+The conventional regression head is then replaced by a Draft-to-Refine Rectified Flow mechanism, 
+where an Ordinary Differential Equation (ODE) guides coarse pose drafts to precise coordinates. 
+Preliminary pilot experiments based on a frozen local snapshot indicate that Rectified Flow 
+significantly reduces pose errors. We expect our proposed flow-based WiMamba model (M4) to retain 
+this generative capability while achieving approximately 160 FPS, halving the parameter count to 
+5.8M, and minimizing memory footprint. This research aims to confirm that accurate WiFi pose 
+estimation can be optimized through flow-matching refinement without relying on overly complex 
+architectures. 
+Key Words: WiFi sensing; 3D human pose estimation; channel state information; rectified flow; 
+Mamba 
+ 
+1. Introduction 
+ 
+1.1. Literature review 
+Human pose estimation has been widely studied in computer vision, where image-based approaches 
+remain dominant for modeling body structure, localizing joints, and reasoning about multiple persons 
+[23]. Two paradigms, namely top-down and bottom-up formulations, have shaped this research 
+direction, with representative systems such as OpenPose and HRNet demonstrating that strong 
+backbones and large annotated datasets can enable highly accurate pose prediction [14], [15]. These 
+developments established the fundamental problem formulation later adopted by non-visual sensing 
+approaches. However, reliance on cameras raises privacy concerns because visual data may expose 
+identity and appearance information, and performance can degrade under poor illumination or heavy 
+occlusion. To address these limitations, wireless sensing (including RF and WiFi) has emerged as an 
+attractive alternative. Early breakthroughs demonstrated the feasibility of using radio signals for 
+through-wall sensing, respiration monitoring, and gesture recognition [16], [17], [18], [21]. Building 
+upon these, WiFi sensing specifically utilizes Channel State Information (CSI) to capture human 
+motion without visual content, leading to foundational representations like CSI-Net [22] and 
+progressive pose estimation pipelines [1]–[7]. Despite these advantages, WiFi-based pose estimation is 
+inherently more challenging than image-based methods because wireless signals are indirect, 
+low-dimensional, and highly affected by multipath propagation. Consequently, the main challenge is 
+not only pose prediction itself, but also learning representations that preserve body structure from 
+noisy and indirect CSI measurements, particularly in multi-person 3D settings. 
+1 
+
+--- PAGE 2 ---
+Early studies mainly focused on single-person 2D or 3D pose recovery from CSI, demonstrating that 
+wireless signals can support keypoint regression in controlled environments. Representative methods 
+such as WiSPPN, WiPose, Winect, and GoPose progressively explored this direction and confirmed 
+the feasibility of wireless human pose estimation [3]–[6], [16]. Subsequent benchmark-oriented work, 
+including MM-Fi, expanded the research scope by enabling large-scale, non-intrusive multimodal 
+human sensing and providing standardized evaluation protocols [7], [19], [20]. Building upon these 
+efforts, Person-in-WiFi 3D [1] marked a significant milestone by introducing end-to-end multi-person 
+3D pose estimation with a Transformer-based architecture. This work is particularly relevant because 
+it formalizes the task definition and provides the practical baseline adopted in this study. Nevertheless, 
+most existing pipelines treat WiFi pose estimation as a one-shot direct regression problem [1], [8]. 
+Given the ambiguous and indirect nature of CSI signals, one-shot regression to precise 3D coordinates 
+may produce structurally inconsistent skeletons, especially when multiple subjects overlap in the 
+sensing space. Moreover, to compensate for signal ambiguity, recent approaches increasingly rely on 
+deep Transformer architectures, introducing an 
+ computational bottleneck that limits real-time 
+𝑂(𝐿
+2)
+deployment [1], [9]. The very latest research in 2025 and 2026 has started exploring alternative 
+structural modeling, such as graph-based approaches [20] or lightweight spatio-temporal decoupling 
+[12], [13]. Notably, concepts like WiFlow [13] highlight the urgent need for lightweight architectures. 
+ 
+Recent advances in generative modeling offer a promising alternative to this paradigm. Rectified Flow 
+provides a principled framework for progressively refining coarse predictions by learning the Ordinary 
+Differential Equation (ODE) trajectory that maps noisy drafts to ground-truth poses [11]. In parallel, 
+Mamba-style State Space Models (SSMs) have emerged as efficient linear-time 
+ substitutes for 
+𝑂(𝐿)
+self-attention when modeling long sequences [10], [30], [31], [32]. Motivated by these developments, 
+this work replaces heavy regression-based Transformers with a lightweight Mamba backbone and 
+introduces a Rectified Flow–based refinement stage for 3D WiFi pose estimation. Through a 
+systematic evaluation of architectural components, the resulting pipeline preserves generative 
+refinement capabilities while achieving nearly 160 FPS and reducing the parameter count to 5.8M, 
+demonstrating a highly effective configuration for real-world deployment 
+ 
+ 
+ 
+Figure 1. Overview of the proposed WiFi-based 3D human pose estimation pipeline. 
+ 
+1.2. The necessity of the research 
+2 
+
+--- PAGE 3 ---
+Indoor human pose understanding is critical for smart homes, assisted living, and privacy-sensitive 
+environments where camera deployment is unsuitable [17], [19]. While WiFi sensing provides an 
+occlusion-robust alternative, the baseline problem formulation—direct coordinate regression via heavy 
+Transformers—has reached a performance bottleneck. The standard configuration, which uses a linear 
+WiFi adapter and a PETR-style Transformer head [1], [8], exhibits two critical weaknesses: it is highly 
+susceptible to multipath noise in crowded scenes, and it incurs an unnecessary 
+computational 
+𝑂(𝐿
+2)
+complexity when handling long CSI token sequences.  
+This research is necessary to overcome these specific architectural limitations. By introducing a 
+generative draft-to-refine Rectified Flow mechanism, we shift the learning objective from one-shot 
+direct coordinate "guessing" to trajectory matching as others diffusion-base refinement for 3D pose 
+[27], [28], [29]. To prevent this generative process from becoming computationally prohibitive, we 
+integrate Spectral Tokenization for physics-informed denoising and the linear-time WiMamba for 
+ sequence encoding. This project aims to streamline wireless sensing architectures, demonstrating 
+𝑂(𝐿)
+that high precision is achievable without relying on massive Transformer backbones[24], [25], [26]. 
+ 
+1.3. Feasibility of research 
+The proposed research is highly feasible as it builds upon an established and reproducible baseline. 
+The core elements for a controlled empirical study are already in place, including the official 
+Person-in-WiFi 3D dataset protocol (see more in Appendix Dataset and Baseline model architecture), 
+evaluation metrics, and a functional implementation pipeline [1]. The project does not require massive 
+hardware investments, new data collection, or manual annotation campaigns. Instead, it utilizes the 
+existing benchmark dataset, which encompasses diverse single- and multi-person scenarios, allowing 
+the team to focus entirely on architectural innovation and model optimization. 
+Feasibility is further ensured through a structured, progressive ablation design. Rather than comparing 
+entirely disconnected architectures, we systematically evaluate individual component upgrades via a 
+fixed ladder (M0 to M4): Spectral Tokenization, the WiMamba encoder, and Rectified Flow 
+refinement. The provided codebase already supports standardized training, benchmarking, and 
+experiment logging. While generative refinement modules may occasionally introduce training 
+instability, evaluating them through this strict ablation ladder isolates variables, mitigates technical 
+risks, and allows for clear comparisons of accuracy and computational efficiency. 
+Feasibility is also supported by the use of an existing benchmark dataset, limited computational 
+requirements, and a staged ablation plan. The study relies on the official Person-in-WiFi 3D protocol 
+[1], so no new data collection or annotation is required. Resource demands are bounded to training and 
+benchmarking within the current repository, without dependence on new sensing hardware or major 
+external funding. The main risks are training instability in flow-based variants and reduced robustness 
+in crowded scenes, but these are mitigated through fixed evaluation settings, an available baseline 
+pipeline, and controlled component-wise comparison. 
+ 
+2. Research Objectives 
+Multi-person 3D pose estimation from WiFi Channel State Information (CSI) remains challenging due 
+to multipath propagation, measurement noise, and the high computational cost of long-sequence 
+modeling. Existing regression-based pipelines often suffer from structural inconsistency under 
+ambiguous wireless observations, whereas Transformer-based encoders remain expensive for practical 
+deployment. This study aims to develop a generative, computationally efficient framework integrating 
+Rectified Flow with a Mamba backbone to improve the accuracy and deployability of WiFi-based 3D 
+human pose estimation. We investigate whether Spectral Tokenization and linear-time WiMamba 
+encoding can preserve informative CSI representations while reducing sequence complexity relative to 
+standard Transformer backbones, and whether a Rectified Flow formulation can provide more 
+structurally coherent pose predictions than direct one-shot coordinate regression. 
+In addition, this study further seeks to identify the most effective architecture for real-world 
+deployment through a controlled comparison of model variants M0-M4 under the fixed 
+Person-in-WiFi 3D protocol. The investigation is organized around three research questions: RQ1, 
+whether Spectral Tokenization and WiMamba can maintain robust CSI representation at lower 
+computational cost; RQ2, whether draft-to-refine flow-based generation improves pose accuracy and 
+3 
+
+--- PAGE 4 ---
+structural fidelity; and RQ3, which model variant provides the best accuracy-efficiency trade-off in 
+practice. By addressing these questions, this research is expected to make three primary contributions:  
+1.​ A draft-to-refine Rectified Flow framework tailored to multi-person 3D WiFi pose estimation;  
+2.​ A lightweight CSI encoding pipeline combining physics-informed tokenization with 
+WiMamba;  
+3.​ A rigorously controlled ablation benchmark that disentangles the effects of representation, 
+sequence modeling, and generative refinement. 
+ 
+ 
+Figure 2. Accuracy-efficiency trade-off of the evaluated variants.  
+ 
+3. Research Scope 
+This research focuses on multi-person 3D human pose estimation from WiFi Channel State 
+Information under the Person-in-WiFi 3D benchmark setting. The scope is limited to improving the 
+existing baseline pipeline through a structured series of model upgrades, rather than introducing new 
+sensing hardware or collecting additional datasets. The objective is to evaluate how architectural 
+modifications affect prediction accuracy, efficiency, and robustness within a fixed experimental 
+protocol. 
+CSI Representation: The study investigates improved input representation for WiFi signals. 
+Specifically, spectral tokenization is explored as an alternative to the baseline linear projection, aiming 
+to produce more motion-aware and noise-robust CSI features. This component focuses on 
+strengthening the signal representation stage without altering the dataset or sensing setup. 
+Sequence Modeling: The research evaluates sequence modeling strategies for handling long CSI token 
+sequences. Transformer-based encoding in the baseline is compared with a WiMamba-based encoder 
+to analyze the trade-off between representation capability and computational efficiency. This 
+comparison aims to determine whether linear-time sequence modeling can reduce complexity while 
+maintaining pose prediction performance. 
+Prediction Refinement: To address instability in one-shot regression, we introduce a draft-to-refine 
+strategy utilizing rectified-flow correction to progressively improve structural consistency in 
+ambiguous multi-person scenarios.​
+Model Selection and Evaluation: The final stage compares flow-based Transformer and WiMamba 
+variants to identify the most effective configuration. All experiments are conducted using the fixed 
+train/test split of the benchmark. Evaluation considers pose accuracy, performance across different 
+person counts, runtime efficiency, and qualitative analysis of difficult multi-person cases. 
+The research does not include new dataset collection, multimodal sensor fusion, hardware redesign, or 
+cross-environment generalization. By restricting the scope to controlled model improvements and 
+consistent evaluation, the study aims to provide a clear and focused analysis of how flow-based 
+refinement and efficient sequence modeling can improve WiFi-based multi-person 3D pose estimation. 
+4 
+
+--- PAGE 5 ---
+ 
+4. Approach and Method 
+The proposed research adopts an ablation-driven methodological approach built on the current 
+Person-in-WiFi 3D implementation [1]. Before detailing the specific upgrade stages, Figure 1 
+illustrates the end-to-end pipeline of our target architecture. To address the limitations of current 
+baselines, the target architecture replaces one-shot direct regression with a refinement-based prediction 
+process. In the proposed pipeline, raw CSI tensors are processed through a spectral tokenizer and then 
+encoded by either a Transformer or a WiMamba backbone before flow-based refinement. Finally, a 
+generative Rectified Flow mechanism refines this draft into precise multi-person 3D skeletons, 
+ensuring structural fidelity even in highly ambiguous wireless environments. 
+To systematically validate this architecture, we treat the standard direct-regression model (M0) as the 
+reference and investigate a sequence of targeted modifications that can be evaluated one by one. This 
+strategy ensures that we not only seek better performance but also produce interpretable evidence 
+about which design choices matter. For clarity, Table 1 summarizes the model variants studied in this 
+proposal and the specific role each variant plays in the overall evidence pathway. 
+ 
+Table 1. Model variant summary 
+Model 
+Spectral Tokens 
+Mamba Encoder Rectified Flow 
+Role in Study 
+M0 
+No 
+No 
+No 
+Baseline 
+M1 
+Yes 
+No 
+No 
+Signal-modeling upgrade 
+M2 
+Yes 
+Yes 
+No 
+Efficiency-oriented intermediate 
+M3 
+Yes 
+No 
+Yes 
+Accuracy-focused flow variant 
+M4 
+Yes 
+Yes 
+Yes 
+Final model  
+Problem formulation: The task addressed in this proposal is multi-person 3D human pose estimation 
+from WiFi channel state information (CSI). In our implementation, WiFi CSI is processed as a 
+structured signal representation rather than as a conventional image. The research formulates the 
+problem as end-to-end prediction from CSI features to a set of 3D human poses. Since multiple people 
+may exist in the same frame, the method must not only regress joint coordinates but also maintain a 
+consistent one-to-one relationship between predicted bodies and ground-truth instances. This 
+motivates a set-prediction formulation, in which predicted pose instances are matched to ground-truth 
+persons in a one-to-one manner, following DETR/PETR-style design principles [8], [9]. 
+Baseline M0 (Direct Regression): The baseline system used in this proposal is the M0 configuration 
+currently implemented in the repository. Raw CSI features are passed through a linear WiFi input 
+adapter and then processed by a PETR-style Transformer-based pose estimation stack [1], [8]. The 
+baseline projects CSI into latent tokens, models global interactions with  
+ Transformer layers,  
+𝑂(𝐿
+2)
+and directly regresses 3D poses in a single step. However, this direct regression approach struggles 
+with highly ambiguous wireless signals, leaving significant room for improvement in efficiency and 
+prediction robustness. 
+Spectral Tokenizer (M1): The first upgrade investigated is the Spectral Tokenizer. A simple linear 
+projection of CSI fails to separate human motion from static multipath noise caused by the 
+surrounding environment (e.g., walls, furniture). To address this, we leverage the physical properties 
+of WiFi signals by applying the Fast Fourier Transform (FFT) along the temporal axis. Let the 
+spatial-temporal feature be 
+ . The Doppler motion profile  is extracted by averaging the 
+𝑋 ∈ 𝑅
+𝑆×𝑇×𝐶
+𝐷
+magnitude of the FFT: 
+ 
+𝐷 =  1
+𝐶𝑐=1
+𝐶
+∑|𝐹𝑇(𝑋:,:,𝑐)|
+ 
+5 
+
+--- PAGE 6 ---
+A frequency gate 
+ is then generated to modulate the temporal features, ensuring that 
+𝐺 =  σ(𝑀𝐿𝑃(𝐷))
+only dynamic motion cues are passed forward: 
+. This design aims to emphasize 
+𝑋
+^ =  𝑋𝑡𝑖𝑚𝑒 ⊙ 𝐺
+dynamic motion cues while preserving informative spatial structure in the original CSI representation. 
+WiMamba Encoder (M2): The second upgrade targets sequence modeling efficiency. The M0 and 
+M1 configurations rely on Transformer-based self-attention. For a flattened WiFi sequence of length 
+, this results in a quadratic computational complexity of 
+, creating a severe 
+𝐿 =  𝑆 ×  𝑇
+𝑂(𝐿
+2.  𝐶)
+bottleneck for real-time deployment. To resolve this, we investigate replacing the Transformer with a 
+WiMamba encoder [10]. WiMamba utilizes a factorized State Space Model (SSM) that processes the 
+spatial and temporal dimensions sequentially through hardware-aware hidden states. This reduces the 
+sequence modeling complexity to 
+, making WiMamba a plausible alternative to self-attention 
+𝑂(𝐿 .  𝐶)
+for efficient CSI encoding. 
+Rectified-flow-based draft-to-refine prediction (M3, M4): The main methodological change in this 
+proposal is the replacement of one-shot regression with a draft-to-refine prediction framework, 
+detailed in Figure 3. Due to the low resolution of WiFi signals, predicting exact 3D coordinates 
+directly leads to unstable structural fidelity. Therefore, we replace the conventional regression head 
+with a generative Rectified Flow framework [11]. We formulate pose estimation as an Ordinary 
+Differential Equation (ODE) trajectory learning problem.  
+Let 
+ be a noisy "draft" pose generated by a lightweight initial regressor, and 
+  be the ground-truth 
+𝑋0
+𝑋𝑡
+3D pose. Unlike standard Diffusion models that start from pure Gaussian noise, our ODE trajectory 
+initializes from this conditional draft predicted directly by a lightweight MLP on top of the encoder 
+features. This Speculative Decoding approach significantly reduces the integration steps required 
+during inference, enabling high-speed real-time execution. We construct a linear interpolation path  
+ 
+𝑋𝑡
+for time  
+ : 
+𝑡∈[0, 1] 
+ 
+  
+𝑋𝑡= 𝑡𝑋1 + (1 −𝑡)𝑋0
+A Velocity MLP network,  
+ conditioned on the WiFi feature  , is trained to predict the 
+𝑣θ(𝑋𝑡, 𝑡, 𝑐)
+𝑐
+trajectory vector (the derivative 
+) pointing from the draft toward the ground truth. This 
+𝑑𝑋𝑡
+𝑑𝑡= 𝑋
+1
+−𝑋0
+is achieved by minimizing the flow matching objective: 
+ 
+ 
+𝐿𝑓𝑙𝑜𝑤=  𝐸𝑡,𝑋0,𝑋1
+ 
+𝑣θ(𝑋𝑡, 𝑡, 𝑐) − (𝑋1 −𝑋0)
+|
+|
+|
+|
+2
+⎡⎢⎣
+⎤⎥⎦
+During inference, the coarse draft 
+ is updated along the learned velocity field using a single-step 
+𝑋0
+Euler solver to obtain the refined pose 
+. This refinement mechanism is intended to improve 
+𝑋1
+robustness in overlapping multi-person scenes, where direct regression is often unstable. 
+Figure 1 presents the overall methodology, illustrating how spectral tokenization, sequence modeling, 
+and rectified-flow refinement are integrated into a unified end-to-end WiFi pose estimation pipeline. 
+Final model comparison. The fourth methodological step is the direct comparison between the two 
+flow-based variants available in the provided baseline: a Transformer-based flow model and a 
+WiMamba-based flow model. This comparison is necessary because the proposal is not only interested 
+in whether rectified-flow refinement works, but also in which final architecture offers the more 
+convincing accuracy-efficiency trade-off. In other words, this step converts the ablation study into a 
+concrete model-selection decision for the final Draft-to-Refine Rectified Flow with Mamba design. 
+ 
+6 
+
+--- PAGE 7 ---
+ 
+ 
+Figure 3.  Detailed architecture of the proposed M4 model.  
+Ablation-based evaluation strategy: To study the contribution of each component systematically, the 
+method is evaluated through a staged ladder from M0 to M4. M0 is Person-in-WiFi 3D. M1 is 
+Person-in-WiFi 3D + Spectral Tokens. M2 is Person-in-WiFi 3D + Mamba. M3 is Draft-to-Refine 
+Rectified Flow with Transformer. M4 is Draft-to-Refine Rectified Flow with Mamba. This staged 
+structure is central to the evidence strategy of the proposal because it allows each design decision to be 
+interpreted through controlled comparison rather than isolated claim-making. 
+Evaluation Protocol: To ensure a fair and credible ablation study, all variants (M0 to M4) will be 
+evaluated using the official Person-in-WiFi 3D train/test split. The configurations will share the same 
+optimization budget, augmentation strategies, and evaluation scripts. To mitigate statistical variance 
+and confirm that performance margins are architecturally significant rather than seed-dependent, the 
+final reported metrics will be averaged across multiple random seeds. 
+Furthermore, while prior works rely heavily on MPJPE, this metric alone does not fully capture 
+structural deformations. To validate the hypothesis that Rectified Flow improves structural stability in 
+crowded scenes, our evaluation will be expanded to include Procrustes Aligned MPJPE (PA-MPJPE) 
+to measure scale/rotation-invariant structural fidelity, and Bone Length Consistency (BLC) to quantify 
+anatomical violations (e.g., unnatural limb stretching). We utilize BLC to prove a core advantage of 
+our approach: the generative ODE trajectory of Rectified Flow inherently learns and preserves valid 
+human anatomical distributions, achieving structural coherence without requiring explicit, manually 
+tuned bone loss functions. Efficiency benchmarks, including FPS, parameter count, and peak memory, 
+will also be systematically logged. 
+ 
+5. Research Plan 
+The project execution is structured into a five-stage systematic workflow, progressing from baseline 
+validation to architecture ablation and final synthesis. This staged approach ensures that each 
+architectural modification (M1 to M4) is rigorously tested and documented before moving to the next 
+phase. The detailed timeline and deliverables are outlined below: 
+ 
+ 
+ 
+ 
+No. 
+Date 
+Task 
+Output 
+Person in charge 
+7 
+
+--- PAGE 8 ---
+1 
+2025-10-05 
+to 
+2025-10-28 
+Conduct literature review 
+focusing on generative 
+refinement (Flow/Diffusion) vs. 
+direct regression in pose 
+estimation. Verify the M0 
+baseline configuration. 
+Curated references, 
+finalized proposal 
+narrative, and verified M0 
+baseline metric outputs. 
+Le Ngoc Anh 
+Thu, Nguyen Ngo 
+Nhat Nam, 
+Nguyen Vinh Nghi 
+2 
+2025-11-29 
+to 
+2025-12-31 
+Implement and analyze M1 and 
+M2 to evaluate Spectral 
+Tokenization and WiMamba 
+sequence encoding as 
+representation enablers. 
+M1 and M2 evaluation 
+logs, demonstrating the 
+baseline representation 
+and computational 
+bottlenecks. 
+Le Ngoc Anh Thu 
+3 
+2026-01-01 
+to 
+2026-02-09 
+Implement M3 to test the core: 
+Draft-to-Refine Rectified Flow. 
+Formulate the ODE trajectory 
+logic and Flow Matching loss. 
+M3 benchmark results, 
+proving the absolute 
+accuracy gains of 
+generative refinement 
+over one-shot regression. 
+Nguyen Ngo Nhat 
+Nam 
+4 
+2026-02-10 
+to 
+2026-04-09 
+Integrate WiMamba with Flow 
+(M4) to optimize the 
+architecture. Compare M3 (max 
+accuracy) vs. M4 (optimal 
+balance) through quantitative and 
+qualitative metrics.  
+Full ablation results (M0 
+to M4), final comparison 
+notes, and visual case 
+studies of complex 
+multi-person scenes. 
+Nguyen Vinh Nghi 
+5 
+2026-04-10 
+to 
+2026-04-16 
+Consolidate findings, prepare 
+summary tables and bubble 
+charts, and finalize the document 
+formatting according to RESFES 
+guidelines. 
+Completed proposal draft 
+with AI commitment. 
+Le Ngoc Anh Thu, 
+Nguyen Ngo Nhat 
+Nam, Nguyen 
+Vinh Nghi 
+ 
+6. Expected Results 
+This research is expected to make three closely related contributions: methodological, experimental, 
+and practical. In terms of methodology, the project is expected to show that refinement-based 
+prediction is a viable alternative to one-shot regression under the benchmark setting. The intended 
+result is a cleaner, more robust pipeline that integrates physics-informed Spectral Tokenization, 
+linear-time WiMamba sequence modeling, and a draft-to-refine correction process within the official 
+benchmark setting [1], [10], [11]. In this sense, the expected contribution is not merely a new 
+architectural configuration, but a fundamental simplification of multi-person 3D pose estimation from 
+ambiguous WiFi signals.  
+Table 2 summarizes the preliminary benchmarking results across the ablation variants (M0 to M4), 
+providing empirical validation for the proposed architectural upgrades. 
+8 
+
+--- PAGE 9 ---
+ 
+Figure 4. Multi-metric Performance Comparison of Pose Estimation Models (MPJPE, FPS, 
+Parameters, and Memory Usage) 
+ 
+Table 2. Preliminary benchmark summary (frozen local snapshot) 
+Model 
+Architecture 
+MPJPE (mm) 
+FPS 
+Params (M) Peak Memory (MB) 
+M0 
+Person-in-wifi-3D  
+169.34 
+45.69 
+13.13 
+155.60 
+M1 
+M0 + Spectral Tokenizer 
+164.60 
+49.36 
+13.20 
+155.86 
+M2 
+M1 + WiMamba  
+169.41 
+51.48 
+11.97 
+151.16 
+M3 
+M1 + Rectified Flow 
+151.99 
+138.79 
+7.06 
+38.49 
+M4 
+M2 + Rectified Flow 
+159.00 
+159.85 
+5.83 
+27.02 
+ 
+Experimentally, the project is expected to deliver a structured ablation analysis quantifying the 
+contribution of each architectural component. As indicated by the preliminary benchmark (Table 2), 
+transitioning from the baseline direct regression model (M0) to the Transformer-based flow model 
+(M3) reduces the Mean Per Joint Position Error (MPJPE) from 169.34 mm to 151.99 mm. This 
+highlights the effectiveness of generative Rectified Flow in resolving the structural instability of 
+one-shot predictions. 
+However, generative refinement inherently introduces computational overhead. The proposed final 
+model, Draft-to-Refine Rectified Flow with Mamba(M4), addresses this bottleneck by substituting the 
+Transformer backbone with the linear-time WiMamba encoder. While M4 incurs a marginal accuracy 
+penalty of ~7 mm compared to M3, it introduces a highly effective architectural trade-off.  
+These efficiency gains do not arise from discarding matching-based supervision or query-based 
+decoding entirely. Rather, M4 improves the baseline by combining spectral tokenization, linear-time 
+WiMamba sequence modeling, and a lightweight draft-to-refine rectified-flow refinement stage. To 
+provide a holistic view of these architectural trade-offs, Figure 4 illustrates a multi-metric performance 
+comparison of all variants. The expected outcomes will demonstrate that while M3 establishes the 
+upper bound for accuracy, Draft-to-Refine Rectified Flow with Mamba(M4) delivers the optimal 
+balance for practical edge deployment—proving that high-fidelity 3D human poses can be generated 
+9 
+
+--- PAGE 10 ---
+efficiently without heavily parameterized architectures. This accuracy-efficiency trade-off across all 
+evaluated variants is visually summarized in Figure 2. 
+ 
+Figure 5. Selected qualitative WiFi pose samples across 1-person, 2-person, and 3-person settings.  
+ 
+To corroborate these quantitative metrics, Figure 5 provides a qualitative visual assessment across 
+progressively complex scenarios (1-person, 2-person, and 3-person settings). The visualizations 
+clearly expose the fundamental flaw of the baseline direct regression model (M0): as the environment 
+becomes crowded, multipath interference causes M0 to predict highly distorted and anatomically 
+impossible skeletons (noticeable in the collapsed gray skeletons in the multi-person rows). In stark 
+contrast, both flow-based variants (M3 and M4) successfully resolve this ambiguity. By utilizing the 
+ODE trajectory to progressively refine the poses, they maintain strict structural fidelity without limb 
+tearing. Most importantly, the visualizations confirm that the highly efficient Mamba-based variant 
+(M4) produces skeletons that are virtually indistinguishable in quality from the heavier Transformer 
+variant (M3). For a higher-resolution inspection of these qualitative results across varying subject 
+counts, please refer to Appendices A1, A2, and A3. 
+For future development, the project is expected to leave a reusable set of research materials for the 
+next writing stage, including finalized configurations, evaluation artifacts, benchmark summaries, 
+curated references, and a proposal narrative that can be extended into a workshop or full conference 
+paper draft. Overall, the expected outputs include both a candidate model configuration and an 
+interpretable set of ablation results for subsequent paper development.  
+ 
+References 
+[1] K. Yan, F. Wang, B. Qian, H. Ding, J. Han, and X. Wei, “Person-in-WiFi 3D: End-to-End 
+Multi-Person 
+3D 
+Pose 
+Estimation 
+with 
+Wi-Fi.” 
+Available: 
+https://openaccess.thecvf.com/content/CVPR2024/papers/Yan_Person-in-WiFi_3D_End-to-End_Multi
+-Person_3D_Pose_Estimation_with_Wi-Fi_CVPR_2024_paper.pdf 
+[2] F. Wang, S. Zhou, S. Panev, J. Han, and D. Huang, “Person-in-WiFi: Fine-grained Person 
+Perception 
+using 
+WiFi.” 
+Available: 
+10 
+
+--- PAGE 11 ---
+https://openaccess.thecvf.com/content_ICCV_2019/papers/Wang_Person-in-WiFi_Fine-Grained_Pers
+on_Perception_Using_WiFi_ICCV_2019_paper.pdf 
+[3] F. Wang, S. Panev, Z. Dai, J. Han, and D. Huang, “Can WiFi Estimate Person Pose?,” arXiv.org, 
+2019. https://arxiv.org/abs/1904.00277 
+[4] W. Jiang et al., “Towards 3D human pose construction using wifi,” Proceedings of the 26th Annual 
+International 
+Conference 
+on 
+Mobile 
+Computing 
+and 
+Networking, 
+Apr. 
+2020, 
+doi: 
+https://doi.org/10.1145/3372224.3380900. 
+[5] Y. Ren and J. Yang, “3D Human Pose Estimation for Free-form Activity Using WiFi Signals,” 
+arXiv.org, 2021. https://arxiv.org/abs/2110.08314 (accessed Apr. 16, 2026). 
+[6] Y. Ren et al. , "GoPose: 3D Human Pose Estimation Using WiFi, " Proc. ACM Interact. Mob. 
+Wearable Ubiquitous Technol. , vol. 6, no. 2, 2022. https: //doi. org/10. 1145/3534605 
+[7] J. Yang et al., “MM-Fi: Multi-Modal Non-Intrusive 4D Human Dataset for Versatile Wireless 
+Sensing,” Advances in Neural Information Processing Systems, vol. 36, pp. 18756–18768, Dec. 2023, 
+Available: 
+https://proceedings.neurips.cc/paper_files/paper/2023/hash/3baf7a39d07e9f4f1e258a412df94521-Abst
+ract-Datasets_and_Benchmarks.html 
+[8] D. Shi, X. Wei, L. Li, Y. Ren, and W. Tan, “End-to-End Multi-Person Pose Estimation With 
+Transformers,” 
+openaccess.thecvf.com, 
+2022. 
+https://openaccess.thecvf.com/content/CVPR2022/html/Shi_End-to-End_Multi-Person_Pose_Estimati
+on_With_Transformers_CVPR_2022_paper.html 
+[9] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, and S. Zagoruyko, “End-to-End Object 
+Detection with Transformers,” Computer Vision – ECCV 2020, vol. 12346, pp. 213–229, 2020, doi: 
+https://doi.org/10.1007/978-3-030-58452-8_13. 
+[10] A. Gu and T. Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces,” 
+arXiv.org, Dec. 01, 2023. https://arxiv.org/abs/2312.00752 
+[11] X. Liu, C. Gong, and Q. Liu, “Flow Straight and Fast: Learning to Generate and Transfer Data 
+with 
+Rectified 
+Flow,” 
+arXiv 
+(Cornell 
+University), 
+Sep. 
+2022, 
+doi: 
+https://doi.org/10.48550/arxiv.2209.03003. 
+[12] Y. Chen, J. Guo, S. Guo, J. Zhou, and D. Tao, “Towards Robust and Realistic Human Pose 
+Estimation via WiFi Signals,” arXiv.org, 2025. https://arxiv.org/abs/2501.09411 
+[13] Y. Dao, L. Zhang, H. Liu, H. Zhang, and W. Wang, “WiFlow: A Lightweight WiFi-based 
+Continuous Human Pose Estimation Network with Spatio-Temporal Feature Decoupling,” arXiv.org, 
+2026. https://arxiv.org/abs/2602.08661 (accessed Apr. 16, 2026). 
+[14] Z. Cao, G. Hidalgo Martinez, T. Simon, S.-E. Wei, and Y. A. Sheikh, “OpenPose: Realtime 
+Multi-Person 2D Pose Estimation using Part Affinity Fields,” IEEE Transactions on Pattern Analysis 
+and Machine Intelligence, vol. 43, no. 1, 2019, doi: https://doi.org/10.1109/tpami.2019.2929257. 
+[15] K. Sun, B. Xiao, D. Liu, and J. Wang, “Deep High-Resolution Representation Learning for 
+Human 
+Pose 
+Estimation,” 
+openaccess.thecvf.com, 
+2019. 
+https://openaccess.thecvf.com/content_CVPR_2019/html/Sun_Deep_High-Resolution_Representation
+_Learning_for_Human_Pose_Estimation_CVPR_2019_paper.html​
+[16] M. Zhao, T. Li, M. Abu Alsheikh, Y. Tian, H. Zhao, A. Torralba, and D. Katabi, “Through-Wall 
+Human Pose Estimation Using Radio Signals,” in Proceedings of the IEEE/CVF Conference on 
+Computer 
+Vision 
+and 
+Pattern 
+Recognition 
+(CVPR), 
+2018, 
+pp. 
+7356–7365, 
+doi: 
+10.1109/CVPR.2018.00768.  
+[17] F. Adib, H. Mao, Z. Kabelac, D. Katabi, and R. C. Miller, “Smart Homes that Monitor Breathing 
+and Heart Rate,” Proceedings of the 33rd Annual ACM Conference on Human Factors in Computing 
+Systems - CHI ’15, 2015, doi: https://doi.org/10.1145/2702123.2702200. 
+[18] Y. Zhang et al., “Widar3.0: Zero-Effort Cross-Domain Gesture Recognition with Wi-Fi,” IEEE 
+Transactions 
+on 
+Pattern 
+Analysis 
+and 
+Machine 
+Intelligence, 
+pp. 
+1–1, 
+2021, 
+doi: 
+https://doi.org/10.1109/tpami.2021.3105387. 
+[19] J. Yang, Y. Zhou, H. Huang, H. Zou, and L. Xie, “MetaFi: Device-Free Pose Estimation via 
+Commodity WiFi for Metaverse Avatar Simulation,” arXiv (Cornell University), Oct. 2022, doi: 
+https://doi.org/10.1109/wf-iot54382.2022.10152057. 
+[20] J. Chen, Y. Qu, R. Tang, and D. Slock, “Graph-based 3D Human Pose Estimation using WiFi 
+Signals,” arXiv.org, 2025. https://arxiv.org/abs/2511.19105 
+11 
+
+--- PAGE 12 ---
+[21] H. Abdelnasser, M. Youssef, and K. A. Harras, “WiGest: A ubiquitous WiFi-based gesture 
+recognition system,” IEEE Xplore, Apr. 01, 2015. https://ieeexplore.ieee.org/document/7218525 
+(accessed Jul. 04, 2021). 
+[22] F. Wang, J. Han, S. Zhang, X. He, and D. Huang, “CSI-Net: Unified Human Body 
+Characterization and Pose Recognition,” arXiv.org, 2018. https://arxiv.org/abs/1810.03064 
+[23] Zheng, C., Wu, W., Yang, T., Zhu, S., Chen, C., Liu, R., Shen, J., Kehtarnavaz, N., & Shah, M. 
+(2020). Deep Learning-based Human Pose Estimation: A Survey. ACM Computing Surveys, 56, 1 - 
+37. https://doi.org/10.1145/3603618. 
+[24] Boudlal, H., Serrhini, M., & Tahiri, A. (2024). A novel approach for simultaneous human activity 
+recognition and pose estimation via skeleton-based leveraging WiFi CSI with YOLOv8 and mediapipe 
+frameworks. 
+Signal, 
+Image 
+and 
+Video 
+Processing, 
+18, 
+3673 
+- 
+3689. 
+https://doi.org/10.1007/s11760-024-03031-5. 
+[25] Yin, C., Miao, X., Chen, J., Jiang, H., Yang, J., Zhou, Y., Wu, M., & Chen, Z. (2024). PowerSkel: 
+A Device-Free Framework Using CSI Signal for Human Skeleton Estimation in Power Station. IEEE 
+Internet of Things Journal, 11, 20165-20177. https://doi.org/10.1109/jiot.2024.3369856. 
+[26] Ren, Y., Wang, Z., Wang, Y., Tan, S., Chen, Y., & Yang, J. (2021). 3D Human Pose Estimation 
+Using WiFi Signals. Proceedings of the 19th ACM Conference on Embedded Networked Sensor 
+Systems. https://doi.org/10.1145/3485730.3492871.| 
+[27] Gong, J., Foo, L., Fan, Z., Ke, Q., Rahmani, H., & Liu, J. (2022). DiffPose: Toward More 
+Reliable 3D Pose Estimation. 2023 IEEE/CVF Conference on Computer Vision and Pattern 
+Recognition (CVPR), 13041-13051. https://doi.org/10.1109/cvpr52729.2023.01253. 
+[28] Shan, W., Liu, Z., Zhang, X., Wang, Z., Han, K., Wang, S., , S., & Gao, W. (2023). 
+Diffusion-Based 3D Human Pose Estimation with Multi-Hypothesis Aggregation. 2023 IEEE/CVF 
+International 
+Conference 
+on 
+Computer 
+Vision 
+(ICCV), 
+14715-14725. 
+https://doi.org/10.1109/iccv51070.2023.01356. 
+[29] Kang, H., Wang, Y., Liu, M., Wu, D., Liu, P., Yuan, X., & Yang, W. (2024). Diffusion-Based Pose 
+Refinement and Multi-Hypothesis Generation for 3D Human Pose Estimation. ICASSP 2024 - 2024 
+IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), 5130-5134. 
+https://doi.org/10.1109/icassp48485.2024.10445850. 
+[30] Zhu, L., Liao, B., Zhang, Q., Wang, X., Liu, W., & Wang, X. (2024). Vision Mamba: Efficient 
+Visual Representation Learning with Bidirectional State Space Model. ArXiv, abs/2401.09417. 
+https://doi.org/10.48550/arxiv.2401.09417. 
+[31] Liu, Y., Tian, Y., Zhao, Y., Yu, H., Xie, L., Wang, Y., Ye, Q., & Liu, Y. (2024). VMamba: Visual 
+State Space Model. ArXiv, abs/2401.10166. https://doi.org/10.48550/arxiv.2401.10166. 
+[32] Huang, T., Pei, X., You, S., Wang, F., Qian, C., & Xu, C. (2024). LocalMamba: Visual State 
+Space Model with Windowed Selective Scan. , 12-22. https://doi.org/10.48550/arxiv.2403.09338. 
+ 
+Appendices 
+1.​ Dataset: 
+The Person-in-WiFi 3D [1] dataset comprises over 97,000 synchronized CSI and RGB-D samples , 
+partitioned into a training set of 89,946 samples and a testing set of 7,824 samples. This dataset was 
+collected with seven volunteers performing eight daily actions—including reaching out, sitting down, 
+and walking—across three distinct locations: an office, a classroom, and a corridor. Figure 6 displays 
+sample frames from the dataset, where the first row contains RGB images of 1-person, 2-person, and 
+3-person scenarios, and the second row illustrates the corresponding 3D pose outputs generated by the 
+system. 
+12 
+
+--- PAGE 13 ---
+ 
+Figure. 6 Overview of the Person-in-WiFi 3D Dataset and Corresponding 3D Pose Annotations. 
+To ensure high data quality, the dataset was meticulously cleaned frame-by-frame, discarding samples 
+where the Azure Kinect Body Tracking SDK failed, such as complex 4-person scenarios. The resulting 
+data is categorized by the number of individuals present, featuring 28,121 single-person frames, 
+36,242 two-person frames, and 25,583 three-person frames for training. Annotations consist of 3D 
+coordinates for 14 distinct keypoints per person. 
+2.​ Baseline model architecture: 
+The Person-in-WiFi 3D system introduces the Wi-Fi Pose Transformer, an end-to-end framework 
+designed to estimate multi-person 3D poses directly from Wi-Fi signals. Unlike traditional methods 
+that rely on 3D keypoint heatmaps and part affinity fields, this architecture treats pose estimation as a 
+set prediction task, significantly improving storage efficiency and processing speed. The model is 
+composed of three primary modules: a CSI Feature Encoder, a Pose Decoder, and a Refine Decoder.  
+The architecture of Person-in-WiFi 3D is illustrated in Figure 7, which utilizes a transformer-based 
+structure to process flattened CSI tokens. The CSI Feature Encoder consists of six layers, each 
+utilizing multi-head self-attention to extract global context from 180 spatial-temporal tokens enriched 
+with learnable embeddings. Following the encoder, the Pose Decoder uses 100 learnable queries 
+across three layers to predict initial 3D body coordinates and confidence scores. A unique feature of 
+this decoder is the prediction of relative offsets at each layer rather than a full pose, ensuring the 
+cumulative sum converges accurately to the final coordinates. Finally, the Refine Decoder employs 
+three additional layers to fine-tune the keypoint coordinates of the detected bodies, further reducing 
+localization errors. To enable end-to-end training, a set-based Hungarian loss is implemented, ensuring 
+unique bipartite matching between predicted poses and ground-truth individuals 
+13 
+
+--- PAGE 14 ---
+ 
+ 
+Figure. 7 Architecture of the Wi-Fi Pose Transformer featuring Encoder and Decoder modules. 
+ 
+3.​ Detail qualitative WiFi pose samples: 
+Figure A1, A2, and A3 presents selected detailed qualitative inspection across different subject counts 
+including 1-person, 2-person, and 3-person settings. These visualizations provide an intuitive 
+assessment that complements the quantitative metrics. As the number of subjects increases, the 
+limitations of the baseline direct regression model (M0) become apparent: multipath interference in 
+crowded environments leads to distorted and anatomically implausible skeleton predictions, which can 
+be observed in the collapsed gray poses in the multi-person cases. 
+ 
+In contrast, the flow-based variants (M3 and M4) demonstrate more stable and coherent pose 
+reconstruction. By progressively refining predictions along the ODE trajectory, both models preserve 
+structural consistency and reduce limb discontinuities. The visual comparison further indicates that the 
+lightweight Mamba-based variant (M4) achieves pose quality comparable to the heavier 
+Transformer-based variant (M3).  
+14 
+
+--- PAGE 15 ---
+ 
+ 
+ 
+ 
+Figure A1. Selected qualitative WiFi pose samples across 1-person settings.  
+ 
+ 
+15 
+
+--- PAGE 16 ---
+ 
+ 
+ 
+ 
+Figure A2. Selected qualitative WiFi pose samples across 2-person settings.  
+ 
+ 
+16 
+
+--- PAGE 17 ---
+ 
+ 
+ 
+ 
+Figure A3. Selected qualitative WiFi pose samples across 3-person settings.  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+17 
+
+--- PAGE 18 ---
+COMMITMENT  
+ON RESPONSIBLE ARTIFICIAL INTELLIGENCE USAGE IN RESEARCH 
+ 
+We are authors of the research paper titled “Flow is All You Need for WiFi: Rectifying 3D 
+Human Poses without Complex Architectures.”, would like to ensure that all members 
+comply with the rules relevant to Artificial Intelligence (AI) regulations and ethical guidelines 
+in research practices, which are described in details as follows: 
+1.​ AI is only used as assistant in correcting grammar, structure and phrasing in academic 
+writing; 
+2.​ AI usage should NOT be engaged with the creation of content or drafting the research 
+paper, production of fake data or literature synthesis; 
+3.​ AI usage should be checked and confirmed by all authors. Each author shall bear full 
+responsibility in the accuracy, transparency and originality of their sections, including 
+citations and reference; 
+4.​ All authors should disclose the use of generative AI and AI-assisted technologies to 
+other co-authors, helping them understand where and how AI was applied in research 
+preparation.  
+Hereby, we would like to confirm and take full responsibility for the accuracy and 
+transparency of the provided details.  
+Author 1 
+Author 2 
+Author 3 
+Le Ngoc Anh Thu  
+Nguyen Ngo Nhat Nam  
+Nguyen Vinh Nghi 
+ 
+ 
+ 
+ 
+18 
+
