@@ -390,6 +390,24 @@ def _figure_to_rgb_array(fig, np):
     return argb[:, :, [1, 2, 3]].copy()
 
 
+def _normalize_video_frame(frame_rgb):
+    """Return a contiguous uint8 RGB frame for video encoders."""
+    import numpy as np
+
+    frame = np.asarray(frame_rgb)
+    if frame.ndim != 3:
+        raise ValueError(f'Expected HxWxC frame, got shape {frame.shape}')
+    if frame.shape[2] == 4:
+        frame = frame[:, :, :3]
+    if frame.shape[2] != 3:
+        raise ValueError(f'Expected RGB/RGBA frame, got shape {frame.shape}')
+    if frame.dtype != np.uint8:
+        if frame.max(initial=0) <= 1.0:
+            frame = frame * 255.0
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+    return np.ascontiguousarray(frame)
+
+
 def _render_frame(runtime, record, model_id, display_name, gt_keypoints, pred_keypoints, metrics,
                   rgb_frame=None, show_unmatched=False, match_quality_thr_mm=200.0):
     qualitative = runtime['qualitative']
@@ -453,10 +471,19 @@ class _ImageioWriter:
     def __init__(self, output_path, fps):
         import imageio.v2 as imageio
 
-        self.writer = imageio.get_writer(str(output_path), fps=fps, codec='libx264', quality=8, macro_block_size=1)
+        self.writer = imageio.get_writer(
+            str(output_path),
+            format='FFMPEG',
+            mode='I',
+            fps=fps,
+            codec='libx264',
+            pixelformat='yuv420p',
+            macro_block_size=16,
+            ffmpeg_log_level='warning',
+            output_params=['-movflags', '+faststart'])
 
     def append(self, frame_rgb):
-        self.writer.append_data(frame_rgb)
+        self.writer.append_data(_normalize_video_frame(frame_rgb))
 
     def close(self):
         self.writer.close()
@@ -467,12 +494,15 @@ class _OpenCvWriter:
         import cv2
 
         self.cv2 = cv2
+        first_frame = _normalize_video_frame(first_frame)
         height, width = first_frame.shape[:2]
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         self.writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+        if not self.writer.isOpened():
+            raise RuntimeError(f'OpenCV could not open video writer: {output_path}')
 
     def append(self, frame_rgb):
-        frame_bgr = self.cv2.cvtColor(frame_rgb, self.cv2.COLOR_RGB2BGR)
+        frame_bgr = self.cv2.cvtColor(_normalize_video_frame(frame_rgb), self.cv2.COLOR_RGB2BGR)
         self.writer.write(frame_bgr)
 
     def close(self):

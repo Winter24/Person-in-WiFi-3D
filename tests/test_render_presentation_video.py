@@ -173,3 +173,14 @@ class TestRenderPresentationVideo(unittest.TestCase):
         plt.close(fig)
 
         self.assertEqual(frame.shape[2], 3)
+
+    def test_normalize_video_frame_returns_contiguous_uint8_rgb(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+        import numpy as np
+
+        frame = np.zeros((11, 13, 4), dtype=np.float32)
+        normalized = module._normalize_video_frame(frame)
+
+        self.assertEqual(normalized.dtype, np.uint8)
+        self.assertEqual(normalized.shape, (11, 13, 3))
+        self.assertTrue(normalized.flags['C_CONTIGUOUS'])
