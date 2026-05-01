@@ -382,6 +382,7 @@ def _prepare_video_runtime(model_assets, data_root, splits, device=None):
         'linear_sum_assignment': linear_sum_assignment,
         'models': models,
         'datasets': datasets,
+        'data_root': Path(data_root),
         'device': device,
     }
 
@@ -419,8 +420,28 @@ def _load_rgb_frame_from_dir(frame_dir, pattern, record):
     return Image.open(frame_path).convert('RGB')
 
 
-def _input_wave_from_dataset_item(data, np, max_points=360):
-    """Convert the current CSI tensor into a compact waveform for display."""
+def _finalize_input_wave(wave, np, max_points=240, smooth_window=9):
+    wave = np.asarray(wave, dtype=np.float32).reshape(-1)
+    if wave.size == 0:
+        return wave
+    if max_points is not None and max_points > 0 and wave.size > max_points:
+        sample_idx = np.linspace(0, wave.size - 1, max_points).astype(np.int64)
+        wave = wave[sample_idx]
+    wave = wave.astype(np.float32)
+    wave = wave - float(wave.mean())
+    std = float(wave.std())
+    if std > 1e-6:
+        wave = wave / std
+    if smooth_window and smooth_window > 1 and wave.size >= smooth_window:
+        if smooth_window % 2 == 0:
+            smooth_window += 1
+        kernel = np.ones(smooth_window, dtype=np.float32) / float(smooth_window)
+        wave = np.convolve(wave, kernel, mode='same').astype(np.float32)
+    return wave
+
+
+def _input_wave_from_dataset_item(data, np, max_points=240, smooth_window=9):
+    """Convert the model-ready CSI tensor into a compact waveform for display."""
     img = data['img'].data
     if hasattr(img, 'detach'):
         arr = img.detach().cpu().float().numpy()
@@ -437,17 +458,28 @@ def _input_wave_from_dataset_item(data, np, max_points=360):
         arr = arr.mean(axis=tuple(range(arr.ndim - 2)))
     elif arr.ndim > 1:
         arr = arr.mean(axis=tuple(range(arr.ndim - 1)))
-    wave = arr.reshape(-1)
+    return _finalize_input_wave(arr, np, max_points=max_points, smooth_window=smooth_window)
 
-    if wave.size > max_points:
-        sample_idx = np.linspace(0, wave.size - 1, max_points).astype(np.int64)
-        wave = wave[sample_idx]
-    wave = wave.astype(np.float32)
-    wave = wave - float(wave.mean())
-    std = float(wave.std())
-    if std > 1e-6:
-        wave = wave / std
-    return wave
+
+def _raw_amp_wave_from_record(runtime, record, rx=0, tx=0, max_points=240, smooth_window=9):
+    """Load raw CSI amplitude from one Rx/Tx link for a more literal radio trace."""
+    import h5py
+
+    np = runtime['np']
+    csi_path = runtime['data_root'] / record.split / 'csi' / f'{record.sample_name}.mat'
+    with h5py.File(csi_path, 'r') as f:
+        raw = f['csi_out'][()]
+    csi = raw['real'] + raw['imag'] * 1j
+    csi = np.asarray(csi)
+    if csi.ndim < 4:
+        return _finalize_input_wave(np.abs(csi), np, max_points=max_points, smooth_window=smooth_window)
+
+    # Stored WiFiPose files are (time, subcarrier, rx, tx).  Clamp indices so
+    # video rendering keeps running even if a dataset has fewer links.
+    rx = min(max(int(rx), 0), csi.shape[2] - 1)
+    tx = min(max(int(tx), 0), csi.shape[3] - 1)
+    link_amp = np.abs(csi[:, :, rx, tx])
+    return _finalize_input_wave(link_amp, np, max_points=max_points, smooth_window=smooth_window)
 
 
 def _predict_record(runtime, record, model_id, score_thr):
@@ -473,9 +505,22 @@ def _predict_record(runtime, record, model_id, score_thr):
     return gt_keypoints, pred_keypoints, metrics
 
 
-def _load_input_wave_for_record(runtime, record):
+def _load_input_wave_for_record(runtime, record, source='preprocessed', rx=0, tx=0,
+                                max_points=240, smooth_window=9):
+    if source == 'raw-amp':
+        return _raw_amp_wave_from_record(
+            runtime,
+            record,
+            rx=rx,
+            tx=tx,
+            max_points=max_points,
+            smooth_window=smooth_window)
     data = runtime['datasets'][record.split][record.dataset_index]
-    return _input_wave_from_dataset_item(data, runtime['np'])
+    return _input_wave_from_dataset_item(
+        data,
+        runtime['np'],
+        max_points=max_points,
+        smooth_window=smooth_window)
 
 
 def _predict_models_for_record(runtime, record, model_assets, score_thr, previous_gt_keypoints=None):
@@ -558,8 +603,11 @@ def _prepare_model_displays(runtime, gt_keypoints, model_outputs, show_unmatched
     return gt_labels, gt_colors, displays
 
 
-def _plot_input_wave(ax, input_wave, sample_name):
-    ax.set_title(f'WiFi CSI Input\n{sample_name}', fontsize=13)
+def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, tx=0):
+    source_label = 'Model-ready preprocessed CSI'
+    if source == 'raw-amp':
+        source_label = f'Raw CSI amplitude link Rx{rx + 1}-Tx{tx + 1}'
+    ax.set_title(f'{source_label} | {sample_name}', fontsize=12, pad=6)
     ax.set_facecolor('#07111f')
     for spine in ax.spines.values():
         spine.set_color('#31546f')
@@ -581,13 +629,14 @@ def _plot_input_wave(ax, input_wave, sample_name):
     ax.set_xlim(0, max(1, len(input_wave) - 1))
     ylim = max(2.0, float(max(abs(input_wave.min()), abs(input_wave.max()))) * 1.15)
     ax.set_ylim(-ylim, ylim)
-    ax.set_xlabel('Time-subcarrier token stream', color='#7faac4', fontsize=8)
+    ax.set_xlabel('temporal CSI trace, normalized and lightly smoothed', color='#7faac4', fontsize=8)
     ax.set_ylabel('norm.', color='#7faac4', fontsize=8)
 
 
 def _render_frame(runtime, record, model_outputs, gt_keypoints,
                   rgb_frame=None, show_unmatched=False, match_quality_thr_mm=200.0,
-                  bounds=None, prepared_displays=None, input_wave=None):
+                  bounds=None, prepared_displays=None, input_wave=None,
+                  input_wave_source='preprocessed', input_wave_rx=0, input_wave_tx=0):
     qualitative = runtime['qualitative']
     np = runtime['np']
     plt = runtime['plt']
@@ -596,8 +645,26 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     has_rgb = rgb_frame is not None
     has_input_wave = input_wave is not None
     model_count = len(model_outputs)
-    grid_cols = (1 if has_rgb else 0) + (1 if has_input_wave else 0) + 1 + model_count
-    fig = plt.figure(figsize=(3.6 * grid_cols, 4.8), facecolor='white')
+    grid_cols = (1 if has_rgb else 0) + 1 + model_count
+    fig_height = 5.9 if has_input_wave else 4.8
+    fig = plt.figure(figsize=(3.6 * grid_cols, fig_height), facecolor='white')
+    if has_input_wave:
+        grid = fig.add_gridspec(2, grid_cols, height_ratios=[0.8, 4.0])
+
+        def add_panel(column, projection=None):
+            return fig.add_subplot(grid[1, column], projection=projection)
+
+        ax_wave = fig.add_subplot(grid[0, :])
+        _plot_input_wave(
+            ax_wave,
+            input_wave,
+            record.sample_name,
+            source=input_wave_source,
+            rx=input_wave_rx,
+            tx=input_wave_tx)
+    else:
+        def add_panel(column, projection=None):
+            return fig.add_subplot(1, grid_cols, column + 1, projection=projection)
     gt_labels, gt_colors, displays = _prepare_model_displays(
         runtime,
         gt_keypoints,
@@ -612,20 +679,15 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             min_range=0.12,
             margin_scale=0.04)
 
-    col = 1
+    col = 0
     if has_rgb:
-        ax_rgb = fig.add_subplot(1, grid_cols, col)
+        ax_rgb = add_panel(col)
         ax_rgb.imshow(rgb_frame)
         ax_rgb.set_title(f'Original Frame\n{record.video_id} #{record.frame_id}', fontsize=13)
         ax_rgb.axis('off')
         col += 1
 
-    if has_input_wave:
-        ax_wave = fig.add_subplot(1, grid_cols, col)
-        _plot_input_wave(ax_wave, input_wave, record.sample_name)
-        col += 1
-
-    ax_gt = fig.add_subplot(1, grid_cols, col, projection='3d')
+    ax_gt = add_panel(col, projection='3d')
     qualitative._plot_pose_set(ax_gt, gt_keypoints, gt_colors, gt_labels, 'Ground Truth 3D Pose', Line2D, bounds=bounds)
     col += 1
 
@@ -633,7 +695,7 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     for output, display in zip(model_outputs, displays):
         asset = output['asset']
         metrics = output['metrics']
-        ax_pred = fig.add_subplot(1, grid_cols, col, projection='3d')
+        ax_pred = add_panel(col, projection='3d')
         qualitative._plot_pose_set(
             ax_pred,
             display['poses'],
@@ -650,7 +712,10 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     footer = '\n'.join(footer_parts)
     fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
     fig.suptitle('No camera. No wearable. Just WiFi signals.', fontsize=16, fontweight='bold', y=0.98)
-    fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.86, wspace=0.02)
+    if has_input_wave:
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=0.90, wspace=0.02, hspace=0.22)
+    else:
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.86, wspace=0.02)
     frame = _figure_to_rgb_array(fig, np)
     plt.close(fig)
     return frame
@@ -715,7 +780,9 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                               source_frame_dir=None,
                               source_frame_pattern='{sample_name}.jpg', show_unmatched=False,
                               match_quality_thr_mm=200.0, keep_frames_dir=None, model_assets=None,
-                              use_global_bounds=True, show_input_wave=False):
+                              use_global_bounds=True, show_input_wave=False,
+                              input_wave_source='preprocessed', input_wave_rx=0, input_wave_tx=0,
+                              input_wave_max_points=240, input_wave_smooth=9):
     if not records:
         raise ValueError('No records selected for rendering.')
     if model_assets is None:
@@ -757,7 +824,16 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                 match_quality_thr_mm=match_quality_thr_mm)
             for output, display in zip(model_outputs, displays):
                 output['display'] = display
-            input_wave = _load_input_wave_for_record(runtime, record) if show_input_wave else None
+            input_wave = (
+                _load_input_wave_for_record(
+                    runtime,
+                    record,
+                    source=input_wave_source,
+                    rx=input_wave_rx,
+                    tx=input_wave_tx,
+                    max_points=input_wave_max_points,
+                    smooth_window=input_wave_smooth)
+                if show_input_wave else None)
             frame_summaries.append({
                 'record': record,
                 'gt_keypoints': gt_keypoints,
@@ -788,7 +864,10 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                 match_quality_thr_mm=match_quality_thr_mm,
                 bounds=global_bounds,
                 prepared_displays=summary['displays'],
-                input_wave=summary.get('input_wave'))
+                input_wave=summary.get('input_wave'),
+                input_wave_source=input_wave_source,
+                input_wave_rx=input_wave_rx,
+                input_wave_tx=input_wave_tx)
             if keep_frames_dir:
                 frame_path = Path(keep_frames_dir) / f'{frame_index:05d}_{record.sample_name}.png'
                 runtime['plt'].imsave(frame_path, frame)
@@ -855,6 +934,31 @@ def build_arg_parser():
         '--show-input-wave',
         action='store_true',
         help='Add an animated WiFi CSI input waveform panel for each rendered sample.')
+    parser.add_argument(
+        '--input-wave-source',
+        choices=['preprocessed', 'raw-amp'],
+        default='preprocessed',
+        help='Waveform source. preprocessed shows the model-ready CSI tensor; raw-amp shows one raw Rx/Tx amplitude link.')
+    parser.add_argument(
+        '--input-wave-rx',
+        type=int,
+        default=0,
+        help='Raw CSI receiver index for --input-wave-source raw-amp. Zero-based.')
+    parser.add_argument(
+        '--input-wave-tx',
+        type=int,
+        default=0,
+        help='Raw CSI transmitter index for --input-wave-source raw-amp. Zero-based.')
+    parser.add_argument(
+        '--input-wave-max-points',
+        type=int,
+        default=240,
+        help='Maximum points shown in the animated waveform.')
+    parser.add_argument(
+        '--input-wave-smooth',
+        type=int,
+        default=9,
+        help='Moving-average smoothing window for the displayed waveform. Use 1 to disable.')
     parser.add_argument(
         '--per-frame-bounds',
         action='store_true',
@@ -940,7 +1044,12 @@ def main(argv: Optional[Sequence[str]] = None):
         keep_frames_dir=args.keep_frames_dir,
         model_assets=model_assets,
         use_global_bounds=not args.per_frame_bounds,
-        show_input_wave=args.show_input_wave)
+        show_input_wave=args.show_input_wave,
+        input_wave_source=args.input_wave_source,
+        input_wave_rx=args.input_wave_rx,
+        input_wave_tx=args.input_wave_tx,
+        input_wave_max_points=args.input_wave_max_points,
+        input_wave_smooth=args.input_wave_smooth)
     print(f'Video written to: {output_path}')
     return 0
 

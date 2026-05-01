@@ -196,7 +196,7 @@ class TestRenderPresentationVideo(unittest.TestCase):
 
         data = {'img': DummyData(torch.arange(3 * 3 * 20 * 60).reshape(3, 3, 20, 60))}
 
-        wave = module._input_wave_from_dataset_item(data, np, max_points=120)
+        wave = module._input_wave_from_dataset_item(data, np, max_points=120, smooth_window=1)
 
         self.assertEqual(wave.shape, (120,))
         self.assertAlmostEqual(float(wave.mean()), 0.0, places=5)
@@ -216,6 +216,8 @@ class TestRenderPresentationVideo(unittest.TestCase):
         args = module.build_arg_parser().parse_args([])
 
         self.assertEqual(args.score_thr, 0.0)
+        self.assertEqual(args.input_wave_source, 'preprocessed')
+        self.assertEqual(args.input_wave_max_points, 240)
 
     def test_reorder_gt_by_previous_frame_preserves_identity_order(self):
         module = _load_module('render_presentation_video', SCRIPT_PATH)
