@@ -670,6 +670,51 @@ def build_input_activity_trace(frame_summaries, np):
     return activity
 
 
+def _style_input_axis(ax):
+    ax.set_facecolor('white')
+    for spine in ax.spines.values():
+        spine.set_color('#c8d7e3')
+        spine.set_linewidth(0.8)
+    ax.tick_params(axis='both', colors='#61778a', labelsize=7, length=2)
+    ax.grid(True, color='#dce8f2', alpha=0.75, linewidth=0.6)
+
+
+def _plot_input_activity(ax, activity_trace, sample_name, activity_index=None):
+    ax.set_title(f'CSI activity over selected clip | {sample_name}', fontsize=11, pad=5)
+    _style_input_axis(ax)
+    if activity_trace is None or len(activity_trace) <= 1:
+        ax.text(0.5, 0.5, 'CSI activity unavailable', color='#34495e',
+                ha='center', va='center', transform=ax.transAxes)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        return
+    activity_x = range(len(activity_trace))
+    ax.plot(activity_x, activity_trace, color='#ff7a00', linewidth=2.4, alpha=0.92)
+    if activity_index is not None:
+        activity_index = min(max(int(activity_index), 0), len(activity_trace) - 1)
+        ax.scatter(
+            [activity_index],
+            [activity_trace[activity_index]],
+            s=58,
+            color='#d62828',
+            edgecolor='white',
+            linewidth=1.0,
+            zorder=4)
+    ax.set_xlim(0, max(1, len(activity_trace) - 1))
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_xlabel('frame index in selected clip', color='#61778a', fontsize=8)
+    ax.set_ylabel('normalized activity', color='#61778a', fontsize=8)
+    ax.text(
+        0.995,
+        0.88,
+        'red dot: current frame',
+        ha='right',
+        va='top',
+        color='#a65d00',
+        fontsize=8,
+        transform=ax.transAxes)
+
+
 def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, tx=0,
                      link_mode='single', ylim=None, activity_trace=None,
                      activity_index=None, display_mode='both'):
@@ -682,12 +727,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
         else:
             source_label = f'Raw CSI amplitude link Rx{rx + 1}-Tx{tx + 1}'
     ax.set_title(f'{source_label} | {sample_name}', fontsize=12, pad=6)
-    ax.set_facecolor('white')
-    for spine in ax.spines.values():
-        spine.set_color('#c8d7e3')
-        spine.set_linewidth(0.8)
-    ax.tick_params(axis='both', colors='#61778a', labelsize=7, length=2)
-    ax.grid(True, color='#dce8f2', alpha=0.75, linewidth=0.6)
+    _style_input_axis(ax)
 
     if input_wave is None or len(input_wave) == 0:
         ax.text(0.5, 0.5, 'CSI unavailable', color='#34495e',
@@ -697,37 +737,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
         return
 
     if display_mode == 'activity':
-        if activity_trace is None or len(activity_trace) <= 1:
-            ax.text(0.5, 0.5, 'CSI activity unavailable', color='#34495e',
-                    ha='center', va='center', transform=ax.transAxes)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            return
-        activity_x = range(len(activity_trace))
-        ax.plot(activity_x, activity_trace, color='#ff7a00', linewidth=2.4, alpha=0.92)
-        if activity_index is not None:
-            activity_index = min(max(int(activity_index), 0), len(activity_trace) - 1)
-            ax.scatter(
-                [activity_index],
-                [activity_trace[activity_index]],
-                s=58,
-                color='#d62828',
-                edgecolor='white',
-                linewidth=1.0,
-                zorder=4)
-        ax.set_xlim(0, max(1, len(activity_trace) - 1))
-        ax.set_ylim(-0.05, 1.05)
-        ax.set_xlabel('frame index in selected clip', color='#61778a', fontsize=8)
-        ax.set_ylabel('normalized CSI activity', color='#61778a', fontsize=8)
-        ax.text(
-            0.995,
-            0.90,
-            'red dot: current frame',
-            ha='right',
-            va='top',
-            color='#a65d00',
-            fontsize=8,
-            transform=ax.transAxes)
+        _plot_input_activity(ax, activity_trace, sample_name, activity_index=activity_index)
         return
 
     import numpy as np
@@ -740,6 +750,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
         labels = [f'Tx{i + 1}' for i in range(len(waves))]
     elif source == 'raw-amp' and link_mode == 'all-rx':
         labels = [f'Rx{i + 1}' for i in range(len(waves))]
+        colors = ['#d62828', '#0077b6', '#f4c430']
     for wave_idx, wave in enumerate(waves):
         x = range(len(wave))
         color = colors[wave_idx % len(colors)]
@@ -757,7 +768,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
     if labels:
         ax.legend(loc='upper left', fontsize=7, frameon=False, ncol=min(3, len(labels)))
 
-    if display_mode == 'both' and activity_trace is not None and len(activity_trace) > 1:
+    if display_mode == 'overlay' and activity_trace is not None and len(activity_trace) > 1:
         activity_ax = ax.twinx()
         activity_x = range(len(activity_trace))
         activity_ax.plot(activity_x, activity_trace, color='#ff7a00', linewidth=1.2, alpha=0.82)
@@ -799,27 +810,51 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     has_input_wave = input_wave is not None
     model_count = len(model_outputs)
     grid_cols = (1 if has_rgb else 0) + 1 + model_count
-    fig_height = 5.9 if has_input_wave else 4.8
+    fig_height = 6.6 if has_input_wave and input_wave_display == 'both' else (5.9 if has_input_wave else 4.8)
     fig = plt.figure(figsize=(3.6 * grid_cols, fig_height), facecolor='white')
     if has_input_wave:
-        grid = fig.add_gridspec(2, grid_cols, height_ratios=[0.8, 4.0])
+        if input_wave_display == 'both':
+            grid = fig.add_gridspec(3, grid_cols, height_ratios=[0.55, 0.85, 4.0])
 
-        def add_panel(column, projection=None):
-            return fig.add_subplot(grid[1, column], projection=projection)
+            def add_panel(column, projection=None):
+                return fig.add_subplot(grid[2, column], projection=projection)
 
-        ax_wave = fig.add_subplot(grid[0, :])
-        _plot_input_wave(
-            ax_wave,
-            input_wave,
-            record.sample_name,
-            source=input_wave_source,
-            rx=input_wave_rx,
-            tx=input_wave_tx,
-            link_mode=input_wave_link_mode,
-            ylim=input_wave_ylim,
-            activity_trace=input_activity_trace,
-            activity_index=input_activity_index,
-            display_mode=input_wave_display)
+            ax_activity = fig.add_subplot(grid[0, :])
+            _plot_input_activity(
+                ax_activity,
+                input_activity_trace,
+                record.sample_name,
+                activity_index=input_activity_index)
+            ax_wave = fig.add_subplot(grid[1, :])
+            _plot_input_wave(
+                ax_wave,
+                input_wave,
+                record.sample_name,
+                source=input_wave_source,
+                rx=input_wave_rx,
+                tx=input_wave_tx,
+                link_mode=input_wave_link_mode,
+                ylim=input_wave_ylim,
+                display_mode='wave')
+        else:
+            grid = fig.add_gridspec(2, grid_cols, height_ratios=[0.8, 4.0])
+
+            def add_panel(column, projection=None):
+                return fig.add_subplot(grid[1, column], projection=projection)
+
+            ax_wave = fig.add_subplot(grid[0, :])
+            _plot_input_wave(
+                ax_wave,
+                input_wave,
+                record.sample_name,
+                source=input_wave_source,
+                rx=input_wave_rx,
+                tx=input_wave_tx,
+                link_mode=input_wave_link_mode,
+                ylim=input_wave_ylim,
+                activity_trace=input_activity_trace,
+                activity_index=input_activity_index,
+                display_mode=input_wave_display)
     else:
         def add_panel(column, projection=None):
             return fig.add_subplot(1, grid_cols, column + 1, projection=projection)
@@ -871,7 +906,8 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
     fig.suptitle('No camera. No wearable. Just WiFi signals.', fontsize=16, fontweight='bold', y=0.98)
     if has_input_wave:
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=0.90, wspace=0.02, hspace=0.22)
+        top = 0.91 if input_wave_display == 'both' else 0.90
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=0.26)
     else:
         fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.86, wspace=0.02)
     frame = _figure_to_rgb_array(fig, np)
