@@ -218,6 +218,7 @@ class TestRenderPresentationVideo(unittest.TestCase):
         self.assertEqual(args.score_thr, 0.0)
         self.assertEqual(args.input_wave_source, 'preprocessed')
         self.assertEqual(args.input_wave_link_mode, 'single')
+        self.assertEqual(args.input_wave_display, 'both')
         self.assertEqual(args.input_wave_max_points, 240)
 
     def test_reorder_gt_by_previous_frame_preserves_identity_order(self):

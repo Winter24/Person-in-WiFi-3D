@@ -672,7 +672,7 @@ def build_input_activity_trace(frame_summaries, np):
 
 def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, tx=0,
                      link_mode='single', ylim=None, activity_trace=None,
-                     activity_index=None):
+                     activity_index=None, display_mode='both'):
     source_label = 'Model-ready preprocessed CSI'
     if source == 'raw-amp':
         if link_mode == 'all-tx':
@@ -694,6 +694,40 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
                 ha='center', va='center', transform=ax.transAxes)
         ax.set_xticks([])
         ax.set_yticks([])
+        return
+
+    if display_mode == 'activity':
+        if activity_trace is None or len(activity_trace) <= 1:
+            ax.text(0.5, 0.5, 'CSI activity unavailable', color='#34495e',
+                    ha='center', va='center', transform=ax.transAxes)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            return
+        activity_x = range(len(activity_trace))
+        ax.plot(activity_x, activity_trace, color='#ff7a00', linewidth=2.4, alpha=0.92)
+        if activity_index is not None:
+            activity_index = min(max(int(activity_index), 0), len(activity_trace) - 1)
+            ax.scatter(
+                [activity_index],
+                [activity_trace[activity_index]],
+                s=58,
+                color='#d62828',
+                edgecolor='white',
+                linewidth=1.0,
+                zorder=4)
+        ax.set_xlim(0, max(1, len(activity_trace) - 1))
+        ax.set_ylim(-0.05, 1.05)
+        ax.set_xlabel('frame index in selected clip', color='#61778a', fontsize=8)
+        ax.set_ylabel('normalized CSI activity', color='#61778a', fontsize=8)
+        ax.text(
+            0.995,
+            0.90,
+            'red dot: current frame',
+            ha='right',
+            va='top',
+            color='#a65d00',
+            fontsize=8,
+            transform=ax.transAxes)
         return
 
     import numpy as np
@@ -723,7 +757,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
     if labels:
         ax.legend(loc='upper left', fontsize=7, frameon=False, ncol=min(3, len(labels)))
 
-    if activity_trace is not None and len(activity_trace) > 1:
+    if display_mode == 'both' and activity_trace is not None and len(activity_trace) > 1:
         activity_ax = ax.twinx()
         activity_x = range(len(activity_trace))
         activity_ax.plot(activity_x, activity_trace, color='#ff7a00', linewidth=1.2, alpha=0.82)
@@ -754,7 +788,8 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
                   bounds=None, prepared_displays=None, input_wave=None,
                   input_wave_source='preprocessed', input_wave_rx=0, input_wave_tx=0,
                   input_wave_link_mode='single', input_wave_ylim=None,
-                  input_activity_trace=None, input_activity_index=None):
+                  input_activity_trace=None, input_activity_index=None,
+                  input_wave_display='both'):
     qualitative = runtime['qualitative']
     np = runtime['np']
     plt = runtime['plt']
@@ -783,7 +818,8 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             link_mode=input_wave_link_mode,
             ylim=input_wave_ylim,
             activity_trace=input_activity_trace,
-            activity_index=input_activity_index)
+            activity_index=input_activity_index,
+            display_mode=input_wave_display)
     else:
         def add_panel(column, projection=None):
             return fig.add_subplot(1, grid_cols, column + 1, projection=projection)
@@ -905,7 +941,7 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                               use_global_bounds=True, show_input_wave=False,
                               input_wave_source='preprocessed', input_wave_rx=0, input_wave_tx=0,
                               input_wave_link_mode='single', input_wave_max_points=240,
-                              input_wave_smooth=9):
+                              input_wave_smooth=9, input_wave_display='both'):
     if not records:
         raise ValueError('No records selected for rendering.')
     if model_assets is None:
@@ -1002,7 +1038,8 @@ def render_presentation_video(records, model_asset, output_path, data_root=DEFAU
                 input_wave_link_mode=input_wave_link_mode,
                 input_wave_ylim=input_wave_ylim,
                 input_activity_trace=input_activity_trace,
-                input_activity_index=frame_index)
+                input_activity_index=frame_index,
+                input_wave_display=input_wave_display)
             if keep_frames_dir:
                 frame_path = Path(keep_frames_dir) / f'{frame_index:05d}_{record.sample_name}.png'
                 runtime['plt'].imsave(frame_path, frame)
@@ -1089,6 +1126,11 @@ def build_arg_parser():
         choices=['single', 'all-tx', 'all-rx'],
         default='single',
         help='For raw-amp only: show one Rx/Tx link, all transmitters for one Rx, or all receivers for one Tx.')
+    parser.add_argument(
+        '--input-wave-display',
+        choices=['both', 'wave', 'activity'],
+        default='both',
+        help='CSI panel display mode: waveform only, activity curve only, or both.')
     parser.add_argument(
         '--input-wave-max-points',
         type=int,
@@ -1190,7 +1232,8 @@ def main(argv: Optional[Sequence[str]] = None):
         input_wave_tx=args.input_wave_tx,
         input_wave_link_mode=args.input_wave_link_mode,
         input_wave_max_points=args.input_wave_max_points,
-        input_wave_smooth=args.input_wave_smooth)
+        input_wave_smooth=args.input_wave_smooth,
+        input_wave_display=args.input_wave_display)
     print(f'Video written to: {output_path}')
     return 0
 
