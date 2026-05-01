@@ -185,6 +185,22 @@ class TestRenderPresentationVideo(unittest.TestCase):
         self.assertEqual(normalized.shape, (11, 13, 3))
         self.assertTrue(normalized.flags['C_CONTIGUOUS'])
 
+    def test_input_wave_from_dataset_item_flattens_wifi_csi_grid(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+        import numpy as np
+        import torch
+
+        class DummyData:
+            def __init__(self, value):
+                self.data = value
+
+        data = {'img': DummyData(torch.arange(3 * 3 * 20 * 60).reshape(3, 3, 20, 60))}
+
+        wave = module._input_wave_from_dataset_item(data, np, max_points=120)
+
+        self.assertEqual(wave.shape, (120,))
+        self.assertAlmostEqual(float(wave.mean()), 0.0, places=5)
+
     def test_build_video_model_assets_places_baseline_before_target(self):
         module = _load_module('render_presentation_video', SCRIPT_PATH)
 
