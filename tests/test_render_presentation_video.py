@@ -251,3 +251,101 @@ class TestRenderPresentationVideo(unittest.TestCase):
         ], min_range=0.1, margin_scale=0.0)
 
         self.assertEqual(bounds['xlim'], (0.0, 2.0))
+
+    def test_render_frame_keeps_compact_panel_titles(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from matplotlib.lines import Line2D
+
+        captured = {}
+
+        class DummyQualitative:
+            def _panel_colors(self, count):
+                return ['#0077b6'] * count
+
+            def prepare_display_predictions(self, **kwargs):
+                return {
+                    'poses': np.zeros((1, 14, 3), dtype=np.float32),
+                    'colors': ['#d62828'],
+                    'labels': ['P1'],
+                    'matched_poses': np.zeros((1, 14, 3), dtype=np.float32),
+                }
+
+            def _plot_pose_set(self, ax, poses, colors, labels, title, line_cls, bounds=None):
+                captured.setdefault('pose_titles', []).append(title)
+                if title:
+                    ax.set_title(title)
+
+        original_figure_to_rgb_array = module._figure_to_rgb_array
+
+        def capture_titles(fig, np_module):
+            captured['suptitle'] = fig._suptitle.get_text() if fig._suptitle else None
+            captured['axis_titles'] = [ax.get_title() for ax in fig.axes]
+            return np_module.zeros((8, 8, 3), dtype=np.uint8)
+
+        module._figure_to_rgb_array = capture_titles
+        try:
+            record = module.SequenceRecord(
+                sample_name='S11_01_308',
+                video_id='S11_01',
+                frame_id=308,
+                split='test_data',
+                dataset_index=0,
+                csi_path=Path('csi.mat'),
+                keypoint_path=Path('keypoint.npy'))
+            model_outputs = [
+                {
+                    'asset': {'model_id': 'M0', 'display_name': 'Long Baseline Name'},
+                    'metrics': {
+                        'match_details': [],
+                        'matched_count': 1,
+                        'false_positives': 0,
+                        'matched_error_mm': 34.5,
+                    },
+                    'pred_keypoints': np.zeros((1, 14, 3), dtype=np.float32),
+                },
+                {
+                    'asset': {'model_id': 'M3', 'display_name': 'Long Target Name'},
+                    'metrics': {
+                        'match_details': [],
+                        'matched_count': 1,
+                        'false_positives': 0,
+                        'matched_error_mm': 12.3,
+                    },
+                    'pred_keypoints': np.zeros((1, 14, 3), dtype=np.float32),
+                },
+            ]
+
+            module._render_frame(
+                runtime={
+                    'qualitative': DummyQualitative(),
+                    'np': np,
+                    'plt': plt,
+                    'Line2D': Line2D,
+                },
+                record=record,
+                model_outputs=model_outputs,
+                gt_keypoints=np.zeros((1, 14, 3), dtype=np.float32),
+                rgb_frame=np.zeros((4, 4, 3), dtype=np.uint8),
+                input_wave=np.linspace(-1.0, 1.0, 16, dtype=np.float32),
+                input_wave_source='raw-amp',
+                input_activity_trace=np.linspace(0.0, 1.0, 3, dtype=np.float32),
+                input_activity_index=1,
+                bounds={'xlim': (0, 1), 'ylim': (0, 1), 'zlim': (0, 1)})
+        finally:
+            module._figure_to_rgb_array = original_figure_to_rgb_array
+            plt.close('all')
+
+        self.assertIsNone(captured['suptitle'])
+        self.assertEqual(captured['pose_titles'], ['Ground Truth', 'M0', 'M3'])
+        self.assertEqual([title for title in captured['axis_titles'] if title], [
+            'CSI activity',
+            'Raw CSI Rx1-Tx1',
+            'Original Frame',
+            'Ground Truth',
+            'M0',
+            'M3',
+        ])

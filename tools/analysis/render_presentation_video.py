@@ -679,8 +679,18 @@ def _style_input_axis(ax):
     ax.grid(True, color='#dce8f2', alpha=0.75, linewidth=0.6)
 
 
+def _input_wave_title(source='preprocessed', rx=0, tx=0, link_mode='single'):
+    if source != 'raw-amp':
+        return 'CSI input'
+    if link_mode == 'all-tx':
+        return f'Raw CSI all Tx @ Rx{rx + 1}'
+    if link_mode == 'all-rx':
+        return f'Raw CSI all Rx @ Tx{tx + 1}'
+    return f'Raw CSI Rx{rx + 1}-Tx{tx + 1}'
+
+
 def _plot_input_activity(ax, activity_trace, sample_name, activity_index=None):
-    ax.set_title(f'CSI activity over selected clip | {sample_name}', fontsize=11, pad=5)
+    ax.set_title('CSI activity', fontsize=10, pad=3)
     _style_input_axis(ax)
     if activity_trace is None or len(activity_trace) <= 1:
         ax.text(0.5, 0.5, 'CSI activity unavailable', color='#34495e',
@@ -703,11 +713,11 @@ def _plot_input_activity(ax, activity_trace, sample_name, activity_index=None):
     ax.set_xlim(0, max(1, len(activity_trace) - 1))
     ax.set_ylim(-0.05, 1.05)
     ax.set_xlabel('frame index in selected clip', color='#61778a', fontsize=8)
-    ax.set_ylabel('normalized activity', color='#61778a', fontsize=8)
+    ax.set_ylabel('activity', color='#61778a', fontsize=8)
     ax.text(
         0.995,
         0.88,
-        'red dot: current frame',
+        'current frame',
         ha='right',
         va='top',
         color='#a65d00',
@@ -718,15 +728,10 @@ def _plot_input_activity(ax, activity_trace, sample_name, activity_index=None):
 def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, tx=0,
                      link_mode='single', ylim=None, activity_trace=None,
                      activity_index=None, display_mode='both'):
-    source_label = 'Model-ready preprocessed CSI'
-    if source == 'raw-amp':
-        if link_mode == 'all-tx':
-            source_label = f'Raw CSI amplitude, all Tx at Rx{rx + 1}'
-        elif link_mode == 'all-rx':
-            source_label = f'Raw CSI amplitude, all Rx at Tx{tx + 1}'
-        else:
-            source_label = f'Raw CSI amplitude link Rx{rx + 1}-Tx{tx + 1}'
-    ax.set_title(f'{source_label} | {sample_name}', fontsize=12, pad=6)
+    ax.set_title(
+        _input_wave_title(source, rx=rx, tx=tx, link_mode=link_mode),
+        fontsize=10,
+        pad=3)
     _style_input_axis(ax)
 
     if input_wave is None or len(input_wave) == 0:
@@ -763,7 +768,7 @@ def _plot_input_wave(ax, input_wave, sample_name, source='preprocessed', rx=0, t
     if ylim is None:
         ylim = max(0.5, float(max(abs(waves.min()), abs(waves.max()))) * 1.15)
     ax.set_ylim(-ylim, ylim)
-    ax.set_xlabel('temporal CSI trace, centered and lightly smoothed', color='#61778a', fontsize=8)
+    ax.set_xlabel('CSI trace', color='#61778a', fontsize=8)
     ax.set_ylabel('CSI', color='#61778a', fontsize=8)
     if labels:
         ax.legend(loc='upper left', fontsize=7, frameon=False, ncol=min(3, len(labels)))
@@ -876,12 +881,19 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     if has_rgb:
         ax_rgb = add_panel(col)
         ax_rgb.imshow(rgb_frame)
-        ax_rgb.set_title(f'Original Frame\n{record.video_id} #{record.frame_id}', fontsize=13)
+        ax_rgb.set_title('Original Frame', fontsize=10, pad=3)
         ax_rgb.axis('off')
         col += 1
 
     ax_gt = add_panel(col, projection='3d')
-    qualitative._plot_pose_set(ax_gt, gt_keypoints, gt_colors, gt_labels, 'Ground Truth 3D Pose', Line2D, bounds=bounds)
+    qualitative._plot_pose_set(
+        ax_gt,
+        gt_keypoints,
+        gt_colors,
+        gt_labels,
+        'Ground Truth',
+        Line2D,
+        bounds=bounds)
     col += 1
 
     footer_parts = [f'{record.sample_name} | split={record.split}']
@@ -894,7 +906,7 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             display['poses'],
             display['colors'],
             display['labels'],
-            f'{asset["model_id"]}: {asset.get("display_name", asset["model_id"])}',
+            asset['model_id'],
             Line2D,
             bounds=bounds)
         error_text = 'n/a' if metrics['matched_error_mm'] is None else f'{metrics["matched_error_mm"]:.1f} mm'
@@ -904,12 +916,11 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
         col += 1
     footer = '\n'.join(footer_parts)
     fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
-    fig.suptitle('No camera. No wearable. Just WiFi signals.', fontsize=16, fontweight='bold', y=0.98)
     if has_input_wave:
-        top = 0.91 if input_wave_display == 'both' else 0.90
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=0.26)
+        top = 0.96 if input_wave_display == 'both' else 0.95
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=0.28)
     else:
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.86, wspace=0.02)
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.94, wspace=0.02)
     frame = _figure_to_rgb_array(fig, np)
     plt.close(fig)
     return frame
