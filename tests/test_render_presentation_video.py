@@ -194,6 +194,13 @@ class TestRenderPresentationVideo(unittest.TestCase):
 
         self.assertEqual([asset['model_id'] for asset in model_assets], ['M0', 'M3'])
 
+    def test_parser_defaults_to_eval_like_zero_score_threshold(self):
+        module = _load_module('render_presentation_video', SCRIPT_PATH)
+
+        args = module.build_arg_parser().parse_args([])
+
+        self.assertEqual(args.score_thr, 0.0)
+
     def test_reorder_gt_by_previous_frame_preserves_identity_order(self):
         module = _load_module('render_presentation_video', SCRIPT_PATH)
         import numpy as np

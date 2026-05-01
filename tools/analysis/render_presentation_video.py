@@ -754,7 +754,11 @@ def build_arg_parser():
     parser.add_argument('--max-frames', type=int, default=None)
     parser.add_argument('--stride', type=int, default=1)
     parser.add_argument('--fps', type=int, default=12)
-    parser.add_argument('--score-thr', type=float, default=0.2)
+    parser.add_argument(
+        '--score-thr',
+        type=float,
+        default=0.0,
+        help='Prediction score threshold for display. Default 0.0 mirrors evaluation, which matches over all queries.')
     parser.add_argument('--device', default=None)
     parser.add_argument('--source-video', default=None, help='Optional original RGB video path.')
     parser.add_argument(
