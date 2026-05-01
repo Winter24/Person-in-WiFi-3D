@@ -918,7 +918,8 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
     fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
     if has_input_wave:
         top = 0.96 if input_wave_display == 'both' else 0.95
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=0.28)
+        hspace = 0.40 if input_wave_display == 'both' else 0.28
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=hspace)
     else:
         fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.94, wspace=0.02)
     frame = _figure_to_rgb_array(fig, np)
