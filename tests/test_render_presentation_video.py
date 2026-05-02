@@ -284,6 +284,11 @@ class TestRenderPresentationVideo(unittest.TestCase):
         def capture_titles(fig, np_module):
             captured['suptitle'] = fig._suptitle.get_text() if fig._suptitle else None
             captured['axis_titles'] = [ax.get_title() for ax in fig.axes]
+            captured['figure_texts'] = [text.get_text() for text in fig.texts]
+            captured['axis_texts'] = {
+                ax.get_title() or f'axis_{idx}': [text.get_text() for text in ax.texts]
+                for idx, ax in enumerate(fig.axes)
+            }
             return np_module.zeros((8, 8, 3), dtype=np.uint8)
 
         module._figure_to_rgb_array = capture_titles
@@ -348,4 +353,8 @@ class TestRenderPresentationVideo(unittest.TestCase):
             'Ground Truth',
             'M0',
             'M3',
+        ])
+        self.assertEqual(captured['figure_texts'], [])
+        self.assertEqual(captured['axis_texts']['Original Frame'], [
+            'S11_01_308 | split=test_data\nM0 M1/1 FP0 E34.5 mm\nM3 M1/1 FP0 E12.3 mm',
         ])

@@ -6,20 +6,21 @@ Working title:
 
 Purpose of this file:
 
-- Convert the Phase 4 slide blueprint into a 9:30-10:00 oral script.
-- Give each slide a clear opening sentence, 2-3 talking points, and a transition.
+- Convert the revised 13-slide blueprint into a 9:45-10:00 oral script.
 - Keep the talk natural enough to present without reading directly from slides.
-- Prevent technical over-claims, especially around `M3`, `M4`, false positives, and bone loss.
+- Make the technical contribution relative to `M0` easy to follow.
+- Prevent over-claims around `M3`, `M4`, false positives, and bone loss.
 
 Core thesis to repeat:
 
-> We turn WiFi-based 3D pose estimation from one-shot guessing into draft-to-refine trajectory refinement.
+> We turn WiFi-based 3D pose estimation from one-shot guessing into staged, draft-to-refine trajectory refinement.
 
 Important claim boundaries:
 
-- `M3` is the best MPJPE model.
-- `M4` is the best overall efficiency trade-off model.
-- `M4` does not use bone loss. Bone loss belongs to `M5`, not the final proposal model.
+- The main deck is a controlled `M0-M4` ablation story.
+- `M3` is the best MPJPE model in the current snapshot.
+- `M4` is the best overall efficiency trade-off model in the current snapshot.
+- The repository can expose an optional bone-loss branch, but the `M0-M4` runs discussed in this deck treat it as off at runtime.
 - Visualization false positives are not the same as official matched MPJPE.
 - The draft-to-refine animation is conceptual unless explicitly generated from model vectors.
 
@@ -29,17 +30,16 @@ Important claim boundaries:
 
 | Section | Slides | Time |
 |---|---|---:|
-| Hook + motivation | 1-2 | 1:30 |
-| Challenge + gap | 3-4 | 1:50 |
-| Key idea + method | 5-6 | 2:15 |
-| Research design | 7 | 0:55 |
-| Results | 8-9 | 2:20 |
-| Impact + conclusion | 10-11 | 1:10 |
-| Total target | 11 slides | 10:00 |
+| Hook + motivation | 1-2 | 1:10 |
+| Problem framing | 3-5 | 1:50 |
+| Architectural stages | 6-10 | 4:05 |
+| Results | 11-12 | 2:10 |
+| Conclusion | 13 | 0:35 |
+| Total target | 13 slides | 10:00 |
 
 Rehearsal target:
 
-> Aim for 9:30 so the real presentation has a 30-second safety margin.
+> Aim for 9:30 to 9:40 so the real presentation keeps a safety margin.
 
 ---
 
@@ -49,24 +49,24 @@ If using 2 speakers:
 
 | Speaker | Slides | Role |
 |---|---|---|
-| Speaker 1 | 1-5 | Problem, motivation, key idea |
-| Speaker 2 | 6-11 | Method, experiments, results, impact |
+| Speaker 1 | 1-5 | Motivation, problem, baseline |
+| Speaker 2 | 6-13 | Technical upgrades, results, conclusion |
 
 If using 3 speakers:
 
 | Speaker | Slides | Role |
 |---|---|---|
-| Speaker 1 | 1-4 | Motivation and research gap |
-| Speaker 2 | 5-7 | Key idea, method, ablation design |
-| Speaker 3 | 8-11 | Results, impact, conclusion |
+| Speaker 1 | 1-4 | Hook, motivation, challenge, baseline setup |
+| Speaker 2 | 5-8 | Baseline loss, spectral, WiMamba, flow head |
+| Speaker 3 | 9-13 | Flow loss, ablation summary, results, conclusion |
 
 Speaker handoff line from Speaker 1 to Speaker 2:
 
-> Now that we understand why WiFi pose estimation is difficult, I will hand over to my teammate to explain our draft-to-refine solution.
+> We have now defined the baseline clearly, so I will hand over to my teammate to explain how each upgrade changes the model step by step.
 
 Speaker handoff line from Speaker 2 to Speaker 3:
 
-> With this controlled design in place, my teammate will show what the experiments tell us.
+> With the draft-to-refine mechanism defined, my teammate will show how we train it and what the ablation results tell us.
 
 ---
 
@@ -78,7 +78,7 @@ Title:
 
 Target time:
 
-> 0:45
+> 0:35
 
 Opening sentence:
 
@@ -112,7 +112,7 @@ Title:
 
 Target time:
 
-> 0:45
+> 0:35
 
 Opening sentence:
 
@@ -125,8 +125,8 @@ Full script:
 Key points to remember:
 
 - Do not attack cameras too strongly.
-- Emphasize “where cameras are not acceptable.”
-- WiFi is privacy-preserving because it does not capture appearance, not because it has no privacy concerns at all.
+- Emphasize where cameras are not acceptable.
+- WiFi is privacy-preserving because it does not capture appearance.
 
 Transition:
 
@@ -138,15 +138,15 @@ Short version if over time:
 
 ---
 
-## Slide 3 - Challenge
+## Slide 3 - Challenge + Research Gap
 
 Title:
 
-> WiFi CSI is not an image
+> CSI is indirect, and one-shot regression is brittle
 
 Target time:
 
-> 0:55
+> 0:45
 
 Opening sentence:
 
@@ -154,7 +154,7 @@ Opening sentence:
 
 Full script:
 
-> The main challenge is that WiFi CSI does not directly show body parts. Human motion changes wireless reflections through multipath propagation. What the model receives is a noisy CSI sequence, not an RGB image. This signal has low spatial resolution, strong ambiguity, and becomes even harder when multiple people move in the same room.
+> The main challenge is that WiFi CSI does not directly show body parts. Human motion changes wireless reflections through multipath propagation. What the model receives is a noisy CSI sequence, not an RGB image. This signal has low spatial resolution, strong ambiguity, and becomes even harder when multiple people move in the same room. Because of that, one-shot regression to the final 3D pose is structurally brittle in difficult scenes.
 
 Key points to remember:
 
@@ -164,19 +164,155 @@ Key points to remember:
 
 Transition:
 
-> Because of this ambiguity, directly predicting the final skeleton in one step can become unstable.
+> Before showing our upgrades, we first need to define the baseline that we are trying to improve.
 
 Short version if over time:
 
-> CSI is indirect and noisy. The model must infer 3D pose from wireless reflections, not from visible body parts.
+> CSI is indirect and noisy, so directly guessing the final skeleton in one step can become unstable.
 
 ---
 
-## Slide 4 - Research Gap
+## Slide 4 - Stage 0: Baseline `M0` Architecture
 
 Title:
 
-> Existing models guess the skeleton in one shot
+> `M0` baseline: linear projection + Transformer + direct regression
+
+Target time:
+
+> 0:45
+
+Opening sentence:
+
+> `M0` is not a weak strawman; it is a serious Transformer-based baseline.
+
+Full script:
+
+> `M0` is not a weak strawman; it is a serious Transformer-based baseline derived from the Person-in-WiFi 3D pipeline. Raw CSI is projected linearly, encoded through a Transformer, and decoded by learnable pose queries into final 3D coordinates. The important point is that the model still predicts the final skeleton directly in one shot.
+
+Key points to remember:
+
+- Emphasize fairness to the baseline.
+- Mention linear projection, Transformer encoding, and query-based decoding.
+- End with the phrase one-shot final pose prediction.
+
+Transition:
+
+> Once the architecture is clear, the next question is what this baseline is actually optimizing during training.
+
+Short version if over time:
+
+> `M0` uses linear CSI projection, a Transformer pose stack, and direct one-shot regression to the final pose.
+
+---
+
+## Slide 5 - Stage 0: Baseline `M0` Loss
+
+Title:
+
+> What `M0` optimizes
+
+Target time:
+
+> 0:40
+
+Opening sentence:
+
+> The baseline objective is still a direct coordinate-learning objective.
+
+Full script:
+
+> The baseline objective is still a direct coordinate-learning objective. After Hungarian matching aligns predicted pose instances with ground-truth persons, the model is supervised through classification, keypoint regression, OKS-style consistency, and refinement losses. In the formula, `L_cls` says whether a query corresponds to a person, `L_kpt` regresses the 3D joint coordinates directly, `L_oks` encourages pose consistency, and `L_refine` improves the final coordinates again in the decoder. The key limitation is that the training target remains the final coordinates themselves rather than a correction trajectory.
+
+Key points to remember:
+
+- Say Hungarian matching clearly.
+- Do not over-enumerate every implementation detail.
+- The memory sentence is direct coordinates, not correction trajectory.
+
+Transition:
+
+> Our first upgrade keeps the prediction head unchanged, but improves how the CSI signal is represented.
+
+Short version if over time:
+
+> `M0` learns final coordinates directly after matching. It does not learn how a draft pose should be corrected.
+
+---
+
+## Slide 6 - Stage 1: Spectral Tokenizer (`M1`)
+
+Title:
+
+> Stage 1: motion-aware spectral tokenization
+
+Target time:
+
+> 0:45
+
+Opening sentence:
+
+> `M1` asks a simple question: can we feed the model a cleaner motion-aware CSI representation?
+
+Full script:
+
+> `M1` asks a simple question: can we feed the model a cleaner motion-aware CSI representation? We first project CSI linearly, then apply temporal filtering, extract a Doppler-like profile through the frequency domain, and use that profile to gate temporal features. In short, `M1` tries to suppress static noise and emphasize dynamic motion cues before the sequence model even begins.
+
+Key points to remember:
+
+- Say input representation, not architecture overhaul.
+- Mention gating from the spectral profile.
+- Make it clear that the PETR-style prediction head is still unchanged.
+
+Transition:
+
+> After improving the representation, we ask whether the heavy Transformer is still necessary.
+
+Short version if over time:
+
+> `M1` improves the CSI representation by using spectral gating to emphasize motion and suppress static noise.
+
+---
+
+## Slide 7 - Stage 2: WiMamba Encoder (`M2`)
+
+Title:
+
+> Stage 2: replace quadratic attention with factorized WiMamba
+
+Target time:
+
+> 0:45
+
+Opening sentence:
+
+> `M2` is the efficiency stage of the ablation.
+
+Full script:
+
+> `M2` is the efficiency stage of the ablation. Instead of full quadratic self-attention over the entire token sequence, WiMamba factorizes the modeling into a temporal pass and a bidirectional spatial pass. This reduces the sequence-modeling burden from quadratic attention toward linear-time processing, so `M2` mainly tests whether we can improve deployability without yet changing the prediction objective.
+
+Key points to remember:
+
+- Emphasize temporal pass plus bidirectional spatial pass.
+- Say efficiency stage.
+- Do not oversell `M2` as the main accuracy result.
+
+Transition:
+
+> But better representation and a lighter encoder still do not solve the core one-shot prediction problem.
+
+Short version if over time:
+
+> `M2` replaces heavy self-attention with factorized WiMamba to make the encoder more efficient.
+
+---
+
+## Slide 8 - Stage 3: Draft-to-Refine Flow Head (`M3/M4`)
+
+Title:
+
+> Stage 3: from direct regression to draft-to-refine
 
 Target time:
 
@@ -184,68 +320,101 @@ Target time:
 
 Opening sentence:
 
-> Most baselines treat the problem as direct regression from CSI to final pose.
+> This is the main conceptual change of our work.
 
 Full script:
 
-> Most baselines treat the problem as direct regression from CSI to final pose. This is simple, but it can be brittle when the input signal is noisy or when multiple people overlap in the wireless reflections. In these cases, the baseline can produce distorted skeletons, missing people, or unstable pose structures.
+> This is the main conceptual change of our work. Instead of directly predicting the final pose, the model first predicts a coarse draft pose `X0`. We then construct an interpolated pose `X_t`, condition a velocity network on the encoded CSI feature `c`, and learn a correction field that moves the draft toward the refined pose. In the equation, the first line defines the path between draft and target, the second line predicts the correction velocity along that path, and the third line applies a one-step update to produce the final pose estimate.
 
 Key points to remember:
 
-- Say “can produce,” not “always produces.”
-- If showing Figure 5 crop, describe it as selected challenging examples.
-- Do not claim M3 or M4 always has fewer false positives than M0.
+- `X0` is the draft pose.
+- `c` is the encoded WiFi-conditioned feature.
+- The model learns how the draft should move, not only what the final coordinates should be.
 
 Transition:
 
-> Our key idea is to replace this one-shot guess with a draft-to-refine process.
+> To train that refinement stage properly, we also need a new objective.
 
 Short version if over time:
 
-> Direct regression asks the model to guess the final skeleton immediately. We instead want the model to correct a coarse pose step by step in pose space.
+> We replace one-shot coordinate prediction with draft pose generation plus learned velocity-based correction.
 
 ---
 
-## Slide 5 - Key Idea
+## Slide 9 - Stage 3: Flow Matching Loss
 
 Title:
 
-> From one-shot guessing to draft-to-refine
+> Why flow helps beyond direct regression
 
 Target time:
 
-> 1:05
+> 0:45
 
 Opening sentence:
 
-> The core idea is simple: first draft, then refine.
+> The key difference is the training target.
 
 Full script:
 
-> The core idea is simple: first draft, then refine. Instead of asking the model to directly output the final skeleton, we first predict a coarse draft pose, denoted as `X0`. Then the model predicts a learned velocity field `v`, which tells each keypoint how it should move. With one Rectified Flow update, the draft pose is corrected into a refined pose `X1`.
+> The key difference is the training target. In `M0`, the model is asked to predict the final coordinates directly. In `M3` and `M4`, the model is instead trained to predict the correction velocity from the draft toward the ground truth. In the loss, the target correction is `X_1 - X_0`, while the network predicts `v_theta(X_t, t, c)`. The squared error between these two terms is the flow-matching objective. This is why the flow head changes more than the architecture. It changes what the model learns to do.
 
 Key points to remember:
 
-- `X0` is the coarse draft pose.
-- `v` is the local correction velocity.
-- `X1` is the refined pose.
-- The animation is conceptual if it is not generated from actual model vectors.
+- Repeat direct coordinates versus correction trajectory.
+- This slide explains the learning objective, not diffusion sampling.
+- Do not mention bone loss here.
 
 Transition:
 
-> We now embed this idea into the full WiFi pose estimation pipeline.
+> With that objective in place, we can now summarize the full logic of the `M0-M4` ladder.
 
 Short version if over time:
 
-> Instead of CSI to final pose, we use CSI to draft pose, then learn a velocity correction from `X0` to `X1`.
+> `M0` predicts final coordinates directly. `M3/M4` predict how a draft pose should move toward the target.
 
 ---
 
-## Slide 6 - Proposed Method
+## Slide 10 - Stage Summary: `M0-M4`
 
 Title:
 
-> Proposed M4 pipeline
+> What changes from `M0` to `M4`?
+
+Target time:
+
+> 0:45
+
+Opening sentence:
+
+> The ablation is designed as a controlled evidence ladder.
+
+Full script:
+
+> The ablation is designed as a controlled evidence ladder. `M1` changes the input representation, `M2` changes the sequence model, `M3` changes the prediction objective through flow refinement, and `M4` combines efficient sequence modeling with the flow head. This lets us attribute gains more carefully instead of claiming that one giant black-box model is simply better.
+
+Key points to remember:
+
+- Use controlled ladder language.
+- Emphasize interpretability of the ablation.
+- Mention that `M4` is the combination model.
+
+Transition:
+
+> With the design logic established, the benchmark results become much easier to interpret.
+
+Short version if over time:
+
+> `M1` tests representation, `M2` tests efficiency, `M3` tests flow accuracy, and `M4` combines flow with WiMamba for the final trade-off.
+
+---
+
+## Slide 11 - Quantitative Results
+
+Title:
+
+> Flow improves accuracy. WiMamba improves deployability.
 
 Target time:
 
@@ -253,119 +422,51 @@ Target time:
 
 Opening sentence:
 
-> Our final M4 pipeline has three main components.
+> The benchmark shows two complementary winners.
 
 Full script:
 
-> Our final M4 pipeline has three main components. First, the Spectral Tokenizer converts raw CSI into motion-aware tokens by emphasizing useful temporal and spectral patterns. Second, the WiMamba encoder models the spatio-temporal sequence efficiently. Third, the pose decoder predicts a draft pose and applies one-step Rectified Flow refinement to produce the final 3D pose.
-
-Key points to remember:
-
-- Figure 1 is the main overview.
-- Do not go too deep into Figure 3 details here.
-- M4 means spectral adapter plus WiMamba plus flow head, without bone loss.
-
-Transition:
-
-> To make the contribution measurable, we evaluate the method through a controlled M0-to-M4 ablation ladder.
-
-Short version if over time:
-
-> M4 combines spectral tokenization, WiMamba sequence modeling, and one-step flow refinement.
-
----
-
-## Slide 7 - Research Design
-
-Title:
-
-> A controlled M0-M4 ablation ladder
-
-Target time:
-
-> 0:55
-
-Opening sentence:
-
-> The ablation is designed so that each model tests one hypothesis.
-
-Full script:
-
-> The ablation is designed so that each model tests one hypothesis. `M0` is the direct-regression baseline. `M1` adds the spectral input adapter. `M2` adds Mamba-based sequence modeling. `M3` tests the draft-to-refine Rectified Flow head with the Transformer backbone. Finally, `M4` combines the spectral adapter, WiMamba, and Rectified Flow as the efficiency-oriented final model.
-
-Key points to remember:
-
-- M3 isolates the flow benefit for accuracy.
-- M4 tests whether flow can be made efficient with WiMamba.
-- Use “efficiency-oriented final model,” not “best on everything.”
-
-Transition:
-
-> This design gives us two important results: one about accuracy and one about deployability.
-
-Short version if over time:
-
-> M0 is the baseline, M3 tests the flow idea, and M4 combines flow with Mamba for the best deployment trade-off.
-
----
-
-## Slide 8 - Quantitative Results
-
-Title:
-
-> Flow improves accuracy. Mamba improves deployability.
-
-Target time:
-
-> 1:20
-
-Opening sentence:
-
-> The numbers show two complementary winners.
-
-Full script:
-
-> The numbers show two complementary winners. `M3` achieves the lowest MPJPE, reducing the error from `169.34 mm` in the baseline to `151.99 mm`. This confirms that draft-to-refine Rectified Flow improves pose accuracy. `M4` is slightly less accurate than `M3`, but it achieves the best efficiency trade-off: `159.85 FPS`, only `5.83M` parameters, and `27.02 MB` peak memory.
+> The benchmark shows two complementary winners. `M3` achieves the lowest MPJPE, reducing the error from `169.34 mm` in the baseline to `151.99 mm`. That confirms the accuracy benefit of the flow-based refinement idea. `M4` is slightly less accurate than `M3`, but it achieves the best efficiency trade-off: `159.85 FPS`, only `5.83M` parameters, and `27.02 MB` peak memory. So `M3` is the accuracy winner, while `M4` is the practical deployment winner in this frozen local snapshot.
 
 Metric emphasis:
 
-- `M3`: best MPJPE.
-- `M4`: fastest, lightest, lowest memory among main variants.
-- `M0`: baseline.
+- `M3`: best MPJPE
+- `M4`: fastest, smallest, lowest memory among the main variants
+- `M0`: baseline reference
 
 Key points to remember:
 
 - Do not say `M4` is the most accurate.
-- Do not say “state-of-the-art” unless the slide/proposal explicitly supports it against external methods.
-- Use “preliminary benchmark” if the context is proposal-level evidence.
+- Do not say state of the art unless externally validated.
+- Use frozen local snapshot language if needed.
 
 Transition:
 
-> The benchmark gives the overall trend, but we also want to see how the skeletons behave visually.
+> The table gives the global pattern, but the qualitative samples show what that pattern looks like in hard scenes.
 
 Short version if over time:
 
-> M3 proves the accuracy benefit of flow. M4 proves that this idea can be made fast and lightweight.
+> `M3` proves the accuracy gain of flow. `M4` proves that the same idea can be made fast and lightweight.
 
 ---
 
-## Slide 9 - Qualitative Results
+## Slide 12 - Qualitative Results
 
 Title:
 
-> More coherent matched poses in challenging scenes
+> More coherent matched poses in difficult scenes
 
 Target time:
 
-> 1:10
+> 1:00
 
 Opening sentence:
 
-> Qualitatively, we focus on selected challenging samples with one, two, and three people.
+> Qualitatively, we focus on selected challenging cases rather than universal proof.
 
 Full script:
 
-> Qualitatively, we focus on selected challenging samples with one, two, and three people. The important point is matched pose quality. Compared with the direct-regression baseline, the flow-based models produce more coherent skeletons in these selected cases. This supports the quantitative result that refinement helps the model correct pose structure under ambiguity.
+> Qualitatively, we focus on selected challenging cases rather than universal proof. The important reading is matched pose quality. Compared with the direct-regression baseline, the flow-based variants produce more coherent skeletons in these selected one-person, two-person, and three-person cases. This is visually consistent with the benchmark trend that refinement helps the model correct pose structure under ambiguity.
 
 If asked about gray or extra poses:
 
@@ -373,164 +474,82 @@ If asked about gray or extra poses:
 
 Key points to remember:
 
-- Say “selected challenging samples.”
-- Say “matched pose quality.”
-- Do not hide the fact that M3 may show duplicate/FP predictions in some videos.
+- Say selected challenging cases.
+- Say matched pose quality.
+- Do not hide the fact that query-based decoders can show duplicates in some visualizations.
 
 Transition:
 
-> These results suggest a practical direction for privacy-preserving indoor sensing.
+> Let me close with the three takeaways that matter most.
 
 Short version if over time:
 
-> In selected challenging cases, the flow-based models produce more coherent matched skeletons than direct regression.
+> In selected difficult cases, the flow-based variants produce more coherent matched skeletons than direct regression.
 
 ---
 
-## Slide 10 - Impact
+## Slide 13 - Conclusion + Impact
 
 Title:
 
-> Toward privacy-preserving indoor human sensing
+> Three takeaways from `M0` to `M4`
 
 Target time:
 
-> 0:50
+> 0:35
 
 Opening sentence:
 
-> The broader goal is not to replace cameras everywhere.
+> The contribution is a staged redesign, not just one extra module.
 
 Full script:
 
-> The broader goal is not to replace cameras everywhere. The goal is to enable pose sensing in places where cameras are not acceptable or not desired. Potential applications include smart homes, elderly care, rehabilitation support, fall monitoring, and privacy-sensitive indoor spaces.
+> The contribution is a staged redesign, not just one extra module. First, `M0` is a strong direct-regression baseline that defines the problem clearly. Second, Rectified Flow is the main accuracy driver because it changes the learning target from final coordinates to trajectory correction. Third, WiMamba makes that refinement pipeline practical for privacy-sensitive indoor deployment. That is why we view `M4` as the final efficiency-oriented model.
 
 Key points to remember:
 
-- Avoid clinical over-claims.
-- Say “potential applications.”
-- Keep this slide short and grounded.
+- End with the research takeaway first.
+- Mention deployment only after the technical point is clear.
+- Keep the finish crisp.
 
 Transition:
 
-> Let me close with the main takeaways from our work.
+> Thank you. We are happy to take questions.
 
 Short version if over time:
 
-> WiFi pose estimation is most valuable in private indoor spaces where visual sensing is not acceptable.
+> `M0` defines the baseline, flow drives accuracy, and WiMamba makes the flow pipeline practical.
 
 ---
 
-## Slide 11 - Conclusion
+## Fast Q&A Anchors
 
-Title:
+### Q1. Why did you put formulas in the main deck?
 
-> What we learned
+> Because the contribution is not only empirical. We want the audience to see how the model changes from `M0` to `M4` at the level of representation, sequence modeling, and training objective.
 
-Target time:
+### Q2. Why is `M3` more accurate than `M4`?
 
-> 0:50
+> `M3` keeps the heavier Transformer-based flow variant, so it preserves stronger representation capacity and achieves the lowest MPJPE. `M4` trades a small amount of accuracy for much better speed, parameter count, and memory.
 
-Opening sentence:
+### Q3. If `M3` is more accurate, why choose `M4`?
 
-> We asked whether WiFi can estimate 3D human pose without cameras.
+> `M3` is the accuracy upper bound in this snapshot. `M4` is the deployment-oriented model because it gives the strongest overall accuracy-efficiency trade-off while still improving over `M0`.
 
-Full script:
+### Q4. What about bone loss in the repository?
 
-> We asked whether WiFi can estimate 3D human pose without cameras. We proposed a draft-to-refine Rectified Flow framework with spectral CSI tokenization and WiMamba encoding. Our results show that `M3` gives the strongest accuracy, while `M4` gives the best lightweight deployment trade-off. Overall, the project brings WiFi-based 3D pose estimation closer to real-time, privacy-preserving indoor sensing.
+> The repository can expose an optional bone-loss branch, but the `M0-M4` runs discussed in this presentation treat that branch as off at runtime. We intentionally keep this deck focused on representation, sequence modeling, and flow refinement.
 
-Closing line:
+### Q5. Do extra gray poses in video contradict the benchmark?
 
-> WiFi can sense posture without seeing identity.
-
-Key points to remember:
-
-- End with the privacy-preserving message.
-- Do not end with too many numbers.
-- Pause after the closing line.
-
-Short version if over time:
-
-> We show that WiFi pose estimation can move from one-shot guessing to efficient draft-to-refine correction.
+> No. Extra gray poses reflect unmatched or low-confidence query outputs in visualization. The reported benchmark uses Hungarian-matched pose error, so the two should not be interpreted as the same quantity.
 
 ---
 
-## Backup Answer Bank
+## Delivery Checklist
 
-### If asked: Why is M3 more accurate than M4?
-
-Answer:
-
-> `M3` keeps the Transformer backbone and adds the Rectified Flow decoder, so it gives the strongest accuracy in this ablation. `M4` replaces the backbone with WiMamba to reduce computation and memory, so it is designed as the best deployment trade-off rather than the absolute best MPJPE model.
-
-### If asked: Why not choose M3 as the final model?
-
-Answer:
-
-> If the only target is MPJPE, `M3` is the best. But our proposal also values speed, memory, and model size. `M4` is much faster and lighter while preserving most of the accuracy improvement, so it is the more practical final model.
-
-### If asked: Does M4 use bone length loss?
-
-Answer:
-
-> No. In our M0-M4 proposal results, `M4` does not use bone length loss. Bone loss belongs to the later `M5` exploration and should not be used to explain the M4 result.
-
-### If asked: Why does M3 sometimes show more gray predictions in video?
-
-Answer:
-
-> The decoder uses multiple learned pose queries, and the visualization can show duplicate or unmatched predictions. The official MPJPE is computed after Hungarian matching, so matched pose accuracy and false-positive visualization are related but not identical.
-
-### If asked: Is the draft-to-refine animation an actual model output?
-
-Answer:
-
-> It is a conceptual visualization of the update `X1 = X0 + v`. The quantitative and qualitative results come from the actual model outputs; the animation is only used to explain the idea intuitively.
-
-### If asked: Is WiFi fully privacy-safe?
-
-Answer:
-
-> We should not claim that any sensing system is privacy-free. The specific advantage is that WiFi CSI does not capture visual appearance or identity like a camera. Responsible deployment would still require data protection and user consent.
-
-### If asked: Why use Rectified Flow instead of diffusion?
-
-Answer:
-
-> Diffusion-style generation often needs multiple denoising steps from noise. Our setting starts from a conditional draft pose, so Rectified Flow can be used as a direct one-step correction, which is more suitable for efficient pose estimation.
-
----
-
-## Rehearsal Checklist
-
-Before rehearsal:
-
-- Confirm Slide 6 uses Figure 1.
-- Confirm technical backup uses Figure 3.
-- Confirm Slide 8 uses Figure 4.
-- Confirm Slide 9 uses Figure 5.
-- Confirm no slide says `M4` uses bone loss.
-- Confirm the hook video is presentation mode, not audit mode.
-- Confirm any generated skeleton visual uses keypoint graph style, not anatomical bones.
-
-During rehearsal:
-
-- Slide 1-2 should finish by 1:30.
-- Slide 5 should not exceed 1:05.
-- Slide 8 can take the longest, but must stay under 1:20.
-- If total time exceeds 10:00, cut backup-level explanations first.
-
-Do not cut:
-
-- The problem motivation.
-- The draft-to-refine idea.
-- The M3 vs M4 distinction.
-- The final privacy-preserving message.
-
-Cut first if over time:
-
-- Extra details about M1 and M2.
-- Long explanation of WiMamba internals.
-- Extra application examples.
-- Any formula not needed for the main story.
-
+- Slide 4 and Slide 5 must clearly define `M0`.
+- Slide 8 and Slide 9 must clearly separate flow architecture from flow loss.
+- Slide 11 must say `M3` is the accuracy winner and `M4` is the trade-off winner.
+- No main slide should imply that bone loss is part of the reported `M0-M4` results.
+- Keep the pace tight through the technical middle of the talk.

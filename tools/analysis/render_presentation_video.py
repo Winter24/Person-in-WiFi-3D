@@ -877,6 +877,7 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             min_range=0.12,
             margin_scale=0.04)
 
+    ax_rgb = None
     col = 0
     if has_rgb:
         ax_rgb = add_panel(col)
@@ -915,13 +916,26 @@ def _render_frame(runtime, record, model_outputs, gt_keypoints,
             f'FP{metrics["false_positives"]} E{error_text}')
         col += 1
     footer = '\n'.join(footer_parts)
-    fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
+    if ax_rgb is not None:
+        ax_rgb.text(
+            0.5,
+            -0.12,
+            footer,
+            ha='center',
+            va='top',
+            fontsize=11,
+            transform=ax_rgb.transAxes,
+            clip_on=False)
+    else:
+        fig.text(0.5, 0.02, footer, ha='center', va='bottom', fontsize=11)
     if has_input_wave:
         top = 0.96 if input_wave_display == 'both' else 0.95
         hspace = 0.40 if input_wave_display == 'both' else 0.28
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.10, top=top, wspace=0.02, hspace=hspace)
+        bottom = 0.16 if has_rgb else 0.10
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=bottom, top=top, wspace=0.02, hspace=hspace)
     else:
-        fig.subplots_adjust(left=0.02, right=0.99, bottom=0.12, top=0.94, wspace=0.02)
+        bottom = 0.18 if has_rgb else 0.12
+        fig.subplots_adjust(left=0.02, right=0.99, bottom=bottom, top=0.94, wspace=0.02)
     frame = _figure_to_rgb_array(fig, np)
     plt.close(fig)
     return frame
