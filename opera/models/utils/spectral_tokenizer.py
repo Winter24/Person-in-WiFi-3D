@@ -79,7 +79,7 @@ class WifiInputAdapter(nn.Module):
         nn.init.constant_(self.channel_proj.weight, 0.0)
         nn.init.constant_(self.channel_proj.bias, 0.0)
 
-    def forward(self, x):
+    def forward(self, x, return_debug=False):
         # x shape: (B, 180, C)
         B, L, C = x.shape
         
@@ -87,6 +87,12 @@ class WifiInputAdapter(nn.Module):
         x_linear = self.head(x)
 
         if self.mode == 'linear':
+            if return_debug:
+                debug = {
+                    'x_lin': x_linear,
+                    'x_token': x_linear
+                }
+                return x_linear, debug
             return x_linear
 
         # Định hình lại: (B * 9, 20, Embed_Dims)
@@ -96,6 +102,7 @@ class WifiInputAdapter(nn.Module):
         # (B*9, Embed_Dims, 20)
         x_time = x_grid.permute(0, 2, 1).contiguous()
         x_time = self.time_act(self.time_conv(x_time))
+        x_time_tokens = x_time.permute(0, 2, 1).contiguous()
 
         # 2. DOPPLER MOTION PROFILE (FFT)
         # Thực hiện RFFT dọc theo chiều thời gian (dim=1) của x_grid
@@ -111,14 +118,16 @@ class WifiInputAdapter(nn.Module):
         # 3. FREQUENCY GATING (Doppler-Guided Attention)
         # Đưa Doppler Profile qua MLP để sinh ra trọng số cho 20 timestep
         time_gate = self.freq_gate(doppler_profile) # -> (B*9, 20)
-        time_gate = torch.sigmoid(time_gate).unsqueeze(1) # -> (B*9, 1, 20)
+        time_gate = torch.sigmoid(time_gate)
+        time_gate_broadcast = time_gate.unsqueeze(1) # -> (B*9, 1, 20)
 
         # 4. MODULATION & FUSION
         # Nhân đặc trưng thời gian với Gating Mask (Lọc nhiễu tĩnh)
-        x_enhanced = x_time * time_gate
+        x_enhanced = x_time * time_gate_broadcast
         
         # Đưa về lại (B*9, 20, Embed_Dims)
         x_enhanced = x_enhanced.permute(0, 2, 1).contiguous()
+        x_enhanced_grid = x_enhanced
         
         # Trộn kênh (Channel Mixing)
         x_enhanced = self.channel_proj(x_enhanced)
@@ -127,7 +136,23 @@ class WifiInputAdapter(nn.Module):
         x_enhanced = x_enhanced.view(B, L, self.embed_dims)
 
         # Residual Connection
-        return self.norm(x_linear + x_enhanced)
+        x_token = self.norm(x_linear + x_enhanced)
+
+        if return_debug:
+            debug = {
+                'x_lin': x_linear,
+                'x_grid': x_grid,
+                'x_time': x_time_tokens,
+                'x_fft_mag': x_fft_mag,
+                'doppler_profile': doppler_profile,
+                'gate': time_gate,
+                'x_enhanced_grid': x_enhanced_grid,
+                'x_enhanced': x_enhanced,
+                'x_token': x_token
+            }
+            return x_token, debug
+
+        return x_token
 
 
 @MMDET_BACKBONES.register_module()

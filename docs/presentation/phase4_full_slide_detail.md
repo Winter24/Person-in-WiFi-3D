@@ -4,764 +4,715 @@ Working title:
 
 > Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures
 
-This file defines the revised **13-slide main deck** for the ResFes presentation. The deck follows the final proposal `docs/paper/NTN_IT_CT.pdf`, but it pulls the most important technical formulas from backup into the main story so the audience can understand the contribution relative to `M0`.
+This file now mirrors the **final exported PDF deck**. It is synchronized after:
 
-Core message:
+- confirming the exported deck has `34` slides total
+- mapping the actual live order used in the final PDF
+- preserving the expanded 3-slide explanation of `M2`
+- normalizing spoken references to `M0` even though some slide artwork in the PDF still shows `MO`
 
-> We do not just report that `M3` is more accurate and `M4` is faster. We explain why, stage by stage, by moving from direct regression to draft-to-refine trajectory learning.
+From this point on, the purpose of this file is simple:
 
-Design rules:
+- document the exact slide order currently used
+- explain the role of each slide in the talk
+- keep main deck and appendix clearly separated
 
-- One slide, one message.
-- Prefer large figures, short equations, and tight callouts over paragraphs.
-- Keep each slide under 40 on-slide words whenever possible.
-- Use `M0` as gray/red baseline, `M3` as amber best-accuracy model, and `M4` as blue final efficient model.
-- Treat the `M0-M4` deck as a **no-bone-loss runtime snapshot**. The repo exposes an optional bone-loss branch, but it is off in the runs discussed on these slides.
-- Do not claim `M4` wins every metric.
-- Do not equate false positives in visualization with official matched MPJPE.
+Core message of the final deck:
 
----
+> Flow improves pose accuracy, while WiMamba makes the pipeline deployment-friendly.
 
-## Deck Structure
+Claim boundaries that this blueprint must preserve:
 
-| Slide | Role | Main Asset | Target Time |
-|---|---|---|---:|
-| 1 | Hook | Hook video or animation | 0:35 |
-| 2 | Motivation | Camera vs Wearable vs WiFi visual | 0:35 |
-| 3 | Challenge + Gap | CSI ambiguity + one-shot failure | 0:45 |
-| 4 | Stage 0 | Baseline `M0` architecture | 0:45 |
-| 5 | Stage 0 | Baseline `M0` loss | 0:40 |
-| 6 | Stage 1 | Spectral Tokenizer formula | 0:45 |
-| 7 | Stage 2 | WiMamba formula and complexity | 0:45 |
-| 8 | Stage 3 | Draft-to-Refine flow head | 0:55 |
-| 9 | Stage 3 | Flow Matching loss | 0:45 |
-| 10 | Stage Summary | `M0-M4` controlled ladder | 0:45 |
-| 11 | Results | Figure 4 quantitative | 1:10 |
-| 12 | Results | Figure 5 qualitative | 1:00 |
-| 13 | Conclusion | Takeaways + impact | 0:35 |
-| Total | Main deck | 13 slides | ~10:00 |
+- `M0-M4` is the main narrative
+- `M3` is the accuracy winner
+- `M4` is the deployment trade-off winner
+- qualitative evidence supports the trend but does not prove everything on its own
+- appendix carries deeper architecture and training detail
 
 ---
 
-## Slide 1 - Hook
+## Deck Summary
 
-Title:
-
-> Can WiFi understand human posture without cameras?
-
-Main message:
-
-> Human posture can be inferred from wireless signals, not visual appearance.
-
-On-slide content:
-
-- No camera.
-- No wearable.
-- Just WiFi signals.
-
-Visual:
-
-- Use the rendered hook video from `render_presentation_video.py` if it is clean enough.
-- Fallback: static or animated slide showing indoor motion, WiFi waves, and 3D skeleton fade-in.
-
-Recommended asset:
-
-- Presentation video: `presentation_S23_12_M0_vs_M3_presentation.mp4`
-- Do not use audit video with unmatched predictions on this slide.
-
-Speaker note:
-
-> A camera can estimate human pose, but it also captures human identity. Our project asks a different question: can we estimate 3D human pose using only WiFi signals?
-
-Transition:
-
-> To see why this matters, let us compare WiFi sensing with common alternatives.
-
-Design instruction:
-
-- Full-bleed video or large central visual.
-- Keep text minimal and cinematic.
-
----
-
-## Slide 2 - Motivation
-
-Title:
-
-> Why camera-based sensing is not always acceptable
-
-Main message:
-
-> Cameras are powerful but privacy-sensitive; WiFi offers a privacy-preserving sensing path.
-
-On-slide content:
-
-| Camera | Wearable | WiFi |
+| Range | Section | Purpose |
 |---|---|---|
-| Captures appearance | Requires device | No visual identity |
-| Privacy concern | User compliance | Passive sensing |
-| Sensitive spaces issue | Inconvenient | Indoor-ready |
+| 1-2 | Opening | Title and agenda |
+| 3-6 | Problem & Motivation | Why this problem matters |
+| 7-8 | Proposed System | Show the end-to-end idea early |
+| 9-11 | Baseline Method | Define `M0` clearly |
+| 12-21 | What We Propose: A Staged Redesign | Explain `M0 -> M4` |
+| 22-28 | Experiments, Summary & Limits | Validate the redesign and close responsibly |
+| 29 | Closing | End talk cleanly |
+| 30-34 | Appendix | Q&A backup |
 
-Visual:
+Current slide count:
 
-- Three-column comparison with icons.
-- Camera column slightly red/gray, Wearable amber, WiFi blue.
-
-Speaker note:
-
-> Cameras work well, but they capture appearance and identity. Wearables reduce that problem, but users must wear devices. WiFi is already present in many indoor spaces and does not record visual identity.
-
-Transition:
-
-> But WiFi is not an image, so the technical challenge is very different.
-
-Design instruction:
-
-- Use icons and short phrases only.
-- Do not over-explain privacy.
+- `29` slides in the main presentation
+- `5` appendix slides
+- `34` slides total
 
 ---
 
-## Slide 3 - Challenge + Research Gap
+## Main Deck
+
+### Slide 1 - Title
 
 Title:
 
-> CSI is indirect, and one-shot regression is brittle
+> Flow is All You Need for WiFi
 
-Main message:
+Role:
 
-> WiFi CSI is noisy, ambiguous, and hard to map directly to precise 3D coordinates.
+> Establish topic, team identity, and the WiFi-pose + flow framing immediately.
 
-On-slide content:
+Visual note:
+
+- Clean title slide
+- Keep the title as the main visual anchor
+
+Speaker note:
+
+> Open briefly and move quickly into the agenda. This slide is not for technical detail.
+
+---
+
+### Slide 2 - Content
+
+Title:
+
+> Content
+
+Role:
+
+> Show the 6-part structure so the audience knows the talk is organized and finite.
+
+On-slide structure:
 
 ```text
-Human motion -> multipath CSI -> ambiguity -> unstable one-shot pose
+01 Problem & Motivation
+02 Proposed System
+03 Baseline Method
+04 What We Propose: A Staged Redesign
+05 Experiments & Results
+06 Appendix
 ```
-
-Key labels:
-
-- Noisy signal
-- Multipath reflection
-- Low spatial resolution
-- Multi-person ambiguity
-
-Visual:
-
-- Left: person moving in room.
-- Middle: CSI tensor or waveform.
-- Right: one highlighted `M0` failure from a crowded scene.
 
 Speaker note:
 
-> CSI does not directly show body parts. The model must infer 3D pose from wireless reflections, and that makes direct one-shot prediction structurally unstable in hard scenes.
-
-Transition:
-
-> So before presenting our upgrades, we first need to define the baseline clearly.
-
-Design instruction:
-
-- This slide replaces the old split between challenge and research gap.
-- Keep the visual flow simple and direct.
+> Mention the roadmap in one breath, then move on. Do not spend time reading every line slowly.
 
 ---
 
-## Slide 4 - Stage 0: Baseline `M0` Architecture
+### Slide 3 - Section Divider
 
 Title:
 
-> `M0` baseline: linear projection + Transformer + direct regression
+> Problem & Motivation
+
+Role:
+
+> Visual reset before the first content block.
+
+Speaker note:
+
+> Use as a transition slide only.
+
+---
+
+### Slide 4 - Why camera-based sensing is not always acceptable
+
+Role:
+
+> Frame the motivation through privacy and practical limitations of vision-based sensing.
 
 Main message:
 
-> `M0` is a strong DETR/PETR-style baseline, but it predicts the final skeleton in one shot.
+> The issue is not that cameras are weak; the issue is that they are not always appropriate.
 
-On-slide content:
+Visual note:
 
-```text
-CSI X -> Linear Adapter -> Transformer Encoder/Decoder -> Pose Y_hat
-```
-
-Small callouts:
-
-- 180 CSI tokens
-- set prediction
-- 100 learnable pose queries
-
-Visual:
-
-- Preferred: simplified redraw of proposal Figure 7.
-- Fallback: a clean four-block diagram derived from the implementation.
+- Keep the comparison readable
+- Emphasize privacy-sensitive environments
 
 Speaker note:
 
-> In the baseline, raw CSI is projected linearly, encoded by a Transformer, and decoded through learnable pose queries into final 3D coordinates. The key limitation is that the model must guess the final pose directly.
-
-Transition:
-
-> The next question is what objective this baseline is actually optimizing.
-
-Design instruction:
-
-- This slide must feel concrete and implementation-grounded.
-- Use `M0` in gray or red to visually anchor the baseline.
+> This is the first motivation slide. Keep it human-centered rather than technical.
 
 ---
 
-## Slide 5 - Stage 0: Baseline `M0` Loss
+### Slide 5 - Can WiFi understand human posture without cameras and wearables?
 
-Title:
+Role:
 
-> What `M0` optimizes
+> Convert the motivation into the central research question.
 
 Main message:
 
-> `M0` learns direct coordinate regression after Hungarian matching.
+> We want pose understanding without appearance capture and without body-worn devices.
 
-On-slide content:
+Visual note:
 
-```text
-L_M0 = L_match
-     + lambda_cls L_cls
-     + lambda_kpt L_kpt
-     + lambda_oks L_oks
-     + lambda_ref L_refine
-```
-
-Equation reading:
-
-- `L_match`: Hungarian bipartite matching between predicted poses and GT persons
-- `L_cls`: query-level person classification loss
-- `L_kpt`: direct keypoint coordinate regression loss
-- `L_oks`: structure-aware pose consistency term
-- `L_refine`: decoder-side coordinate refinement loss
-
-Bottom note:
-
-- Main-slide version only. Auxiliary implementation details stay in backup.
-
-Visual:
-
-- Formula-centered slide with a small side note:
-  - Hungarian matching
-  - direct coordinate supervision
+- Let the question itself dominate the slide
+- This is a rhetorical bridge, not a methods slide
 
 Speaker note:
 
-> After one-to-one matching, the baseline optimizes classification, keypoint regression, OKS consistency, and refinement losses. But the target is still the final pose coordinates themselves, not a correction trajectory.
-
-Transition:
-
-> Our first upgrade does not change the prediction head yet. It improves the CSI representation.
-
-Design instruction:
-
-- Keep this readable, not dense.
-- The audience should leave with one memory: `M0` is still direct regression.
+> Ask the question clearly and let it land before moving into the answer direction.
 
 ---
 
-## Slide 6 - Stage 1: Spectral Tokenizer (`M1`)
+### Slide 6 - Toward privacy-preserving indoor human sensing
 
-Title:
+Role:
 
-> Stage 1: motion-aware spectral tokenization
+> Reframe WiFi sensing as a practical indoor alternative with clear application relevance.
 
 Main message:
 
-> `M1` improves the input representation before changing the sequence model or prediction objective.
+> WiFi-based sensing is attractive because it is passive, already deployed indoors, and less identity-revealing than cameras.
 
-On-slide content:
+Visual note:
 
-```text
-X_lin  = W_in X
-X_time = DWConv1D(X_lin)
-D      = Mean_c |RFFT(X_lin)|
-G      = sigma(MLP(D))
-X_spec = LN(X_lin + W_c (X_time odot G))
-```
-
-Right-side callout:
-
-- Highlight dynamic motion cues
-- Suppress static noise
-
-Visual:
-
-- Clean equation on the left, small pipeline illustration on the right.
-- Optional mini-visual: raw CSI -> gated temporal features.
+- Keep applications secondary
+- Main goal is to close the motivation block strongly
 
 Speaker note:
 
-> `M1` keeps the PETR-style prediction stack, but replaces the plain linear adapter with a motion-aware tokenizer. The key idea is to derive a Doppler-like profile from the frequency domain and use it to gate temporal features.
-
-Transition:
-
-> Once the representation is improved, we ask whether the heavy Transformer is still necessary.
-
-Design instruction:
-
-- Do not overload the slide with FFT theory.
-- The story is denoising plus motion emphasis, not signal-processing depth for its own sake.
+> End this block by linking privacy motivation to indoor use cases.
 
 ---
 
-## Slide 7 - Stage 2: WiMamba Encoder (`M2`)
+### Slide 7 - Section Divider
 
 Title:
 
-> Stage 2: replace quadratic attention with factorized WiMamba
+> Proposed System
+
+Role:
+
+> Transition from problem framing into technical framing.
+
+Speaker note:
+
+> Use as a short pivot only.
+
+---
+
+### Slide 8 - Proposed System
+
+Role:
+
+> Give the audience one global picture before diving into baseline and redesign details.
 
 Main message:
 
-> `M2` targets efficiency by factorizing temporal and spatial sequence modeling.
+> The system takes WiFi CSI, processes it through the model pipeline, and outputs multi-person 3D pose for indoor applications.
 
-On-slide content:
+Visual note:
 
-```text
-X^(l+1/2) = X^(l) + Mamba_t(LN(X^(l)))
-X^(l+1)   = X^(l+1/2) + BiMamba_s(LN(X^(l+1/2)))
-```
-
-Complexity box:
-
-```text
-Transformer: O(L^2 * C)
-WiMamba:     O(L * C)
-```
-
-Visual:
-
-- Two-branch diagram:
-  - temporal pass
-  - bidirectional spatial pass
+- This slide is the big-picture overview
+- It can be slightly denser because later slides unpack it
 
 Speaker note:
 
-> `WiMamba` decouples temporal and spatial modeling. Instead of full quadratic self-attention over the whole token sequence, it uses factorized Mamba blocks, which makes the encoder more deployment-friendly.
-
-Transition:
-
-> But better representation and faster encoding still do not solve the core one-shot prediction problem.
-
-Design instruction:
-
-- This is the efficiency slide, not the final-accuracy slide.
-- Keep the complexity comparison visible.
+> Use this slide to orient the audience, not to explain every box in detail.
 
 ---
 
-## Slide 8 - Stage 3: Draft-to-Refine Flow Head (`M3/M4`)
+### Slide 9 - Section Divider
 
 Title:
 
-> Stage 3: from direct regression to draft-to-refine
+> Baseline Method
+
+Role:
+
+> Mark the start of the baseline explanation block.
+
+Speaker note:
+
+> Move quickly to the next slide.
+
+---
+
+### Slide 10 - `M0` baseline: Linear projection + Transformer + direct regression
+
+Role:
+
+> Define the baseline architecture clearly and fairly.
 
 Main message:
 
-> The main contribution is changing the prediction process from one-shot coordinates to trajectory-based correction.
+> `M0` is a serious DETR/PETR-style baseline built around direct regression.
 
-On-slide content:
+Visual note:
 
-```text
-X_t     = t X_1 + (1 - t) X_0
-v_hat   = v_theta(X_t, t, c)
-X_1_hat = X_0 + v_hat
-```
-
-Label mapping:
-
-- `X0`: draft pose
-- `c`: query feature from encoded CSI
-- `v_theta`: learned correction velocity
-- `X1_hat`: refined pose
-
-Equation reading:
-
-- First line: build an interpolation path between draft pose and target pose
-- Second line: predict the correction velocity at time `t`
-- Third line: apply one-step refinement from draft to final estimate
-
-Visual:
-
-- Use the draft-to-refine conceptual visual from Slide 5, but now with the equation.
-- If space allows, add Figure 1 as a faded background or small inset.
+- Keep `M0` naming consistent
+- Show the architecture as a clean left-to-right path
 
 Speaker note:
 
-> Instead of predicting the final pose directly, the model first predicts a draft pose `X0`. Then a velocity network learns how that draft should move toward the target. A one-step update produces the refined pose.
-
-Transition:
-
-> To make this work, we need a new objective, not just a new decoder block.
-
-Design instruction:
-
-- This is the most important technical slide in the deck.
-- Keep the mapping from symbols to intuition explicit.
+> Emphasize that `M0` is not a strawman. It is the baseline that makes the later comparison meaningful.
 
 ---
 
-## Slide 9 - Stage 3: Flow Matching Loss
+### Slide 11 - What `M0` optimizes
 
-Title:
+Role:
 
-> Why flow helps beyond direct regression
+> Explain the baseline training objective before showing any redesign.
 
 Main message:
 
-> `M3/M4` learn a correction field, not only final coordinates.
+> The baseline ultimately learns final pose coordinates through a matched regression-style objective.
 
-On-slide content:
+Visual note:
 
-```text
-L_flow = E || v_theta(X_t, t, c) - (X_1 - X_0) ||_2^2
-```
-
-Comparison box:
-
-```text
-M0:    predict final pose directly
-M3/M4: predict how a draft should move
-```
-
-Equation reading:
-
-- target velocity: `X_1 - X_0`
-- predicted velocity: `v_theta(X_t, t, c)`
-- objective: minimize the squared gap between predicted correction and ideal correction along the path
-
-Visual:
-
-- Formula-centered slide with two-column comparison:
-  - direct regression
-  - trajectory refinement
+- Formula is the center of attention
+- The purpose is conceptual, not implementation-exhaustive
 
 Speaker note:
 
-> This loss tells the model to learn the correction direction from the draft pose toward the ground truth. That is the conceptual shift: the target is now a velocity field rather than a one-shot final coordinate guess.
-
-Transition:
-
-> With all three upgrades defined, we can summarize the full `M0-M4` ladder.
-
-Design instruction:
-
-- Do not mention bone loss on this slide.
-- Keep the contrast with `M0` explicit and simple.
+> Keep the explanation on what the baseline is learning, not on every symbol equally.
 
 ---
 
-## Slide 10 - Stage Summary: `M0-M4`
+### Slide 12 - Section Divider
 
 Title:
 
-> What changes from `M0` to `M4`?
+> What We Propose: A Staged Redesign
+
+Role:
+
+> Announce the contribution block clearly.
+
+Speaker note:
+
+> This divider matters because it signals that everything after this point is the team contribution story.
+
+---
+
+### Slide 13 - A controlled `M0-M4` ablation ladder
+
+Role:
+
+> Show that the redesign is incremental and interpretable.
 
 Main message:
 
-> Each model adds one controlled idea, so the evidence path is interpretable.
+> Each model stage isolates one idea so the comparison remains controlled.
 
-On-slide content:
+Visual note:
 
-| Model | Input | Sequence Model | Head | Training Signal | Main Purpose |
-|---|---|---|---|---|---|
-| M0 | Linear | Transformer | Direct regression | matching + regression | baseline |
-| M1 | Spectral | Transformer | Direct regression | same as M0 | representation |
-| M2 | Spectral | WiMamba | Direct regression | same as M0 | efficiency |
-| M3 | Spectral | Transformer | Draft + Flow | + flow matching | accuracy |
-| M4 | Spectral | WiMamba | Draft + Flow | + flow matching | trade-off |
-
-Visual:
-
-- Keep the table large and readable.
-- Optional top banner: `representation -> efficiency -> refinement`.
+- Make the ladder easy to scan
+- Keep `M0 -> M4` progression obvious
 
 Speaker note:
 
-> This is not a loose set of variants. It is a controlled ladder. `M1` tests the tokenizer, `M2` tests the sequence model, `M3` tests the flow objective, and `M4` combines flow with efficient sequence modeling.
-
-Transition:
-
-> With the stage logic in place, we can now read the benchmark results correctly.
-
-Design instruction:
-
-- This slide should make the ablation logic feel rigorous.
-- Do not add extra variants here.
+> This slide sets the logic for the next five slides. Do not rush it completely.
 
 ---
 
-## Slide 11 - Quantitative Results
+### Slide 14 - Stage 1: motion-aware spectral tokenization
 
-Title:
+Role:
 
-> Flow improves accuracy. WiMamba improves deployability.
+> Explain the representation upgrade introduced at `M1`.
 
 Main message:
 
-> `M3` is the accuracy winner, while `M4` is the practical trade-off winner.
+> The first change is to make CSI tokens more motion-aware before deeper modeling.
 
-On-slide content:
+Visual note:
 
-- Use Figure 4 as the main visual.
-- Add two callouts:
-  - `M3 = best MPJPE`
-  - `M4 = best speed-size-memory trade-off`
-
-Optional micro-callout:
-
-```text
-vs M0:
-M3: -17.35 mm MPJPE
-M4: +114.16 FPS
-```
-
-Visual:
-
-- Figure 4 from the proposal as the main graphic.
-- Optional small reduced table for `M0`, `M3`, `M4`.
+- Formula plus intuitive data-flow is enough
+- Do not over-expand FFT discussion verbally
 
 Speaker note:
 
-> The benchmark gives two complementary findings. `M3` achieves the lowest MPJPE at `151.99 mm`, confirming the accuracy benefit of flow-based refinement. `M4` is slightly less accurate than `M3`, but it reaches `159.85 FPS` with only `5.83M` parameters and `27.02 MB` memory, which makes it the strongest deployment-oriented trade-off in this frozen local snapshot.
-
-Transition:
-
-> The numbers tell the overall trend, and the qualitative cases show how that trend looks in practice.
-
-Design instruction:
-
-- Use the phrase `preliminary frozen local snapshot` if needed in spoken context.
-- Never say `M4` is the most accurate model.
+> Frame this as input representation improvement, not as the main accuracy breakthrough.
 
 ---
 
-## Slide 12 - Qualitative Results
+### Slide 15 - Stage 2 (`M2`): Replace quadratic attention with factorized WiMamba
 
-Title:
+Role:
 
-> More coherent matched poses in difficult scenes
+> Explain why the sequence encoder is redesigned and make the factorized WiMamba contribution visible.
 
 Main message:
 
-> Compared with `M0`, the flow-based variants preserve more coherent body structure in selected crowded cases.
+> `M2` replaces full pairwise attention with a WiFi-specific factorization: Temporal Mamba plus Bidirectional Spatial Mamba.
 
-On-slide content:
+Visual note:
 
-- Ground Truth
-- `M0` baseline
-- `M3` best-accuracy model
-- `M4` final efficient model
-
-Caption:
-
-> Compared with `M0`, flow-based variants preserve more coherent body structure in difficult scenes.
-
-Visual:
-
-- Use Figure 5 from the proposal.
-- Highlight one or two visible `M0` failure patterns with clean callouts.
+- Complexity contrast must stay visible
+- This slide should not read as "generic Mamba replacement"
+- Make the two internal parts of WiMamba visible even before the next two slides
 
 Speaker note:
 
-> These are selected challenging samples, not universal proof. The right way to read this figure is matched pose quality: the flow-based variants remain more coherent than the direct-regression baseline in difficult multi-person scenes.
-
-Transition:
-
-> Let me close with the three takeaways that matter most.
-
-Design instruction:
-
-- Avoid any annotation that suggests `M4` has bone loss enabled.
-- If extra gray predictions appear in video, keep that discussion for backup or Q&A.
+> The audience should leave knowing that `M2` changes the encoder, not the head, and that the WiMamba design is factorized on purpose.
 
 ---
 
-## Slide 13 - Conclusion + Impact
+### Slide 16 - Stage 2a: Temporal Mamba models motion along time
 
-Title:
+Role:
 
-> Three takeaways from `M0` to `M4`
+> Explain the first internal stage inside the WiMamba block.
 
 Main message:
 
-> The contribution is not one new block. It is a staged redesign from direct regression to efficient trajectory refinement.
+> Temporal Mamba scans along the time axis for each spatial group independently, so motion dynamics are learned before spatial aggregation.
 
-On-slide content:
+Visual note:
 
-- `M0` is a strong direct-regression baseline.
-- Flow is the main accuracy driver.
-- WiMamba makes the flow pipeline practical.
-- Useful for privacy-sensitive indoor sensing.
-
-Visual:
-
-- Three large takeaway cards plus one small application row:
-  - smart home
-  - elderly care
-  - rehabilitation
+- Input shape, temporal reshape, and output shape must stay explicit
+- Make it obvious that the scan is along `T`, not over the full mixed token set
 
 Speaker note:
 
-> In summary, we start from a strong `M0` baseline, improve representation with spectral tokenization, improve efficiency with WiMamba, and improve accuracy with draft-to-refine flow learning. The result is a privacy-preserving WiFi pose pipeline that is both interpretable and practical.
-
-Transition:
-
-> Thank you. We are happy to take questions.
-
-Design instruction:
-
-- End with the research takeaway first, the application takeaway second.
-- Do not finish on a dense metric recap.
+> This slide proves that the team contribution is not just "we used Mamba", but "we structured Mamba for WiFi time dynamics."
 
 ---
 
-## Backup Slide A - Detailed `M4` Architecture
+### Slide 17 - Stage 2b: Bidirectional Spatial Mamba for two-way antenna interaction
+
+Role:
+
+> Explain the second internal stage inside the WiMamba block and highlight the Bi-Mamba contribution clearly.
+
+Main message:
+
+> After temporal encoding, each time step is reorganized as a short spatial sequence over `S = 9` antenna groups and processed in both forward and backward directions.
+
+Visual note:
+
+- Input tensor, transpose/reshape, forward pass, backward pass, and fused output must all be visible
+- The bottom callout should state that Bi-Mamba is applied on the spatial axis only, not on the full 180-token sequence
+
+Speaker note:
+
+> This is the most important technical defense slide of `M2`. Make the two-way spatial interaction story very clear.
+
+---
+
+### Slide 18 - Stage 3: From direct regression to draft-to-refine
+
+Role:
+
+> Introduce the conceptual jump from final-coordinate prediction to refinement-based prediction.
+
+Main message:
+
+> The major change is not only a new module, but a new way of predicting pose.
+
+Visual note:
+
+- Keep the draft pose and refined pose distinction visually obvious
+- This slide should feel like the conceptual center of the contribution
+
+Speaker note:
+
+> Make sure the audience hears the phrase draft-to-refine clearly.
+
+---
+
+### Slide 19 - The proposed `M4` pipeline
+
+Role:
+
+> Show how the redesigned components fit together in the final efficient model.
+
+Main message:
+
+> `M4` combines spectral tokenization, WiMamba, and flow-based refinement into one coherent pipeline.
+
+Visual note:
+
+- This is the full-system synthesis slide
+- Use it to connect stage-wise ideas back into one architecture
+
+Speaker note:
+
+> Do not read every block. Use it to show assembly, not to repeat all prior details.
+
+---
+
+### Slide 20 - `M4` Training Pipeline
+
+Role:
+
+> Show how the final model is trained and where matching, draft generation, and refinement fit.
+
+Main message:
+
+> The redesign affects both the forward pipeline and the training signal path.
+
+Visual note:
+
+- This is the densest technical slide in the main deck
+- It works as a bridge from architecture to experiments
+
+Speaker note:
+
+> Explain the training story at a high level. Do not let this become a wall-of-boxes narration.
+
+---
+
+### Slide 21 - Why flow helps beyond direct regression
+
+Role:
+
+> Place the direct-regression versus flow intuition before the evidence block.
+
+Main message:
+
+> Flow changes the learning problem from one-shot final-pose guessing to guided correction from a draft pose.
+
+Visual note:
+
+- The comparison between `M0` and `M3/M4` should stay visually central
+- This slide is still part of the contribution story, not yet the evidence block
+
+Speaker note:
+
+> This is the last conceptual reinforcement before the experiments begin.
+
+---
+
+### Slide 22 - Section Divider
 
 Title:
 
-> Inside `M4`: tokenizer, WiMamba, and flow head
+> Experiments & Result
 
-Purpose:
+Role:
 
-> Use when judges ask how the final efficient model is assembled internally.
+> Start the evidence block exactly as it appears in the final PDF.
 
-Visual:
+Speaker note:
 
-- Use Figure 3 from the final proposal.
-
-Talking points:
-
-- Spectral tokenizer for motion-aware CSI features
-- Factorized WiMamba sequence encoder
-- Draft pose plus one-step flow refinement
-- The main-deck `M0-M4` runs are treated as bone-loss-off at runtime
+> Use only as a transition.
 
 ---
 
-## Backup Slide B - Full `M0-M4` Variant Summary
+### Slide 23 - Dataset Overview
+
+Role:
+
+> Ground the experiments in the actual data setting and task scale.
+
+Main message:
+
+> The benchmark covers indoor WiFi sensing with one-person, two-person, and three-person scenes, plus concrete setup details, sample counts, and action diversity.
+
+Visual note:
+
+- The acquisition photo, signal examples, and sample-count table should all remain readable
+- This slide should make the dataset feel real and bounded
+
+Speaker note:
+
+> This slide should be quick. It is context, not the key argument.
+
+---
+
+### Slide 24 - Evaluation Metric: Mean Per Joint Position Error (MPJPE)
+
+Role:
+
+> Define the benchmark metric before quantitative comparison.
+
+Main message:
+
+> MPJPE is the main error metric used to compare pose quality.
+
+Visual note:
+
+- Keep the formula or definition easy to read
+- This is a standards slide, not a contribution slide
+
+Speaker note:
+
+> Define the metric briefly so the audience can interpret the result table correctly.
+
+---
+
+### Slide 25 - Flow improves accuracy. Mamba improves deployability.
+
+Role:
+
+> Deliver the main quantitative result of the paper.
+
+Main message:
+
+> `M3` wins on MPJPE, while `M4` wins on overall efficiency trade-off.
+
+Visual note:
+
+- Table and visual comparison should be the main focus
+- Make sure `M0` is the baseline reference point
+
+Speaker note:
+
+> This is the slide where the audience should clearly hear `M3 = accuracy winner` and `M4 = deployment winner`.
+
+---
+
+### Slide 26 - More coherent matched poses in challenging scenes
+
+Role:
+
+> Support the benchmark with qualitative examples the audience can inspect visually.
+
+Main message:
+
+> In selected difficult cases, flow-based variants preserve more coherent body structure than the baseline.
+
+Visual note:
+
+- Use GT / `M0` / `M3` / `M4` comparison clearly
+- Focus on matched pose quality, not raw query clutter
+
+Speaker note:
+
+> State explicitly that these are selected challenging cases, not universal proof.
+
+---
+
+### Slide 27 - In summary
+
+Role:
+
+> Compress the practical gains of the final design into headline numbers.
+
+Main message:
+
+> The final system improves speed, size, memory, and still beats the baseline on MPJPE while reducing complexity from `O(L^2)` to `O(L)`.
+
+Visual note:
+
+- Let the numeric gains dominate the slide
+- This is a factual recap slide, not a new conceptual slide
+
+Speaker note:
+
+> Read this slide as measured deltas from `M0` to `M4`, not as a generic conclusion.
+
+---
+
+### Slide 28 - Limitations & Future Work
+
+Role:
+
+> Close the technical story with a mature view of current boundaries and next steps.
+
+Main message:
+
+> The current benchmark is promising but still local, and the next step is broader validation plus stronger on-device integration.
+
+Visual note:
+
+- Keep the split between current limitations and future work explicit
+- This slide should sound honest and forward-looking, not defensive
+
+Speaker note:
+
+> This slide helps the team sound research-mature and trustworthy.
+
+---
+
+### Slide 29 - Thanks For Your Listening
+
+Role:
+
+> End the live presentation and open the floor for questions.
+
+Speaker note:
+
+> Keep it brief and transition naturally into Q&A.
+
+---
+
+## Appendix
+
+### Slide 30 - Section Divider
 
 Title:
 
-> What changes at each stage?
+> Appendix
 
-Purpose:
+Role:
 
-> Use when judges ask whether the comparison is controlled.
-
-Content:
-
-| Model | Spectral Adapter | WiMamba | Rectified Flow | Role |
-|---|---|---|---|---|
-| M0 | No | No | No | Baseline |
-| M1 | Yes | No | No | Representation test |
-| M2 | Yes | Yes | No | Efficiency test |
-| M3 | Yes | No | Yes | Accuracy-focused flow variant |
-| M4 | Yes | Yes | Yes | Final trade-off model |
+> Separate live talk from backup material cleanly.
 
 ---
 
-## Backup Slide C - False Positive / Duplicate Query Explanation
+### Slide 31 - Layered architecture / decoder / matching recap
 
-Title:
+Role:
 
-> Why can some videos show extra gray poses?
+> Backup slide for explaining the end-to-end layering from WiFi sensing to decoder outputs and Hungarian matching.
 
-Purpose:
+Use when:
 
-> Use only if judges ask about extra predictions in qualitative videos.
-
-Content:
-
-- Query-based decoding can emit low-confidence or duplicate poses.
-- Official MPJPE is computed on Hungarian-matched predictions.
-- Presentation mode hides unmatched poses; audit mode exposes them.
-
-Safe answer:
-
-> Extra gray poses in visualization are not the same thing as the matched-pose benchmark used in the reported MPJPE table.
+- judges ask where decoding, refinement, and matching sit in the overall pipeline
+- someone wants a simpler conceptual picture than the dense architecture slides
 
 ---
 
-## Backup Slide D - Runtime Note on Bone Loss
+### Slide 32 - Full architecture / training / loss detail
 
-Title:
+Role:
 
-> Why is bone loss not part of this deck?
+> Deep technical backup for the acquisition setup, spectral tokenizer, WiMamba encoder, draft-to-refine flow decoder, and combined loss.
 
-Purpose:
+Use when:
 
-> Use only if someone notices that the repo exposes an optional `BoneLengthLoss` branch.
-
-Content:
-
-- The repository can expose an optional bone-loss branch.
-- The `M0-M4` runs discussed in this deck treat that branch as disabled at runtime.
-- This keeps the main ablation ladder focused on:
-  - spectral tokenization
-  - WiMamba
-  - Rectified Flow
-
-Safe answer:
-
-> Bone loss is not part of the main `M0-M4` evidence story presented here. The runtime snapshot for this deck keeps the ablation focused on representation, sequence modeling, and trajectory refinement.
+- judges ask for the one-slide full-system picture
+- someone wants to connect architecture blocks to the training losses
 
 ---
 
-## Backup Slide E - Responsible AI Statement
+### Slide 33 - `M4` Backbone and Pose Head
 
-Title:
+Role:
 
-> Responsible use of AI-assisted research tools
+> Backup slide focused on the internal composition of the final model.
 
-Purpose:
+Use when:
 
-> Align with ResFes AI responsibility requirements.
-
-Content:
-
-- AI tools were used for drafting, visualization planning, and language refinement.
-- Technical claims, code, experiments, and final decisions were reviewed by team members.
-- The team remains responsible for correctness, originality, and research integrity.
+- the question is specifically about backbone design or pose head design
 
 ---
 
-## Asset Checklist Before Building PPT
+### Slide 34 - Detailed qualitative figure
 
-Mandatory:
+Role:
 
-- Hook video or hook animation
-- Slide 4 baseline architecture visual
-- Slide 6 spectral tokenizer visual
-- Slide 7 WiMamba visual
-- Slide 8 draft-to-refine visual
-- Figure 4 quantitative result
-- Figure 5 qualitative result
+> Backup slide for extended visual comparison and error discussion.
 
-Recommended:
+Use when:
 
-- Figure 1 as support for Slide 8 or backup
-- Figure 3 as backup technical architecture
-- Reduced `M0/M3/M4` result table
-- Application icons for Slide 13
-
-Do not use on main slides:
-
-- Any visual implying that the main-deck `M4` uses bone loss
-- Audit video with unmatched poses unless explicitly explaining FP behavior
-- Any generated skeleton visual that looks like anatomical bones or a medical body diagram
+- judges want more than one qualitative example
+- someone asks about failure modes or scene difficulty
 
 ---
 
-## First PPT Build Order
+## Presentation Notes
 
-1. Build Slide 11 and Slide 12 first, because the evidence slides anchor the narrative.
-2. Build Slide 4 and Slide 5 to define `M0` clearly.
-3. Build Slide 6 to Slide 9 as the technical stage sequence.
-4. Build Slide 10 as the summary table.
-5. Build Slide 1 to Slide 3 as framing.
-6. Build Slide 13 as the final takeaway slide.
-7. Add backup slides A to E.
-8. Run a 10-minute timing pass.
-9. Cut text before adding more graphics.
+What this blueprint now guarantees:
+
+- `M0` naming is consistent with the actual deck
+- the final PDF order is reflected exactly, including `Why flow helps...` before the experiments block
+- `M2` is now unpacked into overview, Temporal Mamba, and Bi-Mamba slides
+- the documents no longer describe the older 13-slide proposal as if it were the active deck
+- the main deck now includes both `In summary` and `Limitations & Future Work` before thanks
+
+What this blueprint intentionally does not do:
+
+- it does not propose more content changes
+- it does not reopen wording issues already accepted by the team
+- it does not move appendix material back into the main deck
