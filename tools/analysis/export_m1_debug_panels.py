@@ -18,7 +18,7 @@ if PROJECT_ROOT not in sys.path:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Export real M1 debug panels from the spectral WiFi adapter.')
+        description='Export spectral-adapter debug panels from M1-M4 style WiFi backbones.')
     parser.add_argument('config', help='Path to model config file.')
     parser.add_argument(
         '--checkpoint',
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '--output-dir',
         default=os.path.join(
-            PROJECT_ROOT, 'docs', 'presentation', 'Figures', 'm1_debug_panels'),
+            PROJECT_ROOT, 'docs', 'presentation', 'Figures', 'spectral_debug_panels'),
         help='Directory where panel PNGs and metadata will be written.')
     parser.add_argument(
         '--prefix',
@@ -58,12 +58,17 @@ def parse_args():
     parser.add_argument(
         '--token-source',
         choices=['x_token', 'x_enhanced_grid'],
-        default='x_token',
-        help='Source tensor for the final token-map heatmap.')
+        default='x_enhanced_grid',
+        help='Source tensor for the final token-map heatmap. x_enhanced_grid is more slide-friendly.')
+    parser.add_argument(
+        '--topk-features',
+        type=int,
+        default=64,
+        help='Number of most dynamic feature channels to show in the token-map heatmap.')
     parser.add_argument(
         '--dpi',
         type=int,
-        default=200,
+        default=220,
         help='DPI used for exported PNG files.')
     return parser.parse_args()
 
@@ -154,9 +159,28 @@ def choose_feature_index(debug, num_spatial, seq_len, requested, spatial_index):
     return int(torch.argmax(feature_dynamics).item())
 
 
+def choose_topk_features(token_tensor, topk_features):
+    feature_dynamics = token_tensor.std(axis=0)
+    order = np.argsort(feature_dynamics)[::-1]
+    topk = min(topk_features, token_tensor.shape[1])
+    return order[:topk]
+
+
 def make_output_path(output_dir, prefix, name):
     filename = f'{prefix}_{name}.png' if prefix else f'{name}.png'
     return os.path.join(output_dir, filename)
+
+
+def robust_limits(array, lower_q=1, upper_q=99):
+    lower = np.percentile(array, lower_q)
+    upper = np.percentile(array, upper_q)
+    if np.isclose(lower, upper):
+        lower = float(np.min(array))
+        upper = float(np.max(array))
+    if np.isclose(lower, upper):
+        lower -= 1.0
+        upper += 1.0
+    return lower, upper
 
 
 def save_line_plot(values, title, xlabel, ylabel, output_path, dpi, color):
@@ -171,21 +195,11 @@ def save_line_plot(values, title, xlabel, ylabel, output_path, dpi, color):
     plt.close(fig)
 
 
-def robust_limits(array):
-    lower = np.percentile(array, 1)
-    upper = np.percentile(array, 99)
-    if np.isclose(lower, upper):
-        lower = float(np.min(array))
-        upper = float(np.max(array))
-    if np.isclose(lower, upper):
-        lower -= 1.0
-        upper += 1.0
-    return lower, upper
-
-
-def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap):
-    vmin, vmax = robust_limits(image)
-    fig, ax = plt.subplots(figsize=(4.4, 3.1))
+def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap,
+                 vmin=None, vmax=None, highlight_row=None):
+    if vmin is None or vmax is None:
+        vmin, vmax = robust_limits(image)
+    fig, ax = plt.subplots(figsize=(4.6, 3.2))
     im = ax.imshow(
         image,
         aspect='auto',
@@ -193,6 +207,8 @@ def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap):
         cmap=cmap,
         vmin=vmin,
         vmax=vmax)
+    if highlight_row is not None:
+        ax.axhline(highlight_row, color='white', linestyle='--', linewidth=1.0, alpha=0.9)
     ax.set_title(title, fontsize=11)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -202,55 +218,81 @@ def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap):
     plt.close(fig)
 
 
-def save_combined_figure(time_values,
-                         freq_values,
-                         doppler_image,
-                         token_image,
-                         output_path,
-                         dpi):
-    time_x = np.arange(len(time_values))
-    freq_x = np.arange(len(freq_values))
-    doppler_vmin, doppler_vmax = robust_limits(doppler_image)
-    token_vmin, token_vmax = robust_limits(token_image)
+def save_gate_trajectories(gate_image, selected_index, output_path, dpi):
+    fig, ax = plt.subplots(figsize=(4.8, 3.0))
+    x = np.arange(gate_image.shape[1])
+    for idx in range(gate_image.shape[0]):
+        color = '#b0bec5'
+        alpha = 0.35
+        linewidth = 1.2
+        if idx == selected_index:
+            color = '#101820'
+            alpha = 0.95
+            linewidth = 2.6
+        ax.plot(x, gate_image[idx], color=color, alpha=alpha, linewidth=linewidth)
+    ax.plot(x, gate_image.mean(axis=0), color='#ff6f00', linewidth=2.0, label='mean gate')
+    ax.set_ylim(0.0, 1.0)
+    ax.set_title('Temporal gate trajectories', fontsize=11)
+    ax.set_xlabel('Timestep')
+    ax.set_ylabel('Gate weight')
+    ax.grid(alpha=0.2)
+    ax.legend(loc='upper right')
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
+    plt.close(fig)
 
-    fig, axes = plt.subplots(2, 2, figsize=(10.5, 7.0))
 
-    axes[0, 0].plot(time_x, time_values, linewidth=2.0, color='#1278c8')
-    axes[0, 0].set_title('Time-domain signal', fontsize=11)
-    axes[0, 0].set_xlabel('Timestep')
-    axes[0, 0].set_ylabel('Activation')
-    axes[0, 0].grid(alpha=0.25)
+def save_slide_triptych(doppler_image,
+                        gate_image,
+                        token_image,
+                        sample_name,
+                        spatial_index,
+                        output_path,
+                        dpi):
+    doppler_vmin, doppler_vmax = robust_limits(doppler_image, lower_q=2, upper_q=99)
+    token_vmin, token_vmax = robust_limits(token_image, lower_q=2, upper_q=98)
 
-    axes[0, 1].plot(freq_x, freq_values, linewidth=2.0, color='#ef6c00')
-    axes[0, 1].set_title('Frequency spectrum |RFFT|', fontsize=11)
-    axes[0, 1].set_xlabel('Frequency bin')
-    axes[0, 1].set_ylabel('Magnitude')
-    axes[0, 1].grid(alpha=0.25)
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 3.9))
 
-    doppler_im = axes[1, 0].imshow(
+    im0 = axes[0].imshow(
         doppler_image,
         aspect='auto',
         origin='lower',
         cmap='magma',
         vmin=doppler_vmin,
         vmax=doppler_vmax)
-    axes[1, 0].set_title('Doppler magnitude profile', fontsize=11)
-    axes[1, 0].set_xlabel('Frequency bin')
-    axes[1, 0].set_ylabel('Spatial group')
-    fig.colorbar(doppler_im, ax=axes[1, 0], fraction=0.046, pad=0.04)
+    axes[0].axhline(spatial_index, color='white', linestyle='--', linewidth=1.0, alpha=0.9)
+    axes[0].set_title('Doppler magnitude profile', fontsize=12)
+    axes[0].set_xlabel('Frequency bin')
+    axes[0].set_ylabel('Spatial link')
+    fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
 
-    token_im = axes[1, 1].imshow(
+    im1 = axes[1].imshow(
+        gate_image,
+        aspect='auto',
+        origin='lower',
+        cmap='plasma',
+        vmin=0.0,
+        vmax=1.0)
+    axes[1].axhline(spatial_index, color='white', linestyle='--', linewidth=1.0, alpha=0.9)
+    axes[1].set_title('Doppler-guided temporal gate', fontsize=12)
+    axes[1].set_xlabel('Timestep')
+    axes[1].set_ylabel('Spatial link')
+    fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+
+    im2 = axes[2].imshow(
         token_image,
         aspect='auto',
         origin='lower',
         cmap='viridis',
         vmin=token_vmin,
         vmax=token_vmax)
-    axes[1, 1].set_title('Motion-aware token map', fontsize=11)
-    axes[1, 1].set_xlabel('Timestep')
-    axes[1, 1].set_ylabel('Feature dim')
-    fig.colorbar(token_im, ax=axes[1, 1], fraction=0.046, pad=0.04)
+    axes[2].set_title('Motion-aware token map', fontsize=12)
+    axes[2].set_xlabel('Timestep')
+    axes[2].set_ylabel('Top dynamic feature channels')
+    fig.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
 
+    fig.suptitle(f'Spectral adapter debug | sample={sample_name} | spatial link={spatial_index}', fontsize=13)
     fig.tight_layout()
     fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
     plt.close(fig)
@@ -268,7 +310,7 @@ def main():
 
     if getattr(backbone, 'mode', None) != 'spectral':
         raise RuntimeError(
-            'This script expects a spectral M1-style adapter. '
+            'This script expects a spectral M1-M4 style adapter. '
             f'Current backbone mode is {getattr(backbone, "mode", None)!r}.')
 
     sample, dataset_root, dataset_mode = load_sample(
@@ -293,6 +335,8 @@ def main():
         backbone.embed_dims)
     doppler_profile = debug['doppler_profile'].view(
         img.shape[0], backbone.num_spatial, backbone.seq_len // 2 + 1)
+    gate = debug['gate'].view(
+        img.shape[0], backbone.num_spatial, backbone.seq_len)
 
     if args.token_source == 'x_token':
         token_map = debug['x_token'].view(
@@ -304,13 +348,19 @@ def main():
     time_values = tensor_to_numpy(x_time[0, spatial_index, :, feature_index])
     freq_values = tensor_to_numpy(x_fft_mag[0, spatial_index, :, feature_index])
     doppler_image = tensor_to_numpy(doppler_profile[0])
-    token_image = tensor_to_numpy(token_map[0, spatial_index].transpose(0, 1))
+    gate_image = tensor_to_numpy(gate[0])
+
+    token_block = tensor_to_numpy(token_map[0, spatial_index])
+    top_feature_indices = choose_topk_features(token_block, args.topk_features)
+    token_image = token_block[:, top_feature_indices].transpose(1, 0)
 
     time_path = make_output_path(output_dir, args.prefix, 'time_domain_signal')
     freq_path = make_output_path(output_dir, args.prefix, 'frequency_spectrum')
     doppler_path = make_output_path(output_dir, args.prefix, 'doppler_profile')
+    gate_path = make_output_path(output_dir, args.prefix, 'temporal_gate')
+    gate_curve_path = make_output_path(output_dir, args.prefix, 'temporal_gate_trajectories')
     token_path = make_output_path(output_dir, args.prefix, 'motion_aware_token_map')
-    combined_path = make_output_path(output_dir, args.prefix, 'm1_debug_panels_combined')
+    triptych_path = make_output_path(output_dir, args.prefix, 'spectral_slide_triptych')
 
     save_line_plot(
         time_values,
@@ -332,24 +382,42 @@ def main():
         doppler_image,
         title='Doppler magnitude profile',
         xlabel='Frequency bin',
-        ylabel='Spatial group',
+        ylabel='Spatial link',
         output_path=doppler_path,
         dpi=args.dpi,
-        cmap='magma')
+        cmap='magma',
+        highlight_row=spatial_index)
+    save_heatmap(
+        gate_image,
+        title='Doppler-guided temporal gate',
+        xlabel='Timestep',
+        ylabel='Spatial link',
+        output_path=gate_path,
+        dpi=args.dpi,
+        cmap='plasma',
+        vmin=0.0,
+        vmax=1.0,
+        highlight_row=spatial_index)
+    save_gate_trajectories(
+        gate_image,
+        selected_index=spatial_index,
+        output_path=gate_curve_path,
+        dpi=args.dpi)
     save_heatmap(
         token_image,
         title='Motion-aware token map',
         xlabel='Timestep',
-        ylabel='Feature dim',
+        ylabel='Top dynamic feature channels',
         output_path=token_path,
         dpi=args.dpi,
         cmap='viridis')
-    save_combined_figure(
-        time_values,
-        freq_values,
+    save_slide_triptych(
         doppler_image,
+        gate_image,
         token_image,
-        output_path=combined_path,
+        sample_name=sample_name,
+        spatial_index=spatial_index,
+        output_path=triptych_path,
         dpi=args.dpi)
 
     metadata = {
@@ -364,12 +432,15 @@ def main():
         'spatial_index': spatial_index,
         'feature_index': feature_index,
         'token_source': args.token_source,
+        'top_feature_indices': top_feature_indices.tolist(),
         'artifacts': {
             'time_domain_signal': time_path,
             'frequency_spectrum': freq_path,
             'doppler_profile': doppler_path,
+            'temporal_gate': gate_path,
+            'temporal_gate_trajectories': gate_curve_path,
             'motion_aware_token_map': token_path,
-            'combined': combined_path
+            'spectral_slide_triptych': triptych_path,
         },
         'tensor_shapes': {
             key: list(value.shape)
@@ -387,6 +458,7 @@ def main():
     print(f'  Sample: {sample_name}')
     print(f'  Spatial index: {spatial_index}')
     print(f'  Feature index: {feature_index}')
+    print(f'  Token source: {args.token_source}')
     print(f'  Output directory: {output_dir}')
 
 
