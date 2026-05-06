@@ -283,6 +283,44 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("register_forward_hook", source)
         self.assertIn("torch.inference_mode()", source)
 
+    def test_mamba2_ablation_runner_extracts_eval_benchmark_and_sections(self):
+        source = _read("scripts/run_mamba2_encoder_ablation.sh")
+
+        self.assertIn("set -euo pipefail", source)
+        self.assertIn('SEED="${SEED:-42}"', source)
+        self.assertIn('PYTHONHASHSEED_VALUE="${PYTHONHASHSEED_VALUE:-42}"', source)
+        self.assertIn('CUBLAS_WORKSPACE_CONFIG_VALUE="${CUBLAS_WORKSPACE_CONFIG_VALUE:-:4096:8}"', source)
+        self.assertIn("M2D", source)
+        self.assertIn("petr_wifi_mamba2_dropin.py", source)
+        self.assertIn("petr_wifi_mamba2_crossscan_pos_attn.py", source)
+        self.assertIn("tools/test.py", source)
+        self.assertIn("tools/analysis/benchmark.py", source)
+        self.assertIn("--profile-sections", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+        self.assertIn("section_latency_log.csv", source)
+        self.assertIn("ONLY_RUN_IDS", source)
+
+    def test_paper_m0_m4_fixed_seed_runner_matches_docs_paper_recipe(self):
+        source = _read("scripts/run_paper_m0_m4_fixed_seed.sh")
+
+        self.assertIn("set -euo pipefail", source)
+        self.assertIn("RUN_IDS=(M0 M1 M2 M3 M4)", source)
+        self.assertIn('SEED="${SEED:-42}"', source)
+        self.assertIn('PYTHONHASHSEED_VALUE="${PYTHONHASHSEED_VALUE:-42}"', source)
+        self.assertIn('CUBLAS_WORKSPACE_CONFIG_VALUE="${CUBLAS_WORKSPACE_CONFIG_VALUE:-:4096:8}"', source)
+        self.assertIn("CUBLAS_WORKSPACE_CONFIG=$CUBLAS_WORKSPACE_CONFIG_VALUE", source)
+        self.assertIn("--seed \"$SEED\"", source)
+        self.assertIn("--deterministic", source)
+        self.assertIn("configs/wifi/petr_wifi.py", source)
+        self.assertIn("configs/wifi/petr_wifi_mamba.py", source)
+        self.assertIn("configs/wifi/wi_tidir_wifi_transformer.py", source)
+        self.assertIn("configs/wifi/wi_tidir_wifi.py", source)
+        self.assertIn("model.backbone.mode=spectral", source)
+        self.assertIn("model.bbox_head.loss_bone=None", source)
+        self.assertIn("resolve_eval_config", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+        self.assertIn("experiment_log.csv", source)
+
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")
 
