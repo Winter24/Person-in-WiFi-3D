@@ -156,7 +156,8 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("x_grid = x_linear.view(B * self.num_spatial, self.seq_len, self.embed_dims)", source)
         self.assertIn("torch.fft.rfft(", source)
         self.assertNotIn("torch.fft.rfft2", source)
-        self.assertIn("return self.norm(x_linear + x_enhanced)", source)
+        self.assertIn("x_token = self.norm(x_linear + x_enhanced)", source)
+        self.assertIn("return x_token", source)
         self.assertIn('"""Doppler-Guided Wi-Fi Input Adapter.', source)
         self.assertIn("self.freq_gate = nn.Sequential(", source)
         self.assertIn("self.channel_proj = nn.Linear(embed_dims, embed_dims)", source)
@@ -183,7 +184,8 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("x_fft = torch.fft.rfft(x_grid, dim=1, norm='ortho')", source)
         self.assertIn("doppler_profile = x_fft_mag.mean(dim=-1)", source)
         self.assertIn("time_gate = self.freq_gate(doppler_profile)", source)
-        self.assertIn("time_gate = torch.sigmoid(time_gate).unsqueeze(1)", source)
+        self.assertIn("time_gate = torch.sigmoid(time_gate)", source)
+        self.assertIn("time_gate_broadcast = time_gate.unsqueeze(1)", source)
         self.assertIn("x_enhanced = x_time * time_gate", source)
         self.assertIn("x_enhanced = self.channel_proj(x_enhanced)", source)
         self.assertNotIn("self.spatial_mixer", source)
@@ -225,6 +227,61 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("x = x.reshape(B, self.num_spatial, self.seq_len, C)", source)
         self.assertIn("x = x.permute(1, 0, 2).contiguous()", source)
         self.assertNotIn("class FastFactorizedWiMambaBlock", source)
+
+    def test_wimamba2_csi_encoder_defines_dropin_and_cross_scan_variants(self):
+        source = _read("opera/models/backbones/wimamba2_csi.py")
+
+        self.assertIn("from mamba_ssm import Mamba2", source)
+        self.assertNotIn("bimamba_type", source)
+        self.assertIn("class FactorizedWiMamba2Block", source)
+        self.assertIn("class WiMamba2DropInEncoder", source)
+        self.assertIn("class CSISeparablePositionEmbedding", source)
+        self.assertIn("class WiMamba2CSIEncoder", source)
+        self.assertIn("@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
+        self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
+        self.assertIn("antenna_major", source)
+        self.assertIn("time_major", source)
+        self.assertIn("serpentine", source)
+        self.assertIn("final_attn", source)
+
+    def test_wimamba2_csi_encoder_is_exported(self):
+        source = _read("opera/models/backbones/__init__.py")
+
+        self.assertIn("WiMamba2DropInEncoder", source)
+        self.assertIn("WiMamba2CSIEncoder", source)
+        self.assertIn("CSISeparablePositionEmbedding", source)
+
+    def test_mamba2_ablation_configs_follow_expected_ladder(self):
+        dropin = _load_config_module("configs/wifi/petr_wifi_mamba2_dropin.py")
+        flattened = _load_config_module("configs/wifi/petr_wifi_mamba2_flattened.py")
+        crossscan = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan.py")
+        pos = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan_pos.py")
+        attn = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py")
+
+        self.assertEqual(
+            dropin.model["bbox_head"]["transformer"]["encoder"]["type"],
+            "WiMamba2DropInEncoder")
+        self.assertEqual(
+            flattened.model["bbox_head"]["transformer"]["encoder"]["type"],
+            "WiMamba2CSIEncoder")
+        self.assertEqual(
+            flattened.model["bbox_head"]["transformer"]["encoder"]["routes"],
+            ("time_major",))
+        self.assertEqual(
+            crossscan.model["bbox_head"]["transformer"]["encoder"]["routes"],
+            ("time_major", "serpentine"))
+        self.assertFalse(crossscan.model["bbox_head"]["transformer"]["encoder"]["use_pos_embed"])
+        self.assertTrue(pos.model["bbox_head"]["transformer"]["encoder"]["use_pos_embed"])
+        self.assertTrue(attn.model["bbox_head"]["transformer"]["encoder"]["final_attn"])
+
+    def test_benchmark_supports_segmented_profile_sections(self):
+        source = _read("tools/analysis/benchmark.py")
+
+        self.assertIn("--profile-sections", source)
+        self.assertIn("section_latency_ms", source)
+        self.assertIn("register_forward_pre_hook", source)
+        self.assertIn("register_forward_hook", source)
+        self.assertIn("torch.inference_mode()", source)
 
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")

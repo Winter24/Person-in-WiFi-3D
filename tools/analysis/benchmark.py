@@ -35,6 +35,8 @@ def parse_args():
     parser.add_argument('--out', type=str, default=None,
                         help='path to write benchmark results as JSON '
                              '(e.g. paper_assets/logs/M0_benchmark.json)')
+    parser.add_argument('--profile-sections', action='store_true',
+                        help='measure key module latency with forward hooks')
     return parser.parse_args()
 
 
@@ -86,6 +88,106 @@ def _normalize_device(device_str):
         return 'cuda:0'
 
     return device_str
+
+
+def _get_module_by_path(model, path):
+    module = model
+    for part in path.split('.'):
+        if module is None or not hasattr(module, part):
+            return None
+        module = getattr(module, part)
+    return module
+
+
+def _profile_sections(model, dummy_input, dummy_metas, device, use_cuda,
+                      times, warmup):
+    """Measure coarse module latency without changing the inference path."""
+    section_paths = dict(
+        backbone='backbone',
+        petr_encoder='bbox_head.transformer.encoder',
+        petr_decoder='bbox_head.transformer.decoder',
+        petr_refine_decoder='bbox_head.transformer.refine_decoder',
+        witidar_encoder='bbox_head.encoder',
+        witidar_decoder_attn='bbox_head.decoder_attn',
+        witidar_flow='bbox_head.flow_model',
+    )
+
+    sections = {}
+    for name, path in section_paths.items():
+        module = _get_module_by_path(model, path)
+        if module is not None:
+            sections[name] = module
+
+    if not sections:
+        return {}
+
+    active = {}
+    cpu_stats = {name: [] for name in sections}
+    cuda_events = {name: [] for name in sections}
+    handles = []
+
+    def make_pre_hook(name):
+        def hook(module, inputs):
+            if use_cuda:
+                start = torch.cuda.Event(enable_timing=True)
+                start.record()
+                active[name] = start
+            else:
+                active[name] = time.perf_counter()
+        return hook
+
+    def make_post_hook(name):
+        def hook(module, inputs, output):
+            start = active.pop(name, None)
+            if start is None:
+                return
+            if use_cuda:
+                end = torch.cuda.Event(enable_timing=True)
+                end.record()
+                cuda_events[name].append((start, end))
+            else:
+                cpu_stats[name].append((time.perf_counter() - start) * 1000.0)
+        return hook
+
+    for name, module in sections.items():
+        handles.append(module.register_forward_pre_hook(make_pre_hook(name)))
+        handles.append(module.register_forward_hook(make_post_hook(name)))
+
+    try:
+        for _ in range(warmup):
+            with torch.inference_mode():
+                model.simple_test(dummy_input, dummy_metas, rescale=False)
+        if use_cuda:
+            torch.cuda.synchronize(device)
+
+        active.clear()
+        for values in cpu_stats.values():
+            values.clear()
+        for values in cuda_events.values():
+            values.clear()
+
+        for _ in range(times):
+            with torch.inference_mode():
+                model.simple_test(dummy_input, dummy_metas, rescale=False)
+        if use_cuda:
+            torch.cuda.synchronize(device)
+    finally:
+        for handle in handles:
+            handle.remove()
+
+    section_latency_ms = {}
+    for name in sections:
+        if use_cuda:
+            values = [
+                start.elapsed_time(end)
+                for start, end in cuda_events[name]
+            ]
+        else:
+            values = cpu_stats[name]
+        if values:
+            section_latency_ms[name] = round(float(np.mean(values)), 4)
+
+    return section_latency_ms
 
 
 def main():
@@ -169,7 +271,7 @@ def main():
 
     # Warmup
     for _ in range(args.warmup):
-        with torch.no_grad():
+        with torch.inference_mode():
             model.simple_test(dummy_input, dummy_metas, rescale=False)
 
     if use_cuda:
@@ -178,7 +280,7 @@ def main():
 
     start_time = time.time()
     for _ in range(args.times):
-        with torch.no_grad():
+        with torch.inference_mode():
             model.simple_test(dummy_input, dummy_metas, rescale=False)
     if use_cuda:
         torch.cuda.synchronize(device)
@@ -207,6 +309,16 @@ def main():
         print("-" * 50)
         print("Memory stats: N/A (CPU mode)")
 
+    section_latency_ms = None
+    if args.profile_sections:
+        print("-" * 50)
+        print("Profiling key sections with forward hooks ...")
+        section_latency_ms = _profile_sections(
+            model, dummy_input, dummy_metas, device, use_cuda,
+            args.times, args.warmup)
+        for name, value in section_latency_ms.items():
+            print(f"{name:24s}: {value:.4f} ms")
+
     print("=" * 50 + "\n")
 
     # ------------------------------------------------------------------
@@ -231,6 +343,8 @@ def main():
                                  if peak_memory_reserved_mb is not None
                                  else None),
     )
+    if section_latency_ms is not None:
+        report['section_latency_ms'] = section_latency_ms
 
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
