@@ -2,6 +2,12 @@
 
 Opera relies on several basic packages such as MMCV, MMDetection, etc, so you need to install these packages at first.
 
+The project depends on older native extensions (`mmcv`, `pycocotools`, `xtcocotools`) that are not compatible with NumPy 2.x wheels. Use NumPy 1.x in the environment before installing or rebuilding these packages:
+
+   ```bash
+   pip install --force-reinstall "numpy"
+   ```
+
 1. Install `mmcv`
 
    ```bash
