@@ -31,6 +31,7 @@ BENCHMARK_DEVICE="${BENCHMARK_DEVICE:-cuda:0}"
 BENCHMARK_TIMES="${BENCHMARK_TIMES:-100}"
 BENCHMARK_WARMUP="${BENCHMARK_WARMUP:-10}"
 PROFILE_SECTIONS="${PROFILE_SECTIONS:-1}"
+AUTO_FIX_TRITON_LIBCUDA="${AUTO_FIX_TRITON_LIBCUDA:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 
 WORK_ROOT="${WORK_ROOT:-work_dirs/mamba2_encoder_ablation}"
@@ -81,6 +82,7 @@ Environment overrides:
   BENCHMARK_TIMES=100            Full benchmark iterations.
   BENCHMARK_WARMUP=10            Full benchmark warmup.
   PROFILE_SECTIONS=1             Pass --profile-sections to benchmark.
+  AUTO_FIX_TRITON_LIBCUDA=1      Auto-fix Triton libcuda lookup before running.
   WORK_ROOT=work_dirs/...        Training output root.
   LOG_ROOT=paper_assets/logs/... JSON/CSV output root.
   CSV_PATH=...                   Experiment CSV output.
@@ -93,6 +95,23 @@ print_header() {
   echo "============================================================"
   echo "$1"
   echo "============================================================"
+}
+
+setup_triton_libcuda_env() {
+  export TRITON_LIBCUDA_PATH="${TRITON_LIBCUDA_PATH:-/tmp/cuda-driver}"
+  export LD_LIBRARY_PATH="/tmp/cuda-driver:/usr/lib64-nvidia:${LD_LIBRARY_PATH:-}"
+  export LIBRARY_PATH="/tmp/cuda-driver:/usr/lib64-nvidia:${LIBRARY_PATH:-}"
+
+  if [[ "$AUTO_FIX_TRITON_LIBCUDA" != "1" ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "+ bash scripts/auto_fix_triton_libcuda.sh"
+    return 0
+  fi
+
+  bash scripts/auto_fix_triton_libcuda.sh
 }
 
 run_cmd() {
@@ -427,6 +446,7 @@ main() {
   local run_id
   validate_runs
   mkdir -p "$LOG_ROOT" "$LAUNCH_LOG_DIR"
+  setup_triton_libcuda_env
 
   case "$MODE" in
     train)

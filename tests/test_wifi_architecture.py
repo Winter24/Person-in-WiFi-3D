@@ -237,6 +237,10 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("class WiMamba2DropInEncoder", source)
         self.assertIn("class CSISeparablePositionEmbedding", source)
         self.assertIn("class WiMamba2CSIEncoder", source)
+        self.assertIn("def _run_mamba2_with_padding", source)
+        self.assertIn("pad_multiple=8", source)
+        self.assertIn("torch.zeros(", source)
+        self.assertIn("[:, :seq_len, :]", source)
         self.assertIn("@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("antenna_major", source)
@@ -287,6 +291,9 @@ class WifiArchitectureTests(unittest.TestCase):
         source = _read("scripts/run_mamba2_encoder_ablation.sh")
 
         self.assertIn("set -euo pipefail", source)
+        self.assertIn("setup_triton_libcuda_env", source)
+        self.assertIn("AUTO_FIX_TRITON_LIBCUDA", source)
+        self.assertIn("auto_fix_triton_libcuda.sh", source)
         self.assertIn('SEED="${SEED:-42}"', source)
         self.assertIn('PYTHONHASHSEED_VALUE="${PYTHONHASHSEED_VALUE:-42}"', source)
         self.assertIn('CUBLAS_WORKSPACE_CONFIG_VALUE="${CUBLAS_WORKSPACE_CONFIG_VALUE:-:4096:8}"', source)
@@ -304,6 +311,9 @@ class WifiArchitectureTests(unittest.TestCase):
         source = _read("scripts/run_paper_m0_m4_fixed_seed.sh")
 
         self.assertIn("set -euo pipefail", source)
+        self.assertIn("setup_triton_libcuda_env", source)
+        self.assertIn("AUTO_FIX_TRITON_LIBCUDA", source)
+        self.assertIn("auto_fix_triton_libcuda.sh", source)
         self.assertIn("RUN_IDS=(M0 M1 M2 M3 M4)", source)
         self.assertIn('SEED="${SEED:-42}"', source)
         self.assertIn('PYTHONHASHSEED_VALUE="${PYTHONHASHSEED_VALUE:-42}"', source)
@@ -320,6 +330,18 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("resolve_eval_config", source)
         self.assertIn("tools/analysis/append_experiment_log.py", source)
         self.assertIn("experiment_log.csv", source)
+
+    def test_triton_libcuda_autofix_script_patches_build_and_symlink(self):
+        source = _read("scripts/auto_fix_triton_libcuda.sh")
+
+        self.assertIn("TRITON_LIBCUDA_PATH", source)
+        self.assertIn("/tmp/cuda-driver", source)
+        self.assertIn("libcuda.so.1", source)
+        self.assertIn("libcuda.so", source)
+        self.assertIn("def libcuda_dirs():", source)
+        self.assertIn("triton.common.build", source)
+        self.assertIn(".py.bak", source)
+        self.assertIn("Patched Triton build.py", source)
 
     def test_wifi_pose_source_adds_required_meta_fields(self):
         source = _read("opera/datasets/wifi_pose.py")
