@@ -241,6 +241,8 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("pad_multiple=8", source)
         self.assertIn("torch.zeros(", source)
         self.assertIn("[:, :seq_len, :]", source)
+        self.assertIn("expand_s=expand", source)
+        self.assertNotIn("expand_s=1", source)
         self.assertIn("@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("antenna_major", source)

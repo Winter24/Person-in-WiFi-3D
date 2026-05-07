@@ -82,7 +82,7 @@ class FactorizedWiMamba2Block(nn.Module):
                  d_state=64,
                  d_conv=4,
                  expand_t=2,
-                 expand_s=1,
+                 expand_s=2,
                  headdim=64,
                  dropout=0.1):
         super().__init__()
@@ -284,7 +284,7 @@ class WiMamba2DropInEncoder(BaseModule):
                 d_state=d_state,
                 d_conv=d_conv,
                 expand_t=expand,
-                expand_s=1,
+                expand_s=expand,
                 headdim=headdim,
                 dropout=dropout)
             for _ in range(num_layers)
