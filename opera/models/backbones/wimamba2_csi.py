@@ -148,6 +148,23 @@ class CSISeparablePositionEmbedding(nn.Module):
         return self.dropout(x + self.ant_embed + self.time_embed)
 
 
+class GatedCSISeparablePositionEmbedding(CSISeparablePositionEmbedding):
+    """Separable CSI position prior with zero-init residual gate."""
+
+    def __init__(self, embed_dims, num_spatial=9, seq_len=20, dropout=0.0):
+        super().__init__(
+            embed_dims=embed_dims,
+            num_spatial=num_spatial,
+            seq_len=seq_len,
+            dropout=dropout)
+        self.pos_scale = nn.Parameter(torch.zeros(1))
+        nn.init.constant_(self.pos_scale, 0.0)
+
+    def forward(self, x):
+        pos = self.ant_embed + self.time_embed
+        return self.dropout(x + self.pos_scale * pos)
+
+
 class FlattenedCSIMamba2Block(nn.Module):
     """Mamba2 block over full CSI length with optional route fusion."""
 
@@ -349,6 +366,7 @@ class WiMamba2CSIEncoder(BaseModule):
                  routes=('time_major',),
                  fusion='mean',
                  use_pos_embed=False,
+                 pos_embed_mode='plain',
                  final_attn=False,
                  num_heads=8,
                  ffn_ratio=2.0,
@@ -356,6 +374,9 @@ class WiMamba2CSIEncoder(BaseModule):
         super().__init__(init_cfg)
         if isinstance(routes, str):
             routes = (routes,)
+        if pos_embed_mode not in ('plain', 'gated'):
+            raise ValueError(
+                f'Unsupported CSI position embedding mode: {pos_embed_mode}')
 
         self.embed_dims = embed_dims
         self.num_layers = num_layers
@@ -363,10 +384,13 @@ class WiMamba2CSIEncoder(BaseModule):
         self.seq_len = seq_len
         self.routes = tuple(routes)
         self.use_pos_embed = use_pos_embed
+        self.pos_embed_mode = pos_embed_mode
         self.final_attn_enabled = final_attn
 
         if use_pos_embed:
-            self.pos_embed = CSISeparablePositionEmbedding(
+            pos_embed_cls = GatedCSISeparablePositionEmbedding \
+                if pos_embed_mode == 'gated' else CSISeparablePositionEmbedding
+            self.pos_embed = pos_embed_cls(
                 embed_dims=embed_dims,
                 num_spatial=num_spatial,
                 seq_len=seq_len,

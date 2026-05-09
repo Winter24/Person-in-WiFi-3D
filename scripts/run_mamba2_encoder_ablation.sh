@@ -13,6 +13,7 @@ fi
 RUN_IDS=(
   M2D
   M2F
+  M2FGP
   M2C
   M2CP
   M2CPA
@@ -44,6 +45,7 @@ LAUNCH_LOG_DIR="${LAUNCH_LOG_DIR:-$LOG_ROOT/launch_logs}"
 declare -A CONFIG_PATHS=(
   [M2D]="configs/wifi/petr_wifi_mamba2_dropin.py"
   [M2F]="configs/wifi/petr_wifi_mamba2_flattened.py"
+  [M2FGP]="configs/wifi/petr_wifi_mamba2_flattened_gated_pos.py"
   [M2C]="configs/wifi/petr_wifi_mamba2_crossscan.py"
   [M2CP]="configs/wifi/petr_wifi_mamba2_crossscan_pos.py"
   [M2CPA]="configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py"
@@ -52,6 +54,7 @@ declare -A CONFIG_PATHS=(
 declare -A RUN_NOTES=(
   [M2D]="Mamba2 drop-in: spectral adapter + PETR decoder + factorized temporal/spatial WiMamba2"
   [M2F]="Mamba2 flattened single-route: spectral adapter + PETR decoder + time-major L=180 scan"
+  [M2FGP]="Mamba2 flattened single-route + zero-init gated separable CSI antenna/time position"
   [M2C]="Mamba2 two-route cross-scan: time-major + serpentine, learned fusion, no position"
   [M2CP]="Mamba2 two-route cross-scan + separable CSI antenna/time position"
   [M2CPA]="Mamba2 two-route cross-scan + separable CSI position + final lightweight attention"

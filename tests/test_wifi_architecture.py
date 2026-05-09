@@ -236,6 +236,7 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("class FactorizedWiMamba2Block", source)
         self.assertIn("class WiMamba2DropInEncoder", source)
         self.assertIn("class CSISeparablePositionEmbedding", source)
+        self.assertIn("class GatedCSISeparablePositionEmbedding", source)
         self.assertIn("class WiMamba2CSIEncoder", source)
         self.assertIn("def _run_mamba2_with_padding", source)
         self.assertIn("pad_multiple=8", source)
@@ -249,6 +250,9 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("time_major", source)
         self.assertIn("serpentine", source)
         self.assertIn("final_attn", source)
+        self.assertIn("pos_embed_mode", source)
+        self.assertIn("pos_scale", source)
+        self.assertIn("nn.init.constant_(self.pos_scale, 0.0)", source)
 
     def test_wimamba2_csi_encoder_is_exported(self):
         source = _read("opera/models/backbones/__init__.py")
@@ -256,10 +260,12 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("WiMamba2DropInEncoder", source)
         self.assertIn("WiMamba2CSIEncoder", source)
         self.assertIn("CSISeparablePositionEmbedding", source)
+        self.assertIn("GatedCSISeparablePositionEmbedding", source)
 
     def test_mamba2_ablation_configs_follow_expected_ladder(self):
         dropin = _load_config_module("configs/wifi/petr_wifi_mamba2_dropin.py")
         flattened = _load_config_module("configs/wifi/petr_wifi_mamba2_flattened.py")
+        flattened_gated_pos = _load_config_module("configs/wifi/petr_wifi_mamba2_flattened_gated_pos.py")
         crossscan = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan.py")
         pos = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan_pos.py")
         attn = _load_config_module("configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py")
@@ -273,6 +279,16 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(
             flattened.model["bbox_head"]["transformer"]["encoder"]["routes"],
             ("time_major",))
+        self.assertEqual(
+            flattened_gated_pos.model["bbox_head"]["transformer"]["encoder"]["routes"],
+            ("time_major",))
+        self.assertTrue(
+            flattened_gated_pos.model["bbox_head"]["transformer"]["encoder"]["use_pos_embed"])
+        self.assertEqual(
+            flattened_gated_pos.model["bbox_head"]["transformer"]["encoder"]["pos_embed_mode"],
+            "gated")
+        self.assertFalse(
+            flattened_gated_pos.model["bbox_head"]["transformer"]["encoder"]["final_attn"])
         self.assertEqual(
             crossscan.model["bbox_head"]["transformer"]["encoder"]["routes"],
             ("time_major", "serpentine"))
@@ -300,7 +316,9 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn('PYTHONHASHSEED_VALUE="${PYTHONHASHSEED_VALUE:-42}"', source)
         self.assertIn('CUBLAS_WORKSPACE_CONFIG_VALUE="${CUBLAS_WORKSPACE_CONFIG_VALUE:-:4096:8}"', source)
         self.assertIn("M2D", source)
+        self.assertIn("M2FGP", source)
         self.assertIn("petr_wifi_mamba2_dropin.py", source)
+        self.assertIn("petr_wifi_mamba2_flattened_gated_pos.py", source)
         self.assertIn("petr_wifi_mamba2_crossscan_pos_attn.py", source)
         self.assertIn("tools/test.py", source)
         self.assertIn("tools/analysis/benchmark.py", source)
@@ -308,6 +326,17 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("tools/analysis/append_experiment_log.py", source)
         self.assertIn("section_latency_log.csv", source)
         self.assertIn("ONLY_RUN_IDS", source)
+
+    def test_mamba2_candidate_20e_runner_selects_long_run_candidates(self):
+        source = _read("scripts/run_mamba2_candidate_20e.sh")
+
+        self.assertIn("set -euo pipefail", source)
+        self.assertIn("run_mamba2_encoder_ablation.sh", source)
+        self.assertIn('ONLY_RUN_IDS="${ONLY_RUN_IDS:-M2F M2C M2FGP}"', source)
+        self.assertIn('WORK_ROOT="${WORK_ROOT:-work_dirs/mamba2_encoder_ablation_20e}"', source)
+        self.assertIn('LOG_ROOT="${LOG_ROOT:-paper_assets/logs/mamba2_encoder_ablation_20e}"', source)
+        self.assertIn('CSV_PATH="${CSV_PATH:-$LOG_ROOT/experiment_log.csv}"', source)
+        self.assertIn('SECTION_CSV_PATH="${SECTION_CSV_PATH:-$LOG_ROOT/section_latency_log.csv}"', source)
 
     def test_paper_m0_m4_fixed_seed_runner_matches_docs_paper_recipe(self):
         source = _read("scripts/run_paper_m0_m4_fixed_seed.sh")
