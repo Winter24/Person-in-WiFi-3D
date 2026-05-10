@@ -10,7 +10,15 @@ if (($# > 0)); then
   shift
 fi
 
-RUN_IDS=(M0 M1 M2 M3 M4)
+RUN_IDS=(
+  M2D
+  M2F
+  M2FGP
+  M2C
+  M2CP
+  M2CPA
+)
+
 if [[ -n "${ONLY_RUN_IDS:-}" ]]; then
   read -r -a RUN_IDS <<<"$ONLY_RUN_IDS"
 fi
@@ -27,56 +35,50 @@ PROFILE_SECTIONS="${PROFILE_SECTIONS:-1}"
 AUTO_FIX_TRITON_LIBCUDA="${AUTO_FIX_TRITON_LIBCUDA:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 
-WORK_ROOT="${WORK_ROOT:-work_dirs/paper}"
-EVAL_ROOT="${EVAL_ROOT:-work_dirs/paper_eval}"
-LOG_ROOT="${LOG_ROOT:-paper_assets/logs}"
+WORK_ROOT="${WORK_ROOT:-work_dirs/mamba2_encoder_ablation}"
+EVAL_ROOT="${EVAL_ROOT:-work_dirs/mamba2_encoder_eval}"
+LOG_ROOT="${LOG_ROOT:-paper_assets/logs/mamba2_encoder_ablation}"
 CSV_PATH="${CSV_PATH:-$LOG_ROOT/experiment_log.csv}"
-SECTION_CSV_PATH="${SECTION_CSV_PATH:-$LOG_ROOT/section_latency_log_m0_m4.csv}"
-LAUNCH_LOG_DIR="${LAUNCH_LOG_DIR:-$LOG_ROOT/launch_logs_m0_m4}"
+SECTION_CSV_PATH="${SECTION_CSV_PATH:-$LOG_ROOT/section_latency_log.csv}"
+LAUNCH_LOG_DIR="${LAUNCH_LOG_DIR:-$LOG_ROOT/launch_logs}"
 
 declare -A CONFIG_PATHS=(
-  [M0]="configs/wifi/petr_wifi.py"
-  [M1]="configs/wifi/petr_wifi.py"
-  [M2]="configs/wifi/petr_wifi_mamba.py"
-  [M3]="configs/wifi/wi_tidir_wifi_transformer.py"
-  [M4]="configs/wifi/wi_tidir_wifi.py"
-)
-
-declare -A CFG_OPTIONS=(
-  [M0]=""
-  [M1]="model.backbone.mode=spectral"
-  [M2]=""
-  [M3]=""
-  [M4]="model.bbox_head.loss_bone=None"
+  [M2D]="configs/wifi/petr_wifi_mamba2_dropin.py"
+  [M2F]="configs/wifi/petr_wifi_mamba2_flattened.py"
+  [M2FGP]="configs/wifi/petr_wifi_mamba2_flattened_gated_pos.py"
+  [M2C]="configs/wifi/petr_wifi_mamba2_crossscan.py"
+  [M2CP]="configs/wifi/petr_wifi_mamba2_crossscan_pos.py"
+  [M2CPA]="configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py"
 )
 
 declare -A RUN_NOTES=(
-  [M0]="M0 linear input adapter + Transformer backbone + DETR regression, no bone loss"
-  [M1]="M1 spectral input adapter + Transformer backbone + DETR regression, no bone loss"
-  [M2]="M2 spectral input adapter + Mamba backbone + DETR regression, no bone loss"
-  [M3]="M3 spectral input adapter + Transformer backbone + draft and rectified flow decoder, no bone loss"
-  [M4]="M4 spectral input adapter + Mamba backbone + draft and rectified flow decoder, no bone loss"
+  [M2D]="Mamba2 drop-in: spectral adapter + PETR decoder + factorized temporal/spatial WiMamba2"
+  [M2F]="Mamba2 flattened single-route: spectral adapter + PETR decoder + time-major L=180 scan"
+  [M2FGP]="Mamba2 flattened single-route + zero-init gated separable CSI antenna/time position"
+  [M2C]="Mamba2 two-route cross-scan: time-major + serpentine, learned fusion, no position"
+  [M2CP]="Mamba2 two-route cross-scan + separable CSI antenna/time position"
+  [M2CPA]="Mamba2 two-route cross-scan + separable CSI position + final lightweight attention"
 )
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run_paper_m0_m4_fixed_seed.sh [all|train|postprocess|benchmark|extract|smoke|help]
+  scripts/run_mamba2_encoder_ablation.sh [all|train|postprocess|benchmark|extract|smoke|help]
 
 Modes:
-  all          Train M0..M4, then evaluate, benchmark, append CSV, extract section latency.
-  train        Train M0..M4 sequentially with fixed seed/reproducibility env.
+  all          Train each run, then evaluate, benchmark, append CSV, extract section latency.
+  train        Train each Mamba2 encoder ablation sequentially.
   postprocess  Evaluate + benchmark + append CSV for existing checkpoints.
   benchmark    Benchmark only, for existing checkpoints.
   extract      Rebuild CSV rows from existing *_eval.json and *_benchmark.json files.
   smoke        Short benchmark with --times 5 --warmup 2 for config/runtime sanity check.
 
 Environment overrides:
-  ONLY_RUN_IDS="M0 M1 M2 M4"     Select a subset, e.g. four-run minimum ladder.
+  ONLY_RUN_IDS="M2D M2F"          Select a subset.
   TRAIN_GPU=0                    GPU id exposed as CUDA_VISIBLE_DEVICES during training.
   TEST_GPU=0                     GPU id exposed as CUDA_VISIBLE_DEVICES during evaluation.
   SEED=42                        Train seed passed to tools/train.py.
-  PYTHONHASHSEED_VALUE=42        Python hash seed matching docs/paper recipe.
+  PYTHONHASHSEED_VALUE=42        Python hash seed for reproducible shell form.
   CUBLAS_WORKSPACE_CONFIG_VALUE=:4096:8
                                   cuBLAS deterministic workspace config.
   BENCHMARK_DEVICE=cuda:0        Device used by tools/analysis/benchmark.py.
@@ -84,8 +86,10 @@ Environment overrides:
   BENCHMARK_WARMUP=10            Full benchmark warmup.
   PROFILE_SECTIONS=1             Pass --profile-sections to benchmark.
   AUTO_FIX_TRITON_LIBCUDA=1      Auto-fix Triton libcuda lookup before running.
-  WORK_ROOT=work_dirs/paper      Canonical training output root.
-  LOG_ROOT=paper_assets/logs     JSON/CSV output root.
+  WORK_ROOT=work_dirs/...        Training output root.
+  LOG_ROOT=paper_assets/logs/... JSON/CSV output root.
+  CSV_PATH=...                   Experiment CSV output.
+  SECTION_CSV_PATH=...           Section-latency CSV output.
   DRY_RUN=1                      Print commands without running them.
 EOF
 }
@@ -168,23 +172,6 @@ benchmark_json_path() {
   printf '%s\n' "$LOG_ROOT/${run_id}_benchmark.json"
 }
 
-resolve_eval_config() {
-  local run_id="$1"
-  local run_dir
-  local config_path
-  run_dir="$(run_work_dir "$run_id")"
-
-  if [[ -d "$run_dir" ]]; then
-    config_path="$(find "$run_dir" -maxdepth 1 -type f -name '*.py' | sort | head -n 1)"
-    if [[ -n "$config_path" ]]; then
-      printf '%s\n' "$config_path"
-      return 0
-    fi
-  fi
-
-  printf '%s\n' "${CONFIG_PATHS[$run_id]}"
-}
-
 resolve_checkpoint() {
   local run_id="$1"
   local run_dir
@@ -227,7 +214,6 @@ resolve_checkpoint_or_empty() {
 train_one() {
   local run_id="$1"
   local config_path="${CONFIG_PATHS[$run_id]}"
-  local cfg_options="${CFG_OPTIONS[$run_id]}"
   local work_dir
   local log_path
   local cmd=()
@@ -254,18 +240,10 @@ train_one() {
     cmd+=(--auto-resume)
   fi
 
-  if [[ -n "$cfg_options" ]]; then
-    local cfg_options_arr=()
-    read -r -a cfg_options_arr <<<"$cfg_options"
-    cmd+=(--cfg-options "${cfg_options_arr[@]}")
-  fi
-
   print_header "Train $run_id"
-  echo "Config:      $config_path"
-  echo "Cfg options: ${cfg_options:-<none>}"
-  echo "Seed:        $SEED"
-  echo "Work dir:    $work_dir"
-  echo "Log:         $log_path"
+  echo "Config:   $config_path"
+  echo "Work dir: $work_dir"
+  echo "Log:      $log_path"
 
   if [[ "$DRY_RUN" == "1" ]]; then
     run_cmd "${cmd[@]}"
@@ -280,11 +258,10 @@ train_one() {
 
 evaluate_one() {
   local run_id="$1"
-  local config_path
+  local config_path="${CONFIG_PATHS[$run_id]}"
   local checkpoint_path
   local work_dir
   local eval_json
-  config_path="$(resolve_eval_config "$run_id")"
   checkpoint_path="$(resolve_checkpoint "$run_id")"
   work_dir="$(eval_work_dir "$run_id")"
   eval_json="$(eval_json_path "$run_id")"
@@ -307,10 +284,11 @@ evaluate_one() {
 
 benchmark_one() {
   local run_id="$1"
-  local config_path
+  local config_path="${CONFIG_PATHS[$run_id]}"
   local checkpoint_path
   local benchmark_json
-  config_path="$(resolve_eval_config "$run_id")"
+  local times="$BENCHMARK_TIMES"
+  local warmup="$BENCHMARK_WARMUP"
   checkpoint_path="$(resolve_checkpoint "$run_id")"
   benchmark_json="$(benchmark_json_path "$run_id")"
 
@@ -324,12 +302,15 @@ benchmark_one() {
   local cmd=(
     "$PYTHON_BIN" tools/analysis/benchmark.py
     "$config_path"
-    --checkpoint "$checkpoint_path"
     --device "$BENCHMARK_DEVICE"
-    --times "$BENCHMARK_TIMES"
-    --warmup "$BENCHMARK_WARMUP"
+    --times "$times"
+    --warmup "$warmup"
     --out "$benchmark_json"
   )
+
+  if [[ -n "$checkpoint_path" ]]; then
+    cmd+=(--checkpoint "$checkpoint_path")
+  fi
 
   if [[ "$PROFILE_SECTIONS" == "1" ]]; then
     cmd+=(--profile-sections)
@@ -339,18 +320,16 @@ benchmark_one() {
 }
 
 smoke_one() {
-  local run_id="$1"
-  local config_path
-  local checkpoint_path
-  local benchmark_json
   local saved_times="$BENCHMARK_TIMES"
   local saved_warmup="$BENCHMARK_WARMUP"
+  local run_id="$1"
+  local config_path="${CONFIG_PATHS[$run_id]}"
+  local checkpoint_path
+  local benchmark_json
   BENCHMARK_TIMES=5
   BENCHMARK_WARMUP=2
-  config_path="$(resolve_eval_config "$run_id")"
   checkpoint_path="$(resolve_checkpoint_or_empty "$run_id")"
   benchmark_json="$(benchmark_json_path "$run_id")"
-
   mkdir -p "$LOG_ROOT"
 
   print_header "Smoke benchmark $run_id"
@@ -385,12 +364,11 @@ smoke_one() {
 
 append_one() {
   local run_id="$1"
-  local config_path
+  local config_path="${CONFIG_PATHS[$run_id]}"
   local checkpoint_path
   local eval_json
   local benchmark_json
   local notes="${RUN_NOTES[$run_id]}"
-  config_path="$(resolve_eval_config "$run_id")"
   checkpoint_path="$(resolve_checkpoint "$run_id")"
   eval_json="$(eval_json_path "$run_id")"
   benchmark_json="$(benchmark_json_path "$run_id")"

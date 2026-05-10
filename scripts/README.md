@@ -1,0 +1,418 @@
+# Scripts Usage Guide
+
+Run all commands from the repository root:
+
+```bash
+cd /content/Person-in-WiFi-3D
+```
+
+Most experiment launchers support fixed-seed training with:
+
+```bash
+SEED=42
+PYTHONHASHSEED_VALUE=42
+CUBLAS_WORKSPACE_CONFIG_VALUE=:4096:8
+```
+
+On Colab/Linux, keep Triton CUDA lookup auto-fix enabled unless you know the environment does not need it:
+
+```bash
+AUTO_FIX_TRITON_LIBCUDA=1
+```
+
+## Common Modes
+
+The newer experiment runners use these modes:
+
+| Mode | Meaning |
+| --- | --- |
+| `all` | Train, evaluate, benchmark, append CSV, then extract section latency when supported. |
+| `train` | Train selected run ids only. |
+| `postprocess` | Evaluate and benchmark existing checkpoints, then append CSV. |
+| `benchmark` | Benchmark existing checkpoints only. |
+| `extract` | Rebuild CSV rows from existing eval/benchmark JSON files. |
+| `smoke` | Short benchmark sanity check, usually `times=5`, `warmup=2`. |
+| `help` | Print script usage. |
+
+Common environment overrides:
+
+```bash
+ONLY_RUN_IDS="RUN_A RUN_B"
+TRAIN_GPU=0
+TEST_GPU=0
+BENCHMARK_DEVICE=cuda:0
+BENCHMARK_TIMES=100
+BENCHMARK_WARMUP=10
+DRY_RUN=1
+```
+
+Checkpoint override convention:
+
+```bash
+RUN_ID_CKPT="/path/to/checkpoint.pth"
+```
+
+Example:
+
+```bash
+ONLY_RUN_IDS="C_RF1 D_RF8" \
+C_RF1_CKPT="/content/Person-in-WiFi-3D/work_dirs/flow_numstep_ablation/C_RF1/latest.pth" \
+D_RF8_CKPT="/content/Person-in-WiFi-3D/work_dirs/flow_numstep_ablation/D_RF8/latest.pth" \
+bash scripts/run_flow_numstep_ablation.sh postprocess
+```
+
+If no `_CKPT` override is provided, runners usually search:
+
+```text
+$WORK_ROOT/$RUN_ID/latest.pth
+$WORK_ROOT/$RUN_ID/epoch_*.pth newest by version sort
+```
+
+## `auto_fix_triton_libcuda.sh`
+
+Purpose: fix the common Colab/Triton error where `triton.common.build.libcuda_dirs()` cannot find `libcuda.so`.
+
+Use manually:
+
+```bash
+bash scripts/auto_fix_triton_libcuda.sh
+```
+
+Most new runners call this automatically when:
+
+```bash
+AUTO_FIX_TRITON_LIBCUDA=1
+```
+
+Disable only if the environment is already healthy:
+
+```bash
+AUTO_FIX_TRITON_LIBCUDA=0 bash scripts/run_mamba2_encoder_ablation.sh smoke
+```
+
+## `run_mamba2_encoder_ablation.sh`
+
+Purpose: run the full Mamba2 encoder ablation ladder.
+
+Default run ids:
+
+```text
+M2D M2F M2FGP M2C M2CP M2CPA
+```
+
+Meaning:
+
+| Run ID | Summary |
+| --- | --- |
+| `M2D` | Mamba2 drop-in, factorized temporal/spatial layout. |
+| `M2F` | Flattened single-route Mamba2, `time_major`, no position. |
+| `M2FGP` | Flattened single-route Mamba2 with zero-init gated CSI position. |
+| `M2C` | Two-route cross-scan, `time_major + serpentine`. |
+| `M2CP` | Cross-scan with plain separable CSI position. |
+| `M2CPA` | Cross-scan with position and final lightweight attention. |
+
+Run all:
+
+```bash
+bash scripts/run_mamba2_encoder_ablation.sh all
+```
+
+Run only M2FGP:
+
+```bash
+ONLY_RUN_IDS="M2FGP" bash scripts/run_mamba2_encoder_ablation.sh all
+```
+
+Evaluate/benchmark trained checkpoints only:
+
+```bash
+bash scripts/run_mamba2_encoder_ablation.sh postprocess
+```
+
+Use explicit checkpoint:
+
+```bash
+ONLY_RUN_IDS="M2FGP" \
+M2FGP_CKPT="/content/Person-in-WiFi-3D/work_dirs/mamba2_encoder_ablation/M2FGP/latest.pth" \
+bash scripts/run_mamba2_encoder_ablation.sh postprocess
+```
+
+Default outputs:
+
+```text
+work_dirs/mamba2_encoder_ablation/
+paper_assets/logs/mamba2_encoder_ablation/
+paper_assets/logs/mamba2_encoder_ablation/experiment_log.csv
+paper_assets/logs/mamba2_encoder_ablation/section_latency_log.csv
+```
+
+## `run_mamba2_candidate_20e.sh`
+
+Purpose: wrapper around `run_mamba2_encoder_ablation.sh` for the long-run candidate set.
+
+Default run ids:
+
+```text
+M2F M2C M2FGP
+```
+
+Run all candidates for 20 epochs:
+
+```bash
+bash scripts/run_mamba2_candidate_20e.sh all
+```
+
+Train only:
+
+```bash
+bash scripts/run_mamba2_candidate_20e.sh train
+```
+
+Run only M2FGP:
+
+```bash
+ONLY_RUN_IDS="M2FGP" bash scripts/run_mamba2_candidate_20e.sh all
+```
+
+Default outputs are isolated from short ablations:
+
+```text
+work_dirs/mamba2_encoder_ablation_20e/
+work_dirs/mamba2_encoder_eval_20e/
+paper_assets/logs/mamba2_encoder_ablation_20e/
+```
+
+## `run_flow_numstep_ablation.sh`
+
+Purpose: test whether rectified flow refinement is useful, without the residual-MLP baseline.
+
+Default run ids:
+
+```text
+A_DRAFT C_RF1 D_RF4 D_RF8 D_RF10
+```
+
+Meaning:
+
+| Run ID | Summary |
+| --- | --- |
+| `A_DRAFT` | Draft pose only, no flow refinement. |
+| `C_RF1` | Rectified flow, Euler inference `num_steps=1`. |
+| `D_RF4` | Rectified flow, Euler inference `num_steps=4`. |
+| `D_RF8` | Rectified flow, Euler inference `num_steps=8`. |
+| `D_RF10` | Rectified flow, Euler inference `num_steps=10`. |
+
+Run all:
+
+```bash
+bash scripts/run_flow_numstep_ablation.sh all
+```
+
+Evaluate/benchmark existing checkpoints:
+
+```bash
+bash scripts/run_flow_numstep_ablation.sh postprocess
+```
+
+Use explicit checkpoints:
+
+```bash
+ONLY_RUN_IDS="A_DRAFT C_RF1 D_RF8" \
+A_DRAFT_CKPT="/content/Person-in-WiFi-3D/work_dirs/flow_numstep_ablation/A_DRAFT/latest.pth" \
+C_RF1_CKPT="/content/Person-in-WiFi-3D/work_dirs/flow_numstep_ablation/C_RF1/latest.pth" \
+D_RF8_CKPT="/content/Person-in-WiFi-3D/work_dirs/flow_numstep_ablation/D_RF8/latest.pth" \
+bash scripts/run_flow_numstep_ablation.sh postprocess
+```
+
+Default outputs:
+
+```text
+work_dirs/flow_numstep_ablation/
+work_dirs/flow_numstep_eval/
+paper_assets/logs/flow_numstep_ablation/
+```
+
+## `run_paper_m0_m4_fixed_seed.sh`
+
+Purpose: run the fixed-seed paper ladder for M0-M4.
+
+Default run ids:
+
+```text
+M0 M1 M2 M3 M4
+```
+
+Meaning:
+
+| Run ID | Summary |
+| --- | --- |
+| `M0` | Linear input adapter + Transformer + DETR regression. |
+| `M1` | Spectral input adapter + Transformer + DETR regression. |
+| `M2` | Spectral input adapter + Mamba + DETR regression. |
+| `M3` | Spectral input adapter + Transformer + draft/flow decoder. |
+| `M4` | Spectral input adapter + Mamba + draft/flow decoder, no bone loss. |
+
+Run all:
+
+```bash
+bash scripts/run_paper_m0_m4_fixed_seed.sh all
+```
+
+Train only:
+
+```bash
+bash scripts/run_paper_m0_m4_fixed_seed.sh train
+```
+
+Postprocess existing checkpoints:
+
+```bash
+bash scripts/run_paper_m0_m4_fixed_seed.sh postprocess
+```
+
+Run subset:
+
+```bash
+ONLY_RUN_IDS="M2 M4" bash scripts/run_paper_m0_m4_fixed_seed.sh all
+```
+
+Use explicit checkpoint:
+
+```bash
+ONLY_RUN_IDS="M4" \
+M4_CKPT="/content/Person-in-WiFi-3D/work_dirs/paper/M4/latest.pth" \
+bash scripts/run_paper_m0_m4_fixed_seed.sh postprocess
+```
+
+Default outputs:
+
+```text
+work_dirs/paper/
+work_dirs/paper_eval/
+paper_assets/logs/
+```
+
+## `run_paper_postprocess.sh`
+
+Purpose: legacy postprocess helper for paper checkpoints M0-M5 and variant directories.
+
+Modes:
+
+```bash
+bash scripts/run_paper_postprocess.sh default
+bash scripts/run_paper_postprocess.sh root-paper
+bash scripts/run_paper_postprocess.sh colab
+```
+
+Default mode processes:
+
+```text
+M0 M1 M2 M3 M4 M5
+```
+
+It expects run directories under:
+
+```text
+work_dirs/paper/$RUN_ID
+```
+
+or manual checkpoint variables inside the script. Prefer newer runners when possible because they support environment-based `_CKPT` overrides more cleanly.
+
+## `run_train_5gpu.sh`
+
+Purpose: train multiple paper runs in parallel on separate GPUs.
+
+Default run ids:
+
+```text
+M0 M1 M2 M4 M5
+```
+
+Run with automatic GPU discovery:
+
+```bash
+bash scripts/run_train_5gpu.sh
+```
+
+Specify exact GPUs:
+
+```bash
+GPU_IDS="0 1 2 3 4" bash scripts/run_train_5gpu.sh
+```
+
+Add optional run ids:
+
+```bash
+EXTRA_RUN_IDS="M5_linear" GPU_IDS="0 1 2 3 4 5" bash scripts/run_train_5gpu.sh
+```
+
+Dry run:
+
+```bash
+DRY_RUN=1 GPU_IDS="0 1 2 3 4" bash scripts/run_train_5gpu.sh
+```
+
+Logs:
+
+```text
+work_dirs/paper_launch_logs/
+```
+
+## `run_colab_variant_batch.sh`
+
+Purpose: legacy Colab postprocess for Mamba variant checkpoints by temporarily swapping `wimamba_v1.py`.
+
+Default run names:
+
+```text
+M1_v1 M1_v3 M5_v1 M5_v2 M5_v3
+```
+
+Run all defaults:
+
+```bash
+bash scripts/run_colab_variant_batch.sh
+```
+
+Run subset:
+
+```bash
+bash scripts/run_colab_variant_batch.sh M1_v1 M5_v2
+```
+
+Useful overrides:
+
+```bash
+PAPER_DIR="/content/drive/MyDrive/RESFES2026/Test" \
+OUTPUT_DIR="/content/drive/MyDrive/RESFES2026/Test" \
+bash scripts/run_colab_variant_batch.sh
+```
+
+This script modifies backbone files during execution and restores them on exit. Avoid interrupting the environment aggressively while it is copying files.
+
+## Recommended Current Workflow
+
+Mamba2 encoder long candidates:
+
+```bash
+bash scripts/run_mamba2_candidate_20e.sh all
+```
+
+Flow num-step ablation:
+
+```bash
+bash scripts/run_flow_numstep_ablation.sh all
+```
+
+Only postprocess existing flow checkpoints:
+
+```bash
+bash scripts/run_flow_numstep_ablation.sh postprocess
+```
+
+Quick sanity checks before a long run:
+
+```bash
+DRY_RUN=1 bash scripts/run_mamba2_candidate_20e.sh train
+DRY_RUN=1 bash scripts/run_flow_numstep_ablation.sh train
+```
