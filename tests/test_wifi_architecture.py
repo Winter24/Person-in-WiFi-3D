@@ -502,6 +502,62 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("elif self.encoder_type == 'transformer':", source)
         self.assertIn("self.encoder(query=feat, key=None, value=None)", source)
 
+    def test_witidar_head_supports_flow_refinement_ablation_modes(self):
+        head_source = _read("opera/models/dense_heads/wi_tidar_head.py")
+        flow_source = _read("opera/models/dense_heads/flow_components.py")
+        rf_source = _read("opera/models/utils/rectified_flow.py")
+
+        self.assertNotIn("ResidualCorrectionMLP", flow_source)
+        self.assertNotIn("residual_mlp", head_source)
+        self.assertIn("flow_refine_mode='rectified_flow'", head_source)
+        self.assertIn("flow_num_steps=1", head_source)
+        self.assertIn("flow_noise_strength=0.1", head_source)
+        self.assertIn("flow_refine_mode not in ('none', 'rectified_flow')", head_source)
+        self.assertIn("self.flow_model = RectifiedFlowWrapper(", head_source)
+        self.assertIn("noise_strength=flow_noise_strength", head_source)
+        self.assertIn("self.flow_num_steps", head_source)
+        self.assertIn("num_steps=self.flow_num_steps", head_source)
+        self.assertIn("noise_strength=0.1", rf_source)
+        self.assertIn("x_t = t * x_1 + (1 - t) * x_0", rf_source)
+
+    def test_flow_numstep_ablation_configs_cover_draft_and_rf_steps(self):
+        cfgs = {
+            "A_DRAFT": _load_config_module("configs/wifi/wi_tidir_wifi_flow_draft.py"),
+            "C_RF1": _load_config_module("configs/wifi/wi_tidir_wifi_flow_rf_1step.py"),
+            "D_RF4": _load_config_module("configs/wifi/wi_tidir_wifi_flow_rf_4step.py"),
+            "D_RF8": _load_config_module("configs/wifi/wi_tidir_wifi_flow_rf_8step.py"),
+            "D_RF10": _load_config_module("configs/wifi/wi_tidir_wifi_flow_rf_10step.py"),
+        }
+
+        self.assertEqual(cfgs["A_DRAFT"].model["bbox_head"]["flow_refine_mode"], "none")
+        self.assertEqual(cfgs["A_DRAFT"].model["bbox_head"]["loss_flow_weight"], 0.0)
+
+        expected_steps = {
+            "C_RF1": 1,
+            "D_RF4": 4,
+            "D_RF8": 8,
+            "D_RF10": 10,
+        }
+        for run_id, steps in expected_steps.items():
+            head = cfgs[run_id].model["bbox_head"]
+            self.assertEqual(head["flow_refine_mode"], "rectified_flow")
+            self.assertEqual(head["flow_num_steps"], steps)
+            self.assertEqual(head["flow_noise_strength"], 0.0)
+
+    def test_flow_numstep_ablation_runner_covers_all_decoder_variants(self):
+        source = _read("scripts/run_flow_numstep_ablation.sh")
+
+        self.assertIn("RUN_IDS=(A_DRAFT C_RF1 D_RF4 D_RF8 D_RF10)", source)
+        self.assertIn("[A_DRAFT]=\"configs/wifi/wi_tidir_wifi_flow_draft.py\"", source)
+        self.assertIn("[C_RF1]=\"configs/wifi/wi_tidir_wifi_flow_rf_1step.py\"", source)
+        self.assertIn("[D_RF4]=\"configs/wifi/wi_tidir_wifi_flow_rf_4step.py\"", source)
+        self.assertIn("[D_RF8]=\"configs/wifi/wi_tidir_wifi_flow_rf_8step.py\"", source)
+        self.assertIn("[D_RF10]=\"configs/wifi/wi_tidir_wifi_flow_rf_10step.py\"", source)
+        self.assertNotIn("B_RESMLP", source)
+        self.assertNotIn("wi_tidir_wifi_flow_residual.py", source)
+        self.assertIn("flow_numstep_ablation", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+
     def test_losses_init_no_longer_imports_limb_loss(self):
         source = _read("opera/models/losses/__init__.py")
 

@@ -51,6 +51,9 @@ class WiTiDARHead(BaseModule):
                  loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0),
                  loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0),
                  loss_flow_weight=10.0,
+                 flow_refine_mode='rectified_flow',
+                 flow_num_steps=1,
+                 flow_noise_strength=0.1,
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None,
@@ -64,6 +67,10 @@ class WiTiDARHead(BaseModule):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.loss_flow_weight = loss_flow_weight
+        if flow_refine_mode not in ('none', 'rectified_flow'):
+            raise ValueError(f'Unsupported flow_refine_mode: {flow_refine_mode}')
+        self.flow_refine_mode = flow_refine_mode
+        self.flow_num_steps = flow_num_steps
 
         if train_cfg:
             self.assigner = build_assigner(train_cfg['assigner'])
@@ -109,16 +116,17 @@ class WiTiDARHead(BaseModule):
             nn.Linear(embed_dims, 3 * num_keypoints))
         self.cls_head = nn.Linear(embed_dims, 1)
 
-        if VelocityMLP is not None:
+        self.flow_model = None
+        if flow_refine_mode == 'rectified_flow' and VelocityMLP is not None:
             velocity_net = VelocityMLP(
                 input_dim=3 * num_keypoints,
                 cond_dim=embed_dims,
                 time_dim=64,
                 hidden_dim=512,
                 num_layers=3)
-            self.flow_model = RectifiedFlowWrapper(velocity_net)
-        else:
-            self.flow_model = None
+            self.flow_model = RectifiedFlowWrapper(
+                velocity_net,
+                noise_strength=flow_noise_strength)
 
     def _load_bone_statistics(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -251,7 +259,7 @@ class WiTiDARHead(BaseModule):
                 else:
                     losses_bone.append(cls_score.sum() * 0)
 
-                if self.flow_model is not None:
+                if self.flow_refine_mode == 'rectified_flow' and self.flow_model is not None:
                     pos_gt_flat = pos_gt_kpts.reshape(-1, 42)
                     pos_draft_flat = draft_pred_flat[pos_inds].detach()
                     pos_cond = cond[pos_inds]
@@ -296,11 +304,11 @@ class WiTiDARHead(BaseModule):
             top_draft = draft_pred[indexes]
             top_cond = cond[indexes]
 
-            if self.flow_model is not None:
+            if self.flow_refine_mode == 'rectified_flow' and self.flow_model is not None:
                 refined_pred = self.flow_model.sample(
                     x_init=top_draft,
                     condition=top_cond,
-                    num_steps=1)
+                    num_steps=self.flow_num_steps)
             else:
                 refined_pred = top_draft
 

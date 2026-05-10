@@ -14,7 +14,7 @@ class RectifiedFlowWrapper(nn.Module):
                  Huấn luyện mạng velocity_net để dự đoán vector chỉ hướng (X1 - X0).
     2. Inference: Dùng Euler method để di chuyển từ X0 đến X1 theo hướng velocity_net dự đoán.
     """
-    def __init__(self, velocity_net, sigma_min=1e-5):
+    def __init__(self, velocity_net, sigma_min=1e-5, noise_strength=0.1):
         """
         Args:
             velocity_net (nn.Module): Mạng dự đoán vận tốc v(x, t, cond).
@@ -23,6 +23,7 @@ class RectifiedFlowWrapper(nn.Module):
         super().__init__()
         self.velocity_net = velocity_net
         self.sigma_min = sigma_min
+        self.noise_strength = noise_strength
 
     def get_train_loss(self, x_1, condition, x_0=None):
         """
@@ -59,8 +60,8 @@ class RectifiedFlowWrapper(nn.Module):
             # Nếu không thêm nhiễu, mô hình có thể bị overfitting vào lỗi cụ thể của Draft Head
             # và không học được trường vector tổng quát.
             # Sigma=0.1 tương đương biên độ sai số khoảng 10-20mm (nếu data đã normalize).
-            noise_strength = 0.1
-            x_0 = x_0 + torch.randn_like(x_0) * noise_strength
+            if self.noise_strength > 0:
+                x_0 = x_0 + torch.randn_like(x_0) * self.noise_strength
 
         # 2. Sample thời gian t ~ Uniform[0, 1]
         # Shape (B, 1, 1) để broadcast cho phép nhân với (B, N, D)
