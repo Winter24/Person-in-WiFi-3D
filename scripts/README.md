@@ -292,6 +292,84 @@ work_dirs/paper_eval/
 paper_assets/logs/
 ```
 
+## `run_wimamba_backbone_ablation.sh`
+
+Purpose: run the fixed-seed full WiMamba backbone ablation ladder from
+`opera/models/backbones/` without swapping files by hand.
+
+Default run ids:
+
+```text
+M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA
+```
+
+Meaning:
+
+| Run ID | Config | Summary |
+| --- | --- | --- |
+| `M1FCT` | `configs/wifi/petr_wifi_mamba.py` | Current Mamba1 factorized temporal + bidirectional spatial scan. |
+| `M1V2` | `configs/wifi/petr_wifi_mamba_v2.py` | Mamba1 temporal scan + Conv1d antenna mixer. |
+| `M1V3` | `configs/wifi/petr_wifi_mamba_v3.py` | Mamba1 temporal scan + Linear antenna mixer. |
+| `M1FLAT` | `configs/wifi/petr_wifi_mamba1_flatten.py` | Mamba1 flattened single-route `L=180` scan. |
+| `M2FLAT` | `configs/wifi/petr_wifi_mamba2_flatten.py` | Mamba2 flattened single-route `L=180` wrapper. |
+| `M2D` | `configs/wifi/petr_wifi_mamba2_dropin.py` | Mamba2 drop-in factorized temporal/spatial layout. |
+| `M2CSI` | `configs/wifi/petr_wifi_mamba2_flattened.py` | Mamba2 CSI flattened single-route via `WiMamba2CSIEncoder`. |
+| `M2C` | `configs/wifi/petr_wifi_mamba2_crossscan.py` | Mamba2 two-route cross-scan. |
+| `M2CP` | `configs/wifi/petr_wifi_mamba2_crossscan_pos.py` | Mamba2 cross-scan + CSI positional embedding. |
+| `M2CPA` | `configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py` | Mamba2 cross-scan + position + final attention. |
+
+Run all selected backbones:
+
+```bash
+bash scripts/run_wimamba_backbone_ablation.sh all
+```
+
+Run a fast 5-epoch candidate subset:
+
+```bash
+ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
+bash scripts/run_wimamba_backbone_ablation.sh all
+```
+
+Train only:
+
+```bash
+ONLY_RUN_IDS="M1FCT M1V2 M1V3 M1FLAT M2FLAT" \
+bash scripts/run_wimamba_backbone_ablation.sh train
+```
+
+Postprocess existing checkpoints:
+
+```bash
+bash scripts/run_wimamba_backbone_ablation.sh postprocess
+```
+
+Use explicit checkpoints:
+
+```bash
+ONLY_RUN_IDS="M1V3 M2FLAT" \
+M1V3_CKPT="/content/Person-in-WiFi-3D/work_dirs/wimamba_backbone_ablation/M1V3/latest.pth" \
+M2FLAT_CKPT="/content/Person-in-WiFi-3D/work_dirs/wimamba_backbone_ablation/M2FLAT/latest.pth" \
+bash scripts/run_wimamba_backbone_ablation.sh postprocess
+```
+
+Dry run before launching long jobs:
+
+```bash
+DRY_RUN=1 ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
+bash scripts/run_wimamba_backbone_ablation.sh train
+```
+
+Default outputs:
+
+```text
+work_dirs/wimamba_backbone_ablation/
+work_dirs/wimamba_backbone_eval/
+paper_assets/logs/wimamba_backbone_ablation/
+paper_assets/logs/wimamba_backbone_ablation/experiment_log.csv
+paper_assets/logs/wimamba_backbone_ablation/section_latency_log.csv
+```
+
 ## `run_paper_postprocess.sh`
 
 Purpose: legacy postprocess helper for paper checkpoints M0-M5 and variant directories.

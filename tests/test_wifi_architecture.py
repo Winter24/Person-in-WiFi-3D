@@ -274,6 +274,73 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertTrue(pos.model["bbox_head"]["transformer"]["encoder"]["use_pos_embed"])
         self.assertTrue(attn.model["bbox_head"]["transformer"]["encoder"]["final_attn"])
 
+    def test_wimamba_backbone_ablation_variants_have_unique_registry_names(self):
+        init_source = _read("opera/models/backbones/__init__.py")
+
+        expected_exports = (
+            "WiMambaEncoder",
+            "WiMambaV2Encoder",
+            "WiMambaV3Encoder",
+            "WiMamba1FlatEncoder",
+            "WiMamba2FlatEncoder",
+        )
+        for name in expected_exports:
+            self.assertIn(name, init_source)
+
+        variant_sources = {
+            "opera/models/backbones/wimamba.py": "class WiMambaEncoder",
+            "opera/models/backbones/wimamba_v2.py": "class WiMambaV2Encoder",
+            "opera/models/backbones/wimamba_v3.py": "class WiMambaV3Encoder",
+            "opera/models/backbones/wimamba1_v1_flatten.py": "class WiMamba1FlatEncoder",
+            "opera/models/backbones/wimamba2_flatten.py": "class WiMamba2FlatEncoder",
+        }
+        for path, class_decl in variant_sources.items():
+            source = _read(path)
+            self.assertIn(class_decl, source, msg=path)
+
+    def test_wimamba_backbone_ablation_configs_switch_encoder_types(self):
+        expected = {
+            "configs/wifi/petr_wifi_mamba.py": "WiMambaEncoder",
+            "configs/wifi/petr_wifi_mamba_v2.py": "WiMambaV2Encoder",
+            "configs/wifi/petr_wifi_mamba_v3.py": "WiMambaV3Encoder",
+            "configs/wifi/petr_wifi_mamba1_flatten.py": "WiMamba1FlatEncoder",
+            "configs/wifi/petr_wifi_mamba2_flatten.py": "WiMamba2FlatEncoder",
+        }
+        for path, encoder_type in expected.items():
+            cfg = _load_config_module(path)
+            encoder = cfg.model["bbox_head"]["transformer"]["encoder"]
+            self.assertEqual(encoder["type"], encoder_type, msg=path)
+            self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
+            self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+
+    def test_wimamba_backbone_ablation_launcher_maps_all_variants(self):
+        source = _read("scripts/run_wimamba_backbone_ablation.sh")
+
+        for run_id in (
+            "M1FCT", "M1V2", "M1V3", "M1FLAT", "M2FLAT",
+            "M2D", "M2CSI", "M2C", "M2CP", "M2CPA",
+        ):
+            self.assertIn(run_id, source)
+        for config_path in (
+            "configs/wifi/petr_wifi_mamba.py",
+            "configs/wifi/petr_wifi_mamba_v2.py",
+            "configs/wifi/petr_wifi_mamba_v3.py",
+            "configs/wifi/petr_wifi_mamba1_flatten.py",
+            "configs/wifi/petr_wifi_mamba2_flatten.py",
+            "configs/wifi/petr_wifi_mamba2_dropin.py",
+            "configs/wifi/petr_wifi_mamba2_flattened.py",
+            "configs/wifi/petr_wifi_mamba2_crossscan.py",
+            "configs/wifi/petr_wifi_mamba2_crossscan_pos.py",
+            "configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py",
+        ):
+            self.assertIn(config_path, source)
+        self.assertIn("PYTHONHASHSEED_VALUE", source)
+        self.assertIn("CUBLAS_WORKSPACE_CONFIG_VALUE", source)
+        self.assertIn("--seed \"$SEED\"", source)
+        self.assertIn("--deterministic", source)
+        self.assertIn("--auto-resume", source)
+        self.assertIn("DRY_RUN", source)
+
     def test_benchmark_supports_segmented_profile_sections(self):
         source = _read("tools/analysis/benchmark.py")
 

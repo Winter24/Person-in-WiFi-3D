@@ -75,7 +75,7 @@ class FastFactorizedWiMambaBlock(nn.Module):
 @BACKBONES.register_module()
 @MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
-class WiMambaEncoder(BaseModule):
+class WiMambaV3Encoder(BaseModule):
     """Factorized spatio-temporal WiMamba encoder."""
 
     def __init__(self,
@@ -126,13 +126,14 @@ class WiMambaEncoder(BaseModule):
         if x is None:
             x = query
         if x is None:
-            raise ValueError('WiMambaEncoder requires either "x" or "query".')
+            raise ValueError('WiMambaV3Encoder requires either "x" or "query".')
 
         if query_pos is not None:
             x = x + query_pos
 
         if x.dim() != 3:
-            raise ValueError(f'WiMambaEncoder expects a 3D tensor, got {x.dim()}D.')
+            raise ValueError(
+                f'WiMambaV3Encoder expects a 3D tensor, got {x.dim()}D.')
 
         if x.shape[0] == (self.num_spatial * self.seq_len):
             x = x.permute(1, 0, 2).contiguous()
