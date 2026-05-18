@@ -36,6 +36,20 @@ def _build_mamba2(dim, d_state, d_conv, expand, headdim):
         headdim=headdim)
 
 
+def _run_mamba2_with_padding(mamba, x, pad_multiple=8):
+    """Run Mamba2 with sequence padding for fused causal-conv stride rules."""
+    seq_len = x.shape[1]
+    pad_len = (-seq_len) % pad_multiple
+    if pad_len:
+        pad_shape = list(x.shape)
+        pad_shape[1] = pad_len
+        x = torch.cat([x, x.new_zeros(pad_shape)], dim=1)
+    if not x.is_contiguous():
+        x = x.contiguous()
+    x = mamba(x)
+    return x[:, :seq_len, :]
+
+
 def _route_indices(route, num_spatial, seq_len):
     if route == 'antenna_major':
         order = [ant * seq_len + t
@@ -95,9 +109,7 @@ class FactorizedWiMamba2Block(nn.Module):
 
         residual_t = x
         x_t = self.norm_t(x).reshape(B * S, T, C)
-        if not x_t.is_contiguous():
-            x_t = x_t.contiguous()
-        x_t = self.mamba_t(x_t)
+        x_t = _run_mamba2_with_padding(self.mamba_t, x_t)
         x_t = self.drop_t(x_t).reshape(B, S, T, C)
         x = residual_t + x_t
 
@@ -105,9 +117,9 @@ class FactorizedWiMamba2Block(nn.Module):
         x_s = self.norm_s(x)
         x_s = x_s.transpose(1, 2).contiguous().view(B * T, S, C)
 
-        out_fwd = self.mamba_s_fwd(x_s)
+        out_fwd = _run_mamba2_with_padding(self.mamba_s_fwd, x_s)
         x_s_rev = torch.flip(x_s, dims=[1]).contiguous()
-        out_bwd = self.mamba_s_bwd(x_s_rev)
+        out_bwd = _run_mamba2_with_padding(self.mamba_s_bwd, x_s_rev)
         out_bwd = torch.flip(out_bwd, dims=[1]).contiguous()
 
         out_s = self.drop_s(out_fwd + out_bwd)
@@ -198,7 +210,7 @@ class FlattenedCSIMamba2Block(nn.Module):
             for i in range(self.num_routes)
         ]
         routed = torch.cat(routed, dim=0)
-        routed = self.mamba(routed)
+        routed = _run_mamba2_with_padding(self.mamba, routed)
         routed = routed.view(self.num_routes, B, L, C)
 
         restored = [

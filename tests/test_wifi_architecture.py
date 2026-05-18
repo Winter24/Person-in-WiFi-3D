@@ -233,6 +233,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         self.assertIn("from mamba_ssm import Mamba2", source)
         self.assertNotIn("bimamba_type", source)
+        self.assertIn("def _run_mamba2_with_padding", source)
         self.assertIn("class FactorizedWiMamba2Block", source)
         self.assertIn("class WiMamba2DropInEncoder", source)
         self.assertIn("class CSISeparablePositionEmbedding", source)
@@ -243,6 +244,10 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("time_major", source)
         self.assertIn("serpentine", source)
         self.assertIn("final_attn", source)
+        self.assertIn("_run_mamba2_with_padding(self.mamba_t, x_t)", source)
+        self.assertIn("_run_mamba2_with_padding(self.mamba_s_fwd, x_s)", source)
+        self.assertIn("_run_mamba2_with_padding(self.mamba_s_bwd, x_s_rev)", source)
+        self.assertIn("_run_mamba2_with_padding(self.mamba, routed)", source)
 
     def test_wimamba2_csi_encoder_is_exported(self):
         source = _read("opera/models/backbones/__init__.py")
