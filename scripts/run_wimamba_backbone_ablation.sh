@@ -10,7 +10,7 @@ if (($# > 0)); then
   shift
 fi
 
-# Full WiMamba backbone ladder available from opera/models/backbones/.
+# Full WiMamba encoder ladder inside opera.WiTiDARHead.
 # M1V1 is intentionally not a separate run because wimamba_v1.py is a
 # compatibility wrapper for the current factorized WiMamba implementation.
 RUN_IDS=(M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA)
@@ -39,16 +39,16 @@ SECTION_CSV_PATH="${SECTION_CSV_PATH:-$LOG_ROOT/section_latency_log.csv}"
 LAUNCH_LOG_DIR="${LAUNCH_LOG_DIR:-$LOG_ROOT/launch_logs}"
 
 declare -A CONFIG_PATHS=(
-  [M1FCT]="configs/wifi/petr_wifi_mamba.py"
-  [M1V2]="configs/wifi/petr_wifi_mamba_v2.py"
-  [M1V3]="configs/wifi/petr_wifi_mamba_v3.py"
-  [M1FLAT]="configs/wifi/petr_wifi_mamba1_flatten.py"
-  [M2FLAT]="configs/wifi/petr_wifi_mamba2_flatten.py"
-  [M2D]="configs/wifi/petr_wifi_mamba2_dropin.py"
-  [M2CSI]="configs/wifi/petr_wifi_mamba2_flattened.py"
-  [M2C]="configs/wifi/petr_wifi_mamba2_crossscan.py"
-  [M2CP]="configs/wifi/petr_wifi_mamba2_crossscan_pos.py"
-  [M2CPA]="configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py"
+  [M1FCT]="configs/wifi/wi_tidir_wifi.py"
+  [M1V2]="configs/wifi/wi_tidir_wifi_mamba_v2.py"
+  [M1V3]="configs/wifi/wi_tidir_wifi_mamba_v3.py"
+  [M1FLAT]="configs/wifi/wi_tidir_wifi_mamba1_flatten.py"
+  [M2FLAT]="configs/wifi/wi_tidir_wifi_mamba2_flatten.py"
+  [M2D]="configs/wifi/wi_tidir_wifi_mamba2_dropin.py"
+  [M2CSI]="configs/wifi/wi_tidir_wifi_mamba2_flattened.py"
+  [M2C]="configs/wifi/wi_tidir_wifi_mamba2_crossscan.py"
+  [M2CP]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py"
+  [M2CPA]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py"
 )
 
 declare -A RUN_NOTES=(
@@ -69,6 +69,10 @@ usage() {
 Usage:
   scripts/run_wimamba_backbone_ablation.sh [all|train|postprocess|benchmark|extract|smoke|help]
 
+Purpose:
+  Run the full WiMamba encoder ladder inside opera.WiTiDARHead. This is the
+  WiTiDAR/M4-style ablation path, not the PETRHead encoder path.
+
 Modes:
   all          Train each selected backbone, then evaluate, benchmark, append CSV.
   train        Train selected backbones sequentially with fixed seed/repro env.
@@ -78,16 +82,16 @@ Modes:
   smoke        Short benchmark with --times 5 --warmup 2.
 
 Run IDs:
-  M1FCT   configs/wifi/petr_wifi_mamba.py
-  M1V2    configs/wifi/petr_wifi_mamba_v2.py
-  M1V3    configs/wifi/petr_wifi_mamba_v3.py
-  M1FLAT  configs/wifi/petr_wifi_mamba1_flatten.py
-  M2FLAT  configs/wifi/petr_wifi_mamba2_flatten.py
-  M2D     configs/wifi/petr_wifi_mamba2_dropin.py
-  M2CSI   configs/wifi/petr_wifi_mamba2_flattened.py
-  M2C     configs/wifi/petr_wifi_mamba2_crossscan.py
-  M2CP    configs/wifi/petr_wifi_mamba2_crossscan_pos.py
-  M2CPA   configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py
+  M1FCT   configs/wifi/wi_tidir_wifi.py
+  M1V2    configs/wifi/wi_tidir_wifi_mamba_v2.py
+  M1V3    configs/wifi/wi_tidir_wifi_mamba_v3.py
+  M1FLAT  configs/wifi/wi_tidir_wifi_mamba1_flatten.py
+  M2FLAT  configs/wifi/wi_tidir_wifi_mamba2_flatten.py
+  M2D     configs/wifi/wi_tidir_wifi_mamba2_dropin.py
+  M2CSI   configs/wifi/wi_tidir_wifi_mamba2_flattened.py
+  M2C     configs/wifi/wi_tidir_wifi_mamba2_crossscan.py
+  M2CP    configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py
+  M2CPA   configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py
 
 Environment overrides:
   ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT"  Select a subset.
@@ -101,6 +105,11 @@ Environment overrides:
   AUTO_FIX_TRITON_LIBCUDA=1          Run scripts/auto_fix_triton_libcuda.sh first.
   DRY_RUN=1                          Print commands without running them.
   M1V3_CKPT=/path/latest.pth         Per-run checkpoint override for postprocess.
+
+Checkpoint lookup:
+  1. Per-run override such as M1V3_CKPT=/path/to/checkpoint.pth.
+  2. $WORK_ROOT/$RUN_ID/latest.pth.
+  3. Highest version-sorted $WORK_ROOT/$RUN_ID/epoch_*.pth.
 EOF
 }
 
@@ -470,9 +479,29 @@ postprocess_one() {
 
 main() {
   local run_id
+
+  case "$MODE" in
+    -h|--help|help)
+      usage
+      return 0
+      ;;
+  esac
+
   validate_runs
   mkdir -p "$LOG_ROOT" "$LAUNCH_LOG_DIR"
-  setup_triton_libcuda_env
+
+  case "$MODE" in
+    train|postprocess|benchmark|smoke|all)
+      setup_triton_libcuda_env
+      ;;
+    extract)
+      ;;
+    *)
+      echo "ERROR: Unknown mode: $MODE" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
 
   case "$MODE" in
     train)
@@ -510,9 +539,6 @@ main() {
         postprocess_one "$run_id"
       done
       extract_section_latency
-      ;;
-    -h|--help|help)
-      usage
       ;;
     *)
       echo "ERROR: Unknown mode: $MODE" >&2

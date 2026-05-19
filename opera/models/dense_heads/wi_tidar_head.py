@@ -18,9 +18,9 @@ except ImportError:
     VelocityMLP = None
 
 try:
-    from opera.models.backbones.wimamba import WiMambaEncoder
+    import opera.models.backbones  # noqa: F401
 except ImportError:
-    WiMambaEncoder = None
+    pass
 
 
 @HEADS.register_module()
@@ -87,13 +87,15 @@ class WiTiDARHead(BaseModule):
         if transformer_encoder is not None:
             self.encoder = build_transformer_layer_sequence(transformer_encoder)
             self.encoder_type = 'transformer'
-        elif WiMambaEncoder is not None and mamba_cfg is not None:
+        elif mamba_cfg is not None:
             mamba_cfg_copy = mamba_cfg.copy()
-            mamba_cfg_copy.pop('type', None)
-            self.encoder = WiMambaEncoder(embed_dims=embed_dims, **mamba_cfg_copy)
+            mamba_cfg_copy.pop('_delete_', None)
+            mamba_cfg_copy.setdefault('type', 'WiMambaEncoder')
+            mamba_cfg_copy.setdefault('embed_dims', embed_dims)
+            self.encoder = build_transformer_layer_sequence(mamba_cfg_copy)
             self.encoder_type = 'mamba'
         else:
-            print('WARNING: WiMambaEncoder not found or mamba_cfg is None. Using Identity mapping.')
+            print('WARNING: transformer_encoder and mamba_cfg are both None. Using Identity mapping.')
             self.encoder = nn.Identity()
             self.encoder_type = 'identity'
 

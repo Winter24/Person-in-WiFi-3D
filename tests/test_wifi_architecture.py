@@ -305,18 +305,26 @@ class WifiArchitectureTests(unittest.TestCase):
 
     def test_wimamba_backbone_ablation_configs_switch_encoder_types(self):
         expected = {
-            "configs/wifi/petr_wifi_mamba.py": "WiMambaEncoder",
-            "configs/wifi/petr_wifi_mamba_v2.py": "WiMambaV2Encoder",
-            "configs/wifi/petr_wifi_mamba_v3.py": "WiMambaV3Encoder",
-            "configs/wifi/petr_wifi_mamba1_flatten.py": "WiMamba1FlatEncoder",
-            "configs/wifi/petr_wifi_mamba2_flatten.py": "WiMamba2FlatEncoder",
+            "configs/wifi/wi_tidir_wifi.py": "WiMambaEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba_v2.py": "WiMambaV2Encoder",
+            "configs/wifi/wi_tidir_wifi_mamba_v3.py": "WiMambaV3Encoder",
+            "configs/wifi/wi_tidir_wifi_mamba1_flatten.py": "WiMamba1FlatEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_flatten.py": "WiMamba2FlatEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_dropin.py": "WiMamba2DropInEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened.py": "WiMamba2CSIEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan.py": "WiMamba2CSIEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py": "WiMamba2CSIEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py": "WiMamba2CSIEncoder",
         }
         for path, encoder_type in expected.items():
             cfg = _load_config_module(path)
-            encoder = cfg.model["bbox_head"]["transformer"]["encoder"]
+            encoder = cfg.model["bbox_head"]["mamba_cfg"]
+            if "type" not in encoder:
+                encoder["type"] = "WiMambaEncoder"
             self.assertEqual(encoder["type"], encoder_type, msg=path)
             self.assertEqual(cfg.model["backbone"]["type"], "WifiInputAdapter")
             self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+            self.assertEqual(cfg.model["bbox_head"]["type"], "opera.WiTiDARHead")
 
     def test_wimamba_backbone_ablation_launcher_maps_all_variants(self):
         source = _read("scripts/run_wimamba_backbone_ablation.sh")
@@ -327,16 +335,16 @@ class WifiArchitectureTests(unittest.TestCase):
         ):
             self.assertIn(run_id, source)
         for config_path in (
-            "configs/wifi/petr_wifi_mamba.py",
-            "configs/wifi/petr_wifi_mamba_v2.py",
-            "configs/wifi/petr_wifi_mamba_v3.py",
-            "configs/wifi/petr_wifi_mamba1_flatten.py",
-            "configs/wifi/petr_wifi_mamba2_flatten.py",
-            "configs/wifi/petr_wifi_mamba2_dropin.py",
-            "configs/wifi/petr_wifi_mamba2_flattened.py",
-            "configs/wifi/petr_wifi_mamba2_crossscan.py",
-            "configs/wifi/petr_wifi_mamba2_crossscan_pos.py",
-            "configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py",
+            "configs/wifi/wi_tidir_wifi.py",
+            "configs/wifi/wi_tidir_wifi_mamba_v2.py",
+            "configs/wifi/wi_tidir_wifi_mamba_v3.py",
+            "configs/wifi/wi_tidir_wifi_mamba1_flatten.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flatten.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_dropin.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py",
         ):
             self.assertIn(config_path, source)
         self.assertIn("PYTHONHASHSEED_VALUE", source)
@@ -345,6 +353,9 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("--deterministic", source)
         self.assertIn("--auto-resume", source)
         self.assertIn("DRY_RUN", source)
+        self.assertIn("Checkpoint lookup:", source)
+        self.assertIn("-h|--help|help)", source)
+        self.assertIn("train|postprocess|benchmark|smoke|all)", source)
 
     def test_benchmark_supports_segmented_profile_sections(self):
         source = _read("tools/analysis/benchmark.py")
@@ -479,6 +490,7 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("Specify only one of transformer_encoder or mamba_cfg", source)
         self.assertIn("build_transformer_layer_sequence(transformer_encoder)", source)
         self.assertIn("self.encoder_type = 'transformer'", source)
+        self.assertIn("mamba_cfg_copy.setdefault('type', 'WiMambaEncoder')", source)
         self.assertIn("if self.encoder_type == 'mamba':", source)
         self.assertIn("elif self.encoder_type == 'transformer':", source)
         self.assertIn("self.encoder(query=feat, key=None, value=None)", source)

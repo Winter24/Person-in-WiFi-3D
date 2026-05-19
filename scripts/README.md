@@ -294,8 +294,9 @@ paper_assets/logs/
 
 ## `run_wimamba_backbone_ablation.sh`
 
-Purpose: run the fixed-seed full WiMamba backbone ablation ladder from
-`opera/models/backbones/` without swapping files by hand.
+Purpose: run the fixed-seed full WiMamba backbone ablation ladder inside
+`opera.WiTiDARHead` from `opera/models/backbones/` without swapping files by
+hand. This is the WiTiDAR/M4-style ablation, not the PETRHead encoder ablation.
 
 Default run ids:
 
@@ -303,20 +304,32 @@ Default run ids:
 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA
 ```
 
+Modes:
+
+| Mode | What it does |
+| --- | --- |
+| `all` | Train each selected run, then evaluate, benchmark, append CSV, and export section latency CSV. |
+| `train` | Train only. It writes checkpoints/logs under `WORK_ROOT`, but does not evaluate. |
+| `postprocess` | Evaluate + benchmark existing checkpoints, append CSV, and export section latency CSV. |
+| `benchmark` | Benchmark existing checkpoints only, then export section latency CSV. |
+| `extract` | Rebuild CSV rows from existing eval/benchmark JSON files. It does not train/evaluate/benchmark. |
+| `smoke` | Run a short benchmark with `times=5`, `warmup=2`; useful before long jobs. |
+| `help` | Print script help only; it does not validate configs or patch Triton. |
+
 Meaning:
 
 | Run ID | Config | Summary |
 | --- | --- | --- |
-| `M1FCT` | `configs/wifi/petr_wifi_mamba.py` | Current Mamba1 factorized temporal + bidirectional spatial scan. |
-| `M1V2` | `configs/wifi/petr_wifi_mamba_v2.py` | Mamba1 temporal scan + Conv1d antenna mixer. |
-| `M1V3` | `configs/wifi/petr_wifi_mamba_v3.py` | Mamba1 temporal scan + Linear antenna mixer. |
-| `M1FLAT` | `configs/wifi/petr_wifi_mamba1_flatten.py` | Mamba1 flattened single-route `L=180` scan. |
-| `M2FLAT` | `configs/wifi/petr_wifi_mamba2_flatten.py` | Mamba2 flattened single-route `L=180` wrapper. |
-| `M2D` | `configs/wifi/petr_wifi_mamba2_dropin.py` | Mamba2 drop-in factorized temporal/spatial layout. |
-| `M2CSI` | `configs/wifi/petr_wifi_mamba2_flattened.py` | Mamba2 CSI flattened single-route via `WiMamba2CSIEncoder`. |
-| `M2C` | `configs/wifi/petr_wifi_mamba2_crossscan.py` | Mamba2 two-route cross-scan. |
-| `M2CP` | `configs/wifi/petr_wifi_mamba2_crossscan_pos.py` | Mamba2 cross-scan + CSI positional embedding. |
-| `M2CPA` | `configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py` | Mamba2 cross-scan + position + final attention. |
+| `M1FCT` | `configs/wifi/wi_tidir_wifi.py` | Current Mamba1 factorized temporal + bidirectional spatial scan. |
+| `M1V2` | `configs/wifi/wi_tidir_wifi_mamba_v2.py` | Mamba1 temporal scan + Conv1d antenna mixer. |
+| `M1V3` | `configs/wifi/wi_tidir_wifi_mamba_v3.py` | Mamba1 temporal scan + Linear antenna mixer. |
+| `M1FLAT` | `configs/wifi/wi_tidir_wifi_mamba1_flatten.py` | Mamba1 flattened single-route `L=180` scan. |
+| `M2FLAT` | `configs/wifi/wi_tidir_wifi_mamba2_flatten.py` | Mamba2 flattened single-route `L=180` wrapper. |
+| `M2D` | `configs/wifi/wi_tidir_wifi_mamba2_dropin.py` | Mamba2 drop-in factorized temporal/spatial layout. |
+| `M2CSI` | `configs/wifi/wi_tidir_wifi_mamba2_flattened.py` | Mamba2 CSI flattened single-route via `WiMamba2CSIEncoder`. |
+| `M2C` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan.py` | Mamba2 two-route cross-scan. |
+| `M2CP` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py` | Mamba2 cross-scan + CSI positional embedding. |
+| `M2CPA` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py` | Mamba2 cross-scan + position + final attention. |
 
 Run all selected backbones:
 
@@ -338,10 +351,25 @@ ONLY_RUN_IDS="M1FCT M1V2 M1V3 M1FLAT M2FLAT" \
 bash scripts/run_wimamba_backbone_ablation.sh train
 ```
 
+Smoke-test model construction/benchmark path:
+
+```bash
+ONLY_RUN_IDS="M1FCT M2FLAT M2CPA" \
+bash scripts/run_wimamba_backbone_ablation.sh smoke
+```
+
 Postprocess existing checkpoints:
 
 ```bash
 bash scripts/run_wimamba_backbone_ablation.sh postprocess
+```
+
+Checkpoint lookup order for `postprocess`, `benchmark`, and `extract`:
+
+```text
+1. Per-run environment override, for example M1V3_CKPT=/path/to/checkpoint.pth.
+2. $WORK_ROOT/$RUN_ID/latest.pth.
+3. Highest version-sorted $WORK_ROOT/$RUN_ID/epoch_*.pth.
 ```
 
 Use explicit checkpoints:
@@ -358,6 +386,20 @@ Dry run before launching long jobs:
 ```bash
 DRY_RUN=1 ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
 bash scripts/run_wimamba_backbone_ablation.sh train
+```
+
+Useful overrides:
+
+```bash
+WORK_ROOT="work_dirs/wimamba_backbone_ablation"
+EVAL_ROOT="work_dirs/wimamba_backbone_eval"
+LOG_ROOT="paper_assets/logs/wimamba_backbone_ablation"
+MAX_EPOCHS=20
+SEED=42
+TRAIN_GPU=0
+TEST_GPU=0
+PROFILE_SECTIONS=1
+AUTO_FIX_TRITON_LIBCUDA=1
 ```
 
 Default outputs:
