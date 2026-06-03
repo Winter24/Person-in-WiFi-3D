@@ -283,7 +283,11 @@ class WiMamba2DropInEncoder(BaseModule):
                 d_state=d_state,
                 d_conv=d_conv,
                 expand_t=expand,
-                expand_s=1,
+                # Mamba2's fused causal-conv path requires its internal
+                # channel-last projection stride to be 8-aligned. With
+                # d_model=256, d_state=64, headdim=64, expand_s=1 creates a
+                # 644-wide projection and crashes; expand_s=2 keeps it aligned.
+                expand_s=expand,
                 headdim=headdim,
                 dropout=dropout)
             for _ in range(num_layers)

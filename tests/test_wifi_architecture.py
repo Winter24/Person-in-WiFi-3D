@@ -248,6 +248,8 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("_run_mamba2_with_padding(self.mamba_s_fwd, x_s)", source)
         self.assertIn("_run_mamba2_with_padding(self.mamba_s_bwd, x_s_rev)", source)
         self.assertIn("_run_mamba2_with_padding(self.mamba, routed)", source)
+        self.assertIn("expand_s=expand,", source)
+        self.assertIn("644-wide projection and crashes", source)
 
     def test_wimamba2_csi_encoder_is_exported(self):
         source = _read("opera/models/backbones/__init__.py")
