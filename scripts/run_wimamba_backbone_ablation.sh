@@ -13,7 +13,7 @@ fi
 # Full WiMamba encoder ladder inside opera.WiTiDARHead.
 # M1V1 is intentionally not a separate run because wimamba_v1.py is a
 # compatibility wrapper for the current factorized WiMamba implementation.
-RUN_IDS=(M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA)
+RUN_IDS=(M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA)
 if [[ -n "${ONLY_RUN_IDS:-}" ]]; then
   read -r -a RUN_IDS <<<"$ONLY_RUN_IDS"
 fi
@@ -40,6 +40,7 @@ SECTION_CSV_PATH="${SECTION_CSV_PATH:-$LOG_ROOT/section_latency_log.csv}"
 LAUNCH_LOG_DIR="${LAUNCH_LOG_DIR:-$LOG_ROOT/launch_logs}"
 
 declare -A CONFIG_PATHS=(
+  [M3]="configs/wifi/wi_tidir_wifi_transformer.py"
   [M1FCT]="configs/wifi/wi_tidir_wifi.py"
   [M1V2]="configs/wifi/wi_tidir_wifi_mamba_v2.py"
   [M1V3]="configs/wifi/wi_tidir_wifi_mamba_v3.py"
@@ -53,6 +54,7 @@ declare -A CONFIG_PATHS=(
 )
 
 declare -A RUN_NOTES=(
+  [M3]="M3 spectral input adapter + WiTiDARHead + Transformer encoder baseline"
   [M1FCT]="Mamba1 current factorized: temporal Mamba + bidirectional spatial Mamba"
   [M1V2]="Mamba1 fast factorized: temporal Mamba + Conv1d antenna mixer"
   [M1V3]="Mamba1 fast factorized: temporal Mamba + Linear antenna mixer"
@@ -83,6 +85,7 @@ Modes:
   smoke        Short benchmark with --times 5 --warmup 2.
 
 Run IDs:
+  M3      configs/wifi/wi_tidir_wifi_transformer.py
   M1FCT   configs/wifi/wi_tidir_wifi.py
   M1V2    configs/wifi/wi_tidir_wifi_mamba_v2.py
   M1V3    configs/wifi/wi_tidir_wifi_mamba_v3.py
@@ -95,7 +98,7 @@ Run IDs:
   M2CPA   configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py
 
 Environment overrides:
-  ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT"  Select a subset.
+  ONLY_RUN_IDS="M3 M1V3 M1FLAT M2FLAT"  Select a subset.
   MAX_EPOCHS=5                       Override runner.max_epochs for quick ablation.
   TRAIN_GPU=0 TEST_GPU=0             GPU id exposed as CUDA_VISIBLE_DEVICES.
   SEED=42                            Train seed passed to tools/train.py.

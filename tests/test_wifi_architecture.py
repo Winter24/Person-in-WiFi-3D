@@ -306,6 +306,14 @@ class WifiArchitectureTests(unittest.TestCase):
             self.assertIn(class_decl, source, msg=path)
 
     def test_wimamba_backbone_ablation_configs_switch_encoder_types(self):
+        transformer_cfg = _load_config_module(
+            "configs/wifi/wi_tidir_wifi_transformer.py")
+        self.assertEqual(
+            transformer_cfg.model["bbox_head"]["type"], "opera.WiTiDARHead")
+        self.assertIn(
+            "transformer_encoder", transformer_cfg.model["bbox_head"])
+        self.assertIsNone(transformer_cfg.model["bbox_head"]["mamba_cfg"])
+
         expected = {
             "configs/wifi/wi_tidir_wifi.py": "WiMambaEncoder",
             "configs/wifi/wi_tidir_wifi_mamba_v2.py": "WiMambaV2Encoder",
@@ -332,11 +340,12 @@ class WifiArchitectureTests(unittest.TestCase):
         source = _read("scripts/run_wimamba_backbone_ablation.sh")
 
         for run_id in (
-            "M1FCT", "M1V2", "M1V3", "M1FLAT", "M2FLAT",
+            "M3", "M1FCT", "M1V2", "M1V3", "M1FLAT", "M2FLAT",
             "M2D", "M2CSI", "M2C", "M2CP", "M2CPA",
         ):
             self.assertIn(run_id, source)
         for config_path in (
+            "configs/wifi/wi_tidir_wifi_transformer.py",
             "configs/wifi/wi_tidir_wifi.py",
             "configs/wifi/wi_tidir_wifi_mamba_v2.py",
             "configs/wifi/wi_tidir_wifi_mamba_v3.py",

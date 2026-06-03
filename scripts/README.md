@@ -301,7 +301,7 @@ hand. This is the WiTiDAR/M4-style ablation, not the PETRHead encoder ablation.
 Default run ids:
 
 ```text
-M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA
+M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA
 ```
 
 Modes:
@@ -325,6 +325,7 @@ Meaning:
 
 | Run ID | Config | Summary |
 | --- | --- | --- |
+| `M3` | `configs/wifi/wi_tidir_wifi_transformer.py` | WiTiDARHead baseline with Transformer encoder. |
 | `M1FCT` | `configs/wifi/wi_tidir_wifi.py` | Current Mamba1 factorized temporal + bidirectional spatial scan. |
 | `M1V2` | `configs/wifi/wi_tidir_wifi_mamba_v2.py` | Mamba1 temporal scan + Conv1d antenna mixer. |
 | `M1V3` | `configs/wifi/wi_tidir_wifi_mamba_v3.py` | Mamba1 temporal scan + Linear antenna mixer. |
@@ -345,21 +346,21 @@ bash scripts/run_wimamba_backbone_ablation.sh all
 Run a fast 5-epoch candidate subset:
 
 ```bash
-ONLY_RUN_IDS="M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
+ONLY_RUN_IDS="M3 M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
 bash scripts/run_wimamba_backbone_ablation.sh all
 ```
 
 Train only:
 
 ```bash
-ONLY_RUN_IDS="M1FCT M1V2 M1V3 M1FLAT M2FLAT" \
+ONLY_RUN_IDS="M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT" \
 bash scripts/run_wimamba_backbone_ablation.sh train
 ```
 
 Smoke-test model construction/benchmark path:
 
 ```bash
-ONLY_RUN_IDS="M1FCT M2FLAT M2CPA" \
+ONLY_RUN_IDS="M3 M1FCT M2FLAT M2CPA" \
 bash scripts/run_wimamba_backbone_ablation.sh smoke
 ```
 
