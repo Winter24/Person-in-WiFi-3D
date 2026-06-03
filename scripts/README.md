@@ -316,6 +316,11 @@ Modes:
 | `smoke` | Run a short benchmark with `times=5`, `warmup=2`; useful before long jobs. |
 | `help` | Print script help only; it does not validate configs or patch Triton. |
 
+`AUTO_RESUME` defaults to `0` on purpose. Enable `AUTO_RESUME=1` only when
+continuing the exact same config in the same work directory. If you change
+backbone/head/config, optimizer states from an older checkpoint can fail with
+`loaded state dict has a different number of parameter groups`.
+
 Meaning:
 
 | Run ID | Config | Summary |
@@ -372,6 +377,11 @@ Checkpoint lookup order for `postprocess`, `benchmark`, and `extract`:
 3. Highest version-sorted $WORK_ROOT/$RUN_ID/epoch_*.pth.
 ```
 
+Eval/benchmark config lookup is similarly conservative: the runner uses the
+current mapped config, or `$WORK_ROOT/$RUN_ID/$(basename config)` if that exact
+copy exists. It does not scan arbitrary old `.py` files in the work directory,
+which prevents stale PETR configs from being reused after switching to WiTiDAR.
+
 Use explicit checkpoints:
 
 ```bash
@@ -400,6 +410,7 @@ TRAIN_GPU=0
 TEST_GPU=0
 PROFILE_SECTIONS=1
 AUTO_FIX_TRITON_LIBCUDA=1
+AUTO_RESUME=0
 ```
 
 Default outputs:

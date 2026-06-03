@@ -29,6 +29,7 @@ BENCHMARK_TIMES="${BENCHMARK_TIMES:-100}"
 BENCHMARK_WARMUP="${BENCHMARK_WARMUP:-10}"
 PROFILE_SECTIONS="${PROFILE_SECTIONS:-1}"
 AUTO_FIX_TRITON_LIBCUDA="${AUTO_FIX_TRITON_LIBCUDA:-1}"
+AUTO_RESUME="${AUTO_RESUME:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
 WORK_ROOT="${WORK_ROOT:-work_dirs/wimamba_backbone_ablation}"
@@ -103,6 +104,7 @@ Environment overrides:
   BENCHMARK_DEVICE=cuda:0            Device used by tools/analysis/benchmark.py.
   PROFILE_SECTIONS=1                 Pass --profile-sections to benchmark.
   AUTO_FIX_TRITON_LIBCUDA=1          Run scripts/auto_fix_triton_libcuda.sh first.
+  AUTO_RESUME=0                      Set to 1 only to continue the exact same run.
   DRY_RUN=1                          Print commands without running them.
   M1V3_CKPT=/path/latest.pth         Per-run checkpoint override for postprocess.
 
@@ -190,18 +192,17 @@ benchmark_json_path() {
 
 resolve_eval_config() {
   local run_id="$1"
-  local run_dir config_path
+  local run_dir expected_config copied_config
   run_dir="$(run_work_dir "$run_id")"
+  expected_config="${CONFIG_PATHS[$run_id]}"
+  copied_config="$run_dir/$(basename "$expected_config")"
 
-  if [[ -d "$run_dir" ]]; then
-    config_path="$(find "$run_dir" -maxdepth 1 -type f -name '*.py' | sort | head -n 1)"
-    if [[ -n "$config_path" ]]; then
-      printf '%s\n' "$config_path"
-      return 0
-    fi
+  if [[ -f "$copied_config" ]]; then
+    printf '%s\n' "$copied_config"
+    return 0
   fi
 
-  printf '%s\n' "${CONFIG_PATHS[$run_id]}"
+  printf '%s\n' "$expected_config"
 }
 
 resolve_checkpoint() {
@@ -269,7 +270,7 @@ train_one() {
     "runner.max_epochs=$MAX_EPOCHS"
   )
 
-  if [[ -f "$work_dir/latest.pth" ]]; then
+  if [[ "$AUTO_RESUME" == "1" && -f "$work_dir/latest.pth" ]]; then
     cmd+=(--auto-resume)
   fi
 
@@ -279,6 +280,9 @@ train_one() {
   echo "Epochs:   $MAX_EPOCHS"
   echo "Work dir: $work_dir"
   echo "Log:      $log_path"
+  if [[ "$AUTO_RESUME" != "1" && -f "$work_dir/latest.pth" ]]; then
+    echo "Resume:   disabled; set AUTO_RESUME=1 only for the exact same config."
+  fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
     run_cmd "${cmd[@]}"
