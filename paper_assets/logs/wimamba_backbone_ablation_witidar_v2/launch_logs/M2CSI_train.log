@@ -1,0 +1,745 @@
+/usr/local/envs/opera/lib/python3.10/site-packages/mmcv/__init__.py:20: UserWarning: On January 1, 2023, MMCV will release v2.0.0, in which it will remove components related to the training process and add a data transformation module. In addition, it will rename the package names mmcv to mmcv-lite and mmcv-full to mmcv. See https://github.com/open-mmlab/mmcv/blob/master/docs/en/compatibility.md for more details.
+  warnings.warn(
+/root/Person-in-WiFi-3D/third_party/mmdet/mmdet/utils/setup_env.py:38: UserWarning: Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed.
+  warnings.warn(
+/root/Person-in-WiFi-3D/third_party/mmdet/mmdet/utils/setup_env.py:48: UserWarning: Setting MKL_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed.
+  warnings.warn(
+2026-06-03 15:44:33,913 - mmdet - INFO - Environment info:
+------------------------------------------------------------
+sys.platform: linux
+Python: 3.10.19 | packaged by conda-forge | (main, Oct 22 2025, 22:29:10) [GCC 14.3.0]
+CUDA available: True
+GPU 0: NVIDIA RTX 6000 Ada Generation
+CUDA_HOME: /usr/local/envs/opera
+NVCC: Cuda compilation tools, release 11.7, V11.7.99
+GCC: gcc (Ubuntu 9.4.0-1ubuntu1~20.04.2) 9.4.0
+PyTorch: 2.1.0+cu121
+PyTorch compiling details: PyTorch built with:
+  - GCC 9.3
+  - C++ Version: 201703
+  - Intel(R) oneAPI Math Kernel Library Version 2022.2-Product Build 20220804 for Intel(R) 64 architecture applications
+  - Intel(R) MKL-DNN v3.1.1 (Git Hash 64f6bcbcbab628e96f33a62c3e975f8535a7bde4)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: AVX512
+  - CUDA Runtime 12.1
+  - NVCC architecture flags: -gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_75,code=sm_75;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86;-gencode;arch=compute_90,code=sm_90
+  - CuDNN 8.9.2
+  - Magma 2.6.1
+  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, CUDA_VERSION=12.1, CUDNN_VERSION=8.9.2, CXX_COMPILER=/opt/rh/devtoolset-9/root/usr/bin/c++, CXX_FLAGS= -D_GLIBCXX_USE_CXX11_ABI=0 -fabi-version=11 -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOROCTRACER -DUSE_FBGEMM -DUSE_QNNPACK -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -O2 -fPIC -Wall -Wextra -Werror=return-type -Werror=non-virtual-dtor -Werror=bool-operation -Wnarrowing -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-unused-parameter -Wno-unused-function -Wno-unused-result -Wno-strict-overflow -Wno-strict-aliasing -Wno-stringop-overflow -Wno-psabi -Wno-error=pedantic -Wno-error=old-style-cast -Wno-invalid-partial-specialization -Wno-unused-private-field -Wno-aligned-allocation-unavailable -Wno-missing-braces -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Werror=cast-function-type -Wno-stringop-overflow, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, PERF_WITH_AVX512=1, TORCH_DISABLE_GPU_ASSERTS=ON, TORCH_VERSION=2.1.0, USE_CUDA=ON, USE_CUDNN=ON, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_MKL=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=1, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, 
+
+TorchVision: 0.16.0+cu121
+OpenCV: 4.9.0
+MMCV: 1.7.2
+MMCV Compiler: GCC 9.3
+MMCV CUDA Compiler: 11.8
+MMDetection: 2.25.0+1cba518
+------------------------------------------------------------
+
+2026-06-03 15:44:34,569 - mmdet - INFO - Distributed training: False
+2026-06-03 15:44:35,194 - mmdet - INFO - Config:
+dataset_type = 'opera.WifiPoseDataset'
+data_root = 'data/wifipose'
+meta_keys = []
+train_pipeline = [
+    dict(
+        type='opera.DefaultFormatBundle',
+        extra_keys=['gt_keypoints', 'gt_labels']),
+    dict(
+        type='mmdet.Collect',
+        keys=['img', 'gt_bboxes', 'gt_labels', 'gt_keypoints', 'gt_areas'],
+        meta_keys=[])
+]
+test_pipeline = [
+    dict(
+        type='mmdet.MultiScaleFlipAug',
+        scale_factor=1.0,
+        flip=False,
+        transforms=[
+            dict(
+                type='opera.DefaultFormatBundle',
+                extra_keys=['gt_keypoints', 'gt_labels']),
+            dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
+        ])
+]
+data = dict(
+    samples_per_gpu=32,
+    workers_per_gpu=2,
+    train=dict(
+        type='opera.WifiPoseDataset',
+        dataset_root='data/wifipose/train_data',
+        pipeline=[
+            dict(
+                type='opera.DefaultFormatBundle',
+                extra_keys=['gt_keypoints', 'gt_labels']),
+            dict(
+                type='mmdet.Collect',
+                keys=[
+                    'img', 'gt_bboxes', 'gt_labels', 'gt_keypoints', 'gt_areas'
+                ],
+                meta_keys=[])
+        ],
+        mode='train'),
+    val=dict(
+        type='opera.WifiPoseDataset',
+        dataset_root='data/wifipose/test_data',
+        pipeline=[
+            dict(
+                type='mmdet.MultiScaleFlipAug',
+                scale_factor=1.0,
+                flip=False,
+                transforms=[
+                    dict(
+                        type='opera.DefaultFormatBundle',
+                        extra_keys=['gt_keypoints', 'gt_labels']),
+                    dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
+                ])
+        ],
+        mode='test'),
+    test=dict(
+        type='opera.WifiPoseDataset',
+        dataset_root='data/wifipose/test_data',
+        pipeline=[
+            dict(
+                type='mmdet.MultiScaleFlipAug',
+                scale_factor=1.0,
+                flip=False,
+                transforms=[
+                    dict(
+                        type='opera.DefaultFormatBundle',
+                        extra_keys=['gt_keypoints', 'gt_labels']),
+                    dict(type='mmdet.Collect', keys=['img'], meta_keys=[])
+                ])
+        ],
+        mode='test'))
+evaluation = dict(interval=5, metric='mpjpe')
+checkpoint_config = dict(interval=5, max_keep_ckpts=20)
+log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
+custom_hooks = [
+    dict(type='NumClassCheckHook'),
+    dict(
+        type='BoneLossWarmupHook',
+        target_weight=1.0,
+        warmup_ratio=0.1,
+        ramp_ratio=0.1)
+]
+dist_params = dict(backend='nccl')
+log_level = 'INFO'
+load_from = None
+resume_from = None
+workflow = [('train', 1)]
+opencv_num_threads = 0
+mp_start_method = 'fork'
+auto_scale_lr = dict(enable=False, base_batch_size=16)
+model = dict(
+    type='opera.PETR',
+    backbone=dict(
+        type='WifiInputAdapter',
+        in_channels=60,
+        embed_dims=256,
+        mode='spectral'),
+    neck=None,
+    bbox_head=dict(
+        type='opera.WiTiDARHead',
+        num_query=100,
+        num_classes=1,
+        in_channels=256,
+        sync_cls_avg_factor=True,
+        with_kpt_refine=True,
+        as_two_stage=True,
+        num_keypoints=14,
+        transformer=dict(
+            type='opera.PETRTransformer',
+            num_keypoints=14,
+            encoder=dict(
+                type='mmcv.DetrTransformerEncoder',
+                num_layers=6,
+                transformerlayers=dict(
+                    type='mmcv.BaseTransformerLayer',
+                    attn_cfgs=dict(
+                        type='mmcv.MultiheadAttention',
+                        embed_dims=256,
+                        num_heads=8,
+                        dropout=0.1),
+                    feedforward_channels=1024,
+                    ffn_dropout=0.1,
+                    operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
+            decoder=dict(
+                type='opera.PetrTransformerDecoder',
+                num_layers=3,
+                num_keypoints=14,
+                return_intermediate=True,
+                transformerlayers=dict(
+                    type='mmcv.DetrTransformerDecoderLayer',
+                    attn_cfgs=[
+                        dict(
+                            type='mmcv.MultiheadAttention',
+                            embed_dims=256,
+                            num_heads=8,
+                            dropout=0.1),
+                        dict(
+                            type='mmcv.MultiheadAttention',
+                            embed_dims=256,
+                            num_heads=8,
+                            dropout=0.1)
+                    ],
+                    feedforward_channels=1024,
+                    ffn_dropout=0.1,
+                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
+                                     'ffn', 'norm'))),
+            refine_decoder=dict(
+                type='opera.PetrRefineTransformerDecoder',
+                num_layers=2,
+                return_intermediate=True,
+                transformerlayers=dict(
+                    type='mmcv.DetrTransformerDecoderLayer',
+                    attn_cfgs=[
+                        dict(
+                            type='mmcv.MultiheadAttention',
+                            embed_dims=256,
+                            num_heads=8,
+                            dropout=0.1),
+                        dict(
+                            type='mmcv.MultiheadAttention',
+                            embed_dims=256,
+                            num_heads=8,
+                            dropout=0.1)
+                    ],
+                    feedforward_channels=1024,
+                    ffn_dropout=0.1,
+                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
+                                     'ffn', 'norm')))),
+        positional_encoding=dict(
+            type='mmcv.SinePositionalEncoding',
+            num_feats=128,
+            normalize=True,
+            offset=-0.5),
+        loss_cls=dict(
+            type='mmdet.FocalLoss',
+            use_sigmoid=True,
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=2.0),
+        loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0),
+        loss_bone=dict(type='BoneLengthLoss', loss_weight=2.0),
+        loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=35.0),
+        loss_oks=dict(type='opera.OKSLoss', loss_weight=2.0),
+        loss_hm=dict(type='opera.CenterFocalLoss', loss_weight=4.0),
+        loss_kpt_refine=dict(type='mmdet.MSELoss', loss_weight=35.0),
+        loss_oks_refine=dict(type='opera.OKSLoss', loss_weight=3.0),
+        embed_dims=256,
+        mamba_cfg=dict(
+            type='WiMamba2CSIEncoder',
+            embed_dims=256,
+            num_layers=3,
+            d_state=64,
+            d_conv=4,
+            expand=2,
+            headdim=64,
+            dropout=0.1,
+            routes=('time_major', ),
+            fusion='mean',
+            use_pos_embed=False,
+            final_attn=False),
+        loss_flow_weight=10.0,
+        train_cfg=dict(
+            assigner=dict(
+                type='opera.PoseHungarianAssigner',
+                cls_cost=dict(type='mmdet.FocalLossCost', weight=2.0),
+                kpt_cost=dict(type='opera.KptL1Cost', weight=5.0),
+                oks_cost=dict(type='opera.OksCost', weight=0.0))),
+        test_cfg=dict(max_per_img=100)),
+    train_cfg=dict(
+        assigner=dict(
+            type='opera.PoseHungarianAssigner',
+            cls_cost=dict(type='mmdet.FocalLossCost', weight=4.0),
+            kpt_cost=dict(type='opera.KptMSECost', weight=35.0),
+            oks_cost=dict(type='opera.OksCost', weight=7.0))),
+    test_cfg=dict(max_per_img=100))
+optimizer = dict(
+    type='AdamW',
+    betas=(0.9, 0.999),
+    lr=2e-05,
+    weight_decay=0.0001,
+    paramwise_cfg=dict(
+        custom_keys=dict(
+            backbone=dict(lr_mult=0.1),
+            sampling_offsets=dict(lr_mult=0.1),
+            reference_points=dict(lr_mult=0.1))))
+optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
+lr_config = dict(policy='step', step=[450])
+runner = dict(type='EpochBasedRunner', max_epochs=1)
+find_unused_parameters = True
+work_dir = 'work_dirs/wimamba_backbone_ablation_witidar_v2/M2CSI'
+auto_resume = False
+gpu_ids = [0]
+
+2026-06-03 15:44:35,195 - mmdet - INFO - Set random seed to 42, deterministic: True
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.head.weight - torch.Size([256, 60]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.head.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.time_conv.weight - torch.Size([256, 1, 5]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.time_conv.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.freq_gate.0.weight - torch.Size([22, 11]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.freq_gate.0.bias - torch.Size([22]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.freq_gate.2.weight - torch.Size([20, 22]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.freq_gate.2.bias - torch.Size([20]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,245 - mmcv - INFO - 
+backbone.channel_proj.weight - torch.Size([256, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+backbone.channel_proj.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+backbone.norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+backbone.norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.dt_bias - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.A_log - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.D - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.in_proj.weight - torch.Size([1160, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.conv1d.weight - torch.Size([640, 1, 4]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.conv1d.bias - torch.Size([640]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.norm.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.0.mamba.out_proj.weight - torch.Size([256, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.dt_bias - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.A_log - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.D - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.in_proj.weight - torch.Size([1160, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.conv1d.weight - torch.Size([640, 1, 4]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.conv1d.bias - torch.Size([640]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.norm.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.1.mamba.out_proj.weight - torch.Size([256, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.dt_bias - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.A_log - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.D - torch.Size([8]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,246 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.in_proj.weight - torch.Size([1160, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.conv1d.weight - torch.Size([640, 1, 4]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.conv1d.bias - torch.Size([640]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.norm.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.layers.2.mamba.out_proj.weight - torch.Size([256, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.final_norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.encoder.final_norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_attn.in_proj_weight - torch.Size([768, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_attn.in_proj_bias - torch.Size([768]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_attn.out_proj.weight - torch.Size([256, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_attn.out_proj.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.query_embedding.weight - torch.Size([100, 256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_norm.weight - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.decoder_norm.bias - torch.Size([256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.0.weight - torch.Size([256, 256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.0.bias - torch.Size([256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.2.weight - torch.Size([256, 256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.2.bias - torch.Size([256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.4.weight - torch.Size([42, 256]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.draft_regressor.4.bias - torch.Size([42]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.cls_head.weight - torch.Size([1, 256]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.cls_head.bias - torch.Size([1]): 
+Initialized by user-defined `init_weights` in WiTiDARHead  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.time_mlp.1.weight - torch.Size([128, 64]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.time_mlp.1.bias - torch.Size([128]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.time_mlp.3.weight - torch.Size([64, 128]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.time_mlp.3.bias - torch.Size([64]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.input_proj.weight - torch.Size([512, 362]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.input_proj.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.0.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.0.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.1.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,247 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.1.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.4.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.0.net.4.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.0.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.0.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.1.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.1.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.4.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.1.net.4.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.0.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.0.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.1.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.1.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.4.weight - torch.Size([512, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.blocks.2.net.4.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.output_norm.weight - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.output_norm.bias - torch.Size([512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.final_linear.weight - torch.Size([42, 512]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,248 - mmcv - INFO - 
+bbox_head.flow_model.velocity_net.final_linear.bias - torch.Size([42]): 
+The value is the same before and after calling `init_weights` of PETR  
+ 
+2026-06-03 15:44:35,396 - mmdet - INFO - Automatic scaling of learning rate (LR) has been disabled.
+2026-06-03 15:44:35,402 - mmdet - INFO - Start running, host: root@cf7a4801a593, work_dir: /root/Person-in-WiFi-3D/work_dirs/wimamba_backbone_ablation_witidar_v2/M2CSI
+2026-06-03 15:44:35,403 - mmdet - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) StepLrUpdaterHook                  
+(NORMAL      ) LatestCheckpointHook               
+(LOW         ) EvalHook                           
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) StepLrUpdaterHook                  
+(NORMAL      ) NumClassCheckHook                  
+(NORMAL      ) BoneLossWarmupHook                 
+(LOW         ) IterTimerHook                      
+(LOW         ) EvalHook                           
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) StepLrUpdaterHook                  
+(LOW         ) IterTimerHook                      
+(LOW         ) EvalHook                           
+ -------------------- 
+after_train_iter:
+(ABOVE_NORMAL) OptimizerHook                      
+(NORMAL      ) LatestCheckpointHook               
+(LOW         ) IterTimerHook                      
+(LOW         ) EvalHook                           
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) LatestCheckpointHook               
+(LOW         ) EvalHook                           
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) NumClassCheckHook                  
+(LOW         ) IterTimerHook                      
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_val_iter:
+(LOW         ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(LOW         ) IterTimerHook                      
+ -------------------- 
+after_val_epoch:
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+after_run:
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+2026-06-03 15:44:35,403 - mmdet - INFO - workflow: [('train', 1)], max: 1 epochs
+2026-06-03 15:44:35,403 - mmdet - INFO - Checkpoints will be saved to /root/Person-in-WiFi-3D/work_dirs/wimamba_backbone_ablation_witidar_v2/M2CSI by HardDiskBackend.
+2026-06-03 15:44:35,404 - mmdet - INFO - [BoneLossWarmup] Epoch 1/1 | Warmup: 1e, Ramp: 1e | Bone weight -> 0.0000
+>>> Successfully patched mmcv._get_stream for PyTorch 2.0 compatibility.
+[WiTiDARHead] Loaded gt_bone_stats.json from /root/Person-in-WiFi-3D/gt_bone_stats.json
+/usr/local/envs/opera/lib/python3.10/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:845: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:71.)
+  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
+/usr/local/envs/opera/lib/python3.10/site-packages/mamba_ssm/ops/triton/ssd_combined.py:437: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:71.)
+  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
+2026-06-03 15:45:06,991 - mmdet - INFO - Epoch [1][50/2811]	lr: 2.000e-06, eta: 0:29:04, time: 0.632, data_time: 0.073, memory: 693, loss_cls: 2.1008, loss_kpt: 367.2226, loss_flow: 38.4686, loss_bone: 0.0000, loss: 407.7920, grad_norm: 695.2178
+2026-06-03 15:45:26,944 - mmdet - INFO - Epoch [1][100/2811]	lr: 2.000e-06, eta: 0:23:17, time: 0.399, data_time: 0.020, memory: 693, loss_cls: 2.2990, loss_kpt: 229.0510, loss_flow: 13.8717, loss_bone: 0.0000, loss: 245.2217, grad_norm: 527.0420
+2026-06-03 15:45:46,396 - mmdet - INFO - Epoch [1][150/2811]	lr: 2.000e-06, eta: 0:20:59, time: 0.389, data_time: 0.021, memory: 693, loss_cls: 2.0617, loss_kpt: 148.9357, loss_flow: 5.3446, loss_bone: 0.0000, loss: 156.3420, grad_norm: 471.9195
+2026-06-03 15:46:05,284 - mmdet - INFO - Epoch [1][200/2811]	lr: 2.000e-06, eta: 0:19:33, time: 0.378, data_time: 0.021, memory: 693, loss_cls: 1.7443, loss_kpt: 102.0420, loss_flow: 3.8563, loss_bone: 0.0000, loss: 107.6426, grad_norm: 360.7200
+2026-06-03 15:46:23,007 - mmdet - INFO - Epoch [1][250/2811]	lr: 2.000e-06, eta: 0:18:22, time: 0.354, data_time: 0.019, memory: 693, loss_cls: 1.2354, loss_kpt: 92.9693, loss_flow: 2.3520, loss_bone: 0.0000, loss: 96.5568, grad_norm: 301.6462
+2026-06-03 15:46:42,730 - mmdet - INFO - Epoch [1][300/2811]	lr: 2.000e-06, eta: 0:17:45, time: 0.394, data_time: 0.019, memory: 693, loss_cls: 0.9814, loss_kpt: 91.2490, loss_flow: 1.3465, loss_bone: 0.0000, loss: 93.5769, grad_norm: 310.2238
+2026-06-03 15:47:00,406 - mmdet - INFO - Epoch [1][350/2811]	lr: 2.000e-06, eta: 0:16:59, time: 0.354, data_time: 0.019, memory: 693, loss_cls: 0.9513, loss_kpt: 89.8109, loss_flow: 1.0089, loss_bone: 0.0000, loss: 91.7711, grad_norm: 366.1639
+2026-06-03 15:47:18,940 - mmdet - INFO - Epoch [1][400/2811]	lr: 2.000e-06, eta: 0:16:25, time: 0.371, data_time: 0.020, memory: 693, loss_cls: 0.9308, loss_kpt: 87.1239, loss_flow: 0.8134, loss_bone: 0.0000, loss: 88.8680, grad_norm: 419.3471
+2026-06-03 15:47:37,692 - mmdet - INFO - Epoch [1][450/2811]	lr: 2.000e-06, eta: 0:15:56, time: 0.375, data_time: 0.021, memory: 693, loss_cls: 0.9197, loss_kpt: 81.9304, loss_flow: 0.7550, loss_bone: 0.0000, loss: 83.6051, grad_norm: 536.0343
+2026-06-03 15:47:56,552 - mmdet - INFO - Epoch [1][500/2811]	lr: 2.000e-06, eta: 0:15:29, time: 0.377, data_time: 0.020, memory: 693, loss_cls: 0.9123, loss_kpt: 74.4972, loss_flow: 0.7311, loss_bone: 0.0000, loss: 76.1407, grad_norm: 734.6157
+2026-06-03 15:48:16,411 - mmdet - INFO - Epoch [1][550/2811]	lr: 2.000e-06, eta: 0:15:08, time: 0.397, data_time: 0.021, memory: 693, loss_cls: 0.9263, loss_kpt: 59.8520, loss_flow: 0.8308, loss_bone: 0.0000, loss: 61.6091, grad_norm: 1024.6049
+2026-06-03 15:48:36,618 - mmdet - INFO - Epoch [1][600/2811]	lr: 2.000e-06, eta: 0:14:48, time: 0.404, data_time: 0.021, memory: 693, loss_cls: 0.8705, loss_kpt: 51.9513, loss_flow: 0.7848, loss_bone: 0.0000, loss: 53.6067, grad_norm: 1211.2459
+2026-06-03 15:48:57,792 - mmdet - INFO - Epoch [1][650/2811]	lr: 2.000e-06, eta: 0:14:32, time: 0.423, data_time: 0.020, memory: 693, loss_cls: 0.8336, loss_kpt: 49.0298, loss_flow: 0.7114, loss_bone: 0.0000, loss: 50.5748, grad_norm: 1222.7579
+2026-06-03 15:49:17,317 - mmdet - INFO - Epoch [1][700/2811]	lr: 2.000e-06, eta: 0:14:10, time: 0.390, data_time: 0.021, memory: 693, loss_cls: 0.8021, loss_kpt: 46.8324, loss_flow: 0.6736, loss_bone: 0.0000, loss: 48.3081, grad_norm: 1325.7270
+2026-06-03 15:49:36,515 - mmdet - INFO - Epoch [1][750/2811]	lr: 2.000e-06, eta: 0:13:47, time: 0.384, data_time: 0.020, memory: 693, loss_cls: 0.7879, loss_kpt: 45.1993, loss_flow: 0.6245, loss_bone: 0.0000, loss: 46.6118, grad_norm: 1251.3256
+2026-06-03 15:49:55,440 - mmdet - INFO - Epoch [1][800/2811]	lr: 2.000e-06, eta: 0:13:24, time: 0.378, data_time: 0.020, memory: 693, loss_cls: 0.7786, loss_kpt: 45.2561, loss_flow: 0.6302, loss_bone: 0.0000, loss: 46.6649, grad_norm: 1405.3640
+2026-06-03 15:50:16,448 - mmdet - INFO - Epoch [1][850/2811]	lr: 2.000e-06, eta: 0:13:06, time: 0.420, data_time: 0.021, memory: 693, loss_cls: 0.7653, loss_kpt: 43.7347, loss_flow: 0.5972, loss_bone: 0.0000, loss: 45.0972, grad_norm: 1334.4688
+2026-06-03 15:50:37,000 - mmdet - INFO - Epoch [1][900/2811]	lr: 2.000e-06, eta: 0:12:47, time: 0.411, data_time: 0.021, memory: 693, loss_cls: 0.7465, loss_kpt: 42.4631, loss_flow: 0.5758, loss_bone: 0.0000, loss: 43.7854, grad_norm: 1353.5581
+2026-06-03 15:50:56,043 - mmdet - INFO - Epoch [1][950/2811]	lr: 2.000e-06, eta: 0:12:25, time: 0.381, data_time: 0.020, memory: 693, loss_cls: 0.7337, loss_kpt: 39.8720, loss_flow: 0.5581, loss_bone: 0.0000, loss: 41.1638, grad_norm: 1364.0596
+2026-06-03 15:51:17,187 - mmdet - INFO - Exp name: wi_tidir_wifi_mamba2_flattened.py
+2026-06-03 15:51:17,187 - mmdet - INFO - Epoch [1][1000/2811]	lr: 2.000e-06, eta: 0:12:07, time: 0.423, data_time: 0.020, memory: 693, loss_cls: 0.7311, loss_kpt: 37.5914, loss_flow: 0.5264, loss_bone: 0.0000, loss: 38.8488, grad_norm: 1284.4966
+2026-06-03 15:51:38,733 - mmdet - INFO - Epoch [1][1050/2811]	lr: 2.000e-06, eta: 0:11:49, time: 0.431, data_time: 0.021, memory: 693, loss_cls: 0.7214, loss_kpt: 36.9321, loss_flow: 0.5118, loss_bone: 0.0000, loss: 38.1653, grad_norm: 1342.3216
+2026-06-03 15:52:00,415 - mmdet - INFO - Epoch [1][1100/2811]	lr: 2.000e-06, eta: 0:11:32, time: 0.434, data_time: 0.020, memory: 693, loss_cls: 0.7161, loss_kpt: 35.6996, loss_flow: 0.5056, loss_bone: 0.0000, loss: 36.9213, grad_norm: 1388.1765
+2026-06-03 15:52:21,771 - mmdet - INFO - Epoch [1][1150/2811]	lr: 2.000e-06, eta: 0:11:13, time: 0.427, data_time: 0.019, memory: 693, loss_cls: 0.7131, loss_kpt: 35.2652, loss_flow: 0.4922, loss_bone: 0.0000, loss: 36.4706, grad_norm: 1362.2592
+2026-06-03 15:52:40,199 - mmdet - INFO - Epoch [1][1200/2811]	lr: 2.000e-06, eta: 0:10:50, time: 0.369, data_time: 0.020, memory: 693, loss_cls: 0.7049, loss_kpt: 34.1534, loss_flow: 0.4797, loss_bone: 0.0000, loss: 35.3380, grad_norm: 1260.2888
+2026-06-03 15:52:59,146 - mmdet - INFO - Epoch [1][1250/2811]	lr: 2.000e-06, eta: 0:10:29, time: 0.379, data_time: 0.020, memory: 693, loss_cls: 0.7042, loss_kpt: 33.9034, loss_flow: 0.4774, loss_bone: 0.0000, loss: 35.0850, grad_norm: 1525.1631
+2026-06-03 15:53:18,875 - mmdet - INFO - Epoch [1][1300/2811]	lr: 2.000e-06, eta: 0:10:08, time: 0.395, data_time: 0.020, memory: 693, loss_cls: 0.7005, loss_kpt: 32.7815, loss_flow: 0.4583, loss_bone: 0.0000, loss: 33.9402, grad_norm: 1245.7868
+2026-06-03 15:53:40,678 - mmdet - INFO - Epoch [1][1350/2811]	lr: 2.000e-06, eta: 0:09:50, time: 0.436, data_time: 0.020, memory: 693, loss_cls: 0.6959, loss_kpt: 32.4221, loss_flow: 0.4521, loss_bone: 0.0000, loss: 33.5701, grad_norm: 1233.9233
+2026-06-03 15:54:02,307 - mmdet - INFO - Epoch [1][1400/2811]	lr: 2.000e-06, eta: 0:09:31, time: 0.433, data_time: 0.020, memory: 693, loss_cls: 0.6980, loss_kpt: 32.1079, loss_flow: 0.4472, loss_bone: 0.0000, loss: 33.2531, grad_norm: 1394.6711
+2026-06-03 15:54:23,007 - mmdet - INFO - Epoch [1][1450/2811]	lr: 2.000e-06, eta: 0:09:11, time: 0.414, data_time: 0.020, memory: 693, loss_cls: 0.6924, loss_kpt: 31.5544, loss_flow: 0.4362, loss_bone: 0.0000, loss: 32.6830, grad_norm: 1210.4790
+2026-06-03 15:54:44,207 - mmdet - INFO - Epoch [1][1500/2811]	lr: 2.000e-06, eta: 0:08:52, time: 0.424, data_time: 0.021, memory: 693, loss_cls: 0.6885, loss_kpt: 30.9330, loss_flow: 0.4228, loss_bone: 0.0000, loss: 32.0443, grad_norm: 1134.0396
+2026-06-03 15:55:05,122 - mmdet - INFO - Epoch [1][1550/2811]	lr: 2.000e-06, eta: 0:08:32, time: 0.418, data_time: 0.021, memory: 693, loss_cls: 0.6844, loss_kpt: 30.6496, loss_flow: 0.4150, loss_bone: 0.0000, loss: 31.7491, grad_norm: 1108.3847
+2026-06-03 15:55:22,642 - mmdet - INFO - Epoch [1][1600/2811]	lr: 2.000e-06, eta: 0:08:09, time: 0.350, data_time: 0.019, memory: 693, loss_cls: 0.6865, loss_kpt: 30.5015, loss_flow: 0.4133, loss_bone: 0.0000, loss: 31.6012, grad_norm: 1129.8926
+2026-06-03 15:55:42,362 - mmdet - INFO - Epoch [1][1650/2811]	lr: 2.000e-06, eta: 0:07:49, time: 0.394, data_time: 0.020, memory: 693, loss_cls: 0.6806, loss_kpt: 29.7290, loss_flow: 0.3944, loss_bone: 0.0000, loss: 30.8040, grad_norm: 979.5015
+2026-06-03 15:56:01,511 - mmdet - INFO - Epoch [1][1700/2811]	lr: 2.000e-06, eta: 0:07:28, time: 0.383, data_time: 0.021, memory: 693, loss_cls: 0.6774, loss_kpt: 29.5568, loss_flow: 0.3945, loss_bone: 0.0000, loss: 30.6288, grad_norm: 1038.8828
+2026-06-03 15:56:20,567 - mmdet - INFO - Epoch [1][1750/2811]	lr: 2.000e-06, eta: 0:07:07, time: 0.381, data_time: 0.021, memory: 693, loss_cls: 0.6786, loss_kpt: 29.5647, loss_flow: 0.3969, loss_bone: 0.0000, loss: 30.6402, grad_norm: 1005.2817
+2026-06-03 15:56:42,124 - mmdet - INFO - Epoch [1][1800/2811]	lr: 2.000e-06, eta: 0:06:48, time: 0.431, data_time: 0.021, memory: 693, loss_cls: 0.6689, loss_kpt: 29.2775, loss_flow: 0.3923, loss_bone: 0.0000, loss: 30.3388, grad_norm: 921.9769
+2026-06-03 15:57:02,527 - mmdet - INFO - Epoch [1][1850/2811]	lr: 2.000e-06, eta: 0:06:28, time: 0.408, data_time: 0.020, memory: 693, loss_cls: 0.6695, loss_kpt: 28.8855, loss_flow: 0.3819, loss_bone: 0.0000, loss: 29.9370, grad_norm: 991.8307
+2026-06-03 15:57:21,639 - mmdet - INFO - Epoch [1][1900/2811]	lr: 2.000e-06, eta: 0:06:07, time: 0.382, data_time: 0.020, memory: 693, loss_cls: 0.6729, loss_kpt: 29.0744, loss_flow: 0.3855, loss_bone: 0.0000, loss: 30.1328, grad_norm: 966.1942
+2026-06-03 15:57:40,843 - mmdet - INFO - Epoch [1][1950/2811]	lr: 2.000e-06, eta: 0:05:46, time: 0.384, data_time: 0.020, memory: 693, loss_cls: 0.6687, loss_kpt: 29.0229, loss_flow: 0.3785, loss_bone: 0.0000, loss: 30.0701, grad_norm: 916.9844
+2026-06-03 15:58:00,485 - mmdet - INFO - Exp name: wi_tidir_wifi_mamba2_flattened.py
+2026-06-03 15:58:00,485 - mmdet - INFO - Epoch [1][2000/2811]	lr: 2.000e-06, eta: 0:05:26, time: 0.393, data_time: 0.021, memory: 693, loss_cls: 0.6647, loss_kpt: 28.7722, loss_flow: 0.3781, loss_bone: 0.0000, loss: 29.8150, grad_norm: 879.1787
+2026-06-03 15:58:19,389 - mmdet - INFO - Epoch [1][2050/2811]	lr: 2.000e-06, eta: 0:05:05, time: 0.378, data_time: 0.020, memory: 693, loss_cls: 0.6685, loss_kpt: 27.8980, loss_flow: 0.3650, loss_bone: 0.0000, loss: 28.9315, grad_norm: 833.8929
+2026-06-03 15:58:38,515 - mmdet - INFO - Epoch [1][2100/2811]	lr: 2.000e-06, eta: 0:04:45, time: 0.383, data_time: 0.020, memory: 693, loss_cls: 0.6622, loss_kpt: 28.0009, loss_flow: 0.3595, loss_bone: 0.0000, loss: 29.0225, grad_norm: 775.1370
+2026-06-03 15:58:57,429 - mmdet - INFO - Epoch [1][2150/2811]	lr: 2.000e-06, eta: 0:04:25, time: 0.378, data_time: 0.021, memory: 693, loss_cls: 0.6592, loss_kpt: 28.3720, loss_flow: 0.3619, loss_bone: 0.0000, loss: 29.3932, grad_norm: 788.7643
+2026-06-03 15:59:16,663 - mmdet - INFO - Epoch [1][2200/2811]	lr: 2.000e-06, eta: 0:04:04, time: 0.385, data_time: 0.021, memory: 693, loss_cls: 0.6558, loss_kpt: 27.7244, loss_flow: 0.3569, loss_bone: 0.0000, loss: 28.7371, grad_norm: 825.9748
+2026-06-03 15:59:35,683 - mmdet - INFO - Epoch [1][2250/2811]	lr: 2.000e-06, eta: 0:03:44, time: 0.380, data_time: 0.021, memory: 693, loss_cls: 0.6532, loss_kpt: 27.5566, loss_flow: 0.3485, loss_bone: 0.0000, loss: 28.5583, grad_norm: 810.0281
+2026-06-03 15:59:54,931 - mmdet - INFO - Epoch [1][2300/2811]	lr: 2.000e-06, eta: 0:03:24, time: 0.385, data_time: 0.021, memory: 693, loss_cls: 0.6572, loss_kpt: 28.1096, loss_flow: 0.3575, loss_bone: 0.0000, loss: 29.1243, grad_norm: 820.1008
+2026-06-03 16:00:14,796 - mmdet - INFO - Epoch [1][2350/2811]	lr: 2.000e-06, eta: 0:03:04, time: 0.397, data_time: 0.021, memory: 693, loss_cls: 0.6599, loss_kpt: 27.4312, loss_flow: 0.3429, loss_bone: 0.0000, loss: 28.4340, grad_norm: 750.9777
+2026-06-03 16:00:36,551 - mmdet - INFO - Epoch [1][2400/2811]	lr: 2.000e-06, eta: 0:02:44, time: 0.435, data_time: 0.021, memory: 693, loss_cls: 0.6585, loss_kpt: 27.3543, loss_flow: 0.3467, loss_bone: 0.0000, loss: 28.3595, grad_norm: 753.0975
+2026-06-03 16:00:58,179 - mmdet - INFO - Epoch [1][2450/2811]	lr: 2.000e-06, eta: 0:02:24, time: 0.433, data_time: 0.021, memory: 693, loss_cls: 0.6488, loss_kpt: 27.4276, loss_flow: 0.3407, loss_bone: 0.0000, loss: 28.4171, grad_norm: 731.1082
+2026-06-03 16:01:18,883 - mmdet - INFO - Epoch [1][2500/2811]	lr: 2.000e-06, eta: 0:02:04, time: 0.414, data_time: 0.020, memory: 693, loss_cls: 0.6507, loss_kpt: 27.2145, loss_flow: 0.3365, loss_bone: 0.0000, loss: 28.2017, grad_norm: 718.5900
+2026-06-03 16:01:37,889 - mmdet - INFO - Epoch [1][2550/2811]	lr: 2.000e-06, eta: 0:01:44, time: 0.380, data_time: 0.020, memory: 693, loss_cls: 0.6469, loss_kpt: 27.6168, loss_flow: 0.3459, loss_bone: 0.0000, loss: 28.6097, grad_norm: 758.5194
+2026-06-03 16:01:56,936 - mmdet - INFO - Epoch [1][2600/2811]	lr: 2.000e-06, eta: 0:01:24, time: 0.381, data_time: 0.020, memory: 693, loss_cls: 0.6508, loss_kpt: 27.5071, loss_flow: 0.3422, loss_bone: 0.0000, loss: 28.5001, grad_norm: 819.6009
+2026-06-03 16:02:18,163 - mmdet - INFO - Epoch [1][2650/2811]	lr: 2.000e-06, eta: 0:01:04, time: 0.425, data_time: 0.021, memory: 693, loss_cls: 0.6467, loss_kpt: 27.2119, loss_flow: 0.3327, loss_bone: 0.0000, loss: 28.1913, grad_norm: 684.2483
+2026-06-03 16:02:36,627 - mmdet - INFO - Epoch [1][2700/2811]	lr: 2.000e-06, eta: 0:00:44, time: 0.369, data_time: 0.020, memory: 693, loss_cls: 0.6427, loss_kpt: 27.0833, loss_flow: 0.3269, loss_bone: 0.0000, loss: 28.0528, grad_norm: 702.6316
+2026-06-03 16:02:56,071 - mmdet - INFO - Epoch [1][2750/2811]	lr: 2.000e-06, eta: 0:00:24, time: 0.389, data_time: 0.020, memory: 693, loss_cls: 0.6471, loss_kpt: 27.0942, loss_flow: 0.3302, loss_bone: 0.0000, loss: 28.0715, grad_norm: 742.6981
+2026-06-03 16:03:16,023 - mmdet - INFO - Epoch [1][2800/2811]	lr: 2.000e-06, eta: 0:00:04, time: 0.399, data_time: 0.021, memory: 693, loss_cls: 0.6391, loss_kpt: 26.6615, loss_flow: 0.3276, loss_bone: 0.0000, loss: 27.6282, grad_norm: 689.7847
+2026-06-03 16:03:20,230 - mmdet - INFO - Updating latest checkpoint at 1 epochs

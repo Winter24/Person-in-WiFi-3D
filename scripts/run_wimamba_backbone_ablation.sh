@@ -13,7 +13,7 @@ fi
 # Full WiMamba encoder ladder inside opera.WiTiDARHead.
 # M1V1 is intentionally not a separate run because wimamba_v1.py is a
 # compatibility wrapper for the current factorized WiMamba implementation.
-RUN_IDS=(M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA)
+RUN_IDS=(M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2CSI M2SA M2SAP M2D M2C M2CP M2CPA)
 if [[ -n "${ONLY_RUN_IDS:-}" ]]; then
   read -r -a RUN_IDS <<<"$ONLY_RUN_IDS"
 fi
@@ -48,6 +48,8 @@ declare -A CONFIG_PATHS=(
   [M2FLAT]="configs/wifi/wi_tidir_wifi_mamba2_flatten.py"
   [M2D]="configs/wifi/wi_tidir_wifi_mamba2_dropin.py"
   [M2CSI]="configs/wifi/wi_tidir_wifi_mamba2_flattened.py"
+  [M2SA]="configs/wifi/wi_tidir_wifi_mamba2_spatial_attn.py"
+  [M2SAP]="configs/wifi/wi_tidir_wifi_mamba2_spatial_attn_pos.py"
   [M2C]="configs/wifi/wi_tidir_wifi_mamba2_crossscan.py"
   [M2CP]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py"
   [M2CPA]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py"
@@ -62,6 +64,8 @@ declare -A RUN_NOTES=(
   [M2FLAT]="Mamba2 flattened single-route L=180 wrapper"
   [M2D]="Mamba2 drop-in factorized: temporal + bidirectional spatial scan"
   [M2CSI]="Mamba2 CSI flattened single-route via WiMamba2CSIEncoder"
+  [M2SA]="Mamba2 flattened single-route + 9x9 spatial attention pre-mixer"
+  [M2SAP]="Mamba2 spatial-attention pre-mixer + gated CSI positional embedding"
   [M2C]="Mamba2 CSI two-route cross-scan"
   [M2CP]="Mamba2 CSI two-route cross-scan + CSI positional embedding"
   [M2CPA]="Mamba2 CSI cross-scan + CSI positional embedding + final attention"
@@ -93,12 +97,14 @@ Run IDs:
   M2FLAT  configs/wifi/wi_tidir_wifi_mamba2_flatten.py
   M2D     configs/wifi/wi_tidir_wifi_mamba2_dropin.py
   M2CSI   configs/wifi/wi_tidir_wifi_mamba2_flattened.py
+  M2SA    configs/wifi/wi_tidir_wifi_mamba2_spatial_attn.py
+  M2SAP   configs/wifi/wi_tidir_wifi_mamba2_spatial_attn_pos.py
   M2C     configs/wifi/wi_tidir_wifi_mamba2_crossscan.py
   M2CP    configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py
   M2CPA   configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py
 
 Environment overrides:
-  ONLY_RUN_IDS="M3 M1V3 M1FLAT M2FLAT"  Select a subset.
+  ONLY_RUN_IDS="M3 M2FLAT M2CSI M1FLAT M1V2 M2SA M2SAP"  Select a subset.
   MAX_EPOCHS=5                       Override runner.max_epochs for quick ablation.
   TRAIN_GPU=0 TEST_GPU=0             GPU id exposed as CUDA_VISIBLE_DEVICES.
   SEED=42                            Train seed passed to tools/train.py.

@@ -237,7 +237,10 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("class FactorizedWiMamba2Block", source)
         self.assertIn("class WiMamba2DropInEncoder", source)
         self.assertIn("class CSISeparablePositionEmbedding", source)
+        self.assertIn("class GatedCSISeparablePositionEmbedding", source)
+        self.assertIn("class SpatialAttentionPremixer", source)
         self.assertIn("class WiMamba2CSIEncoder", source)
+        self.assertIn("class WiMamba2SpatialAttentionEncoder", source)
         self.assertIn("@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("@TRANSFORMER_LAYER_SEQUENCE.register_module()", source)
         self.assertIn("antenna_major", source)
@@ -250,13 +253,18 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("_run_mamba2_with_padding(self.mamba, routed)", source)
         self.assertIn("expand_s=expand,", source)
         self.assertIn("644-wide projection and crashes", source)
+        self.assertIn("torch.tanh(self.gate) * pos", source)
+        self.assertIn("self.spatial_attn(x_grid)", source)
 
     def test_wimamba2_csi_encoder_is_exported(self):
         source = _read("opera/models/backbones/__init__.py")
 
         self.assertIn("WiMamba2DropInEncoder", source)
         self.assertIn("WiMamba2CSIEncoder", source)
+        self.assertIn("WiMamba2SpatialAttentionEncoder", source)
         self.assertIn("CSISeparablePositionEmbedding", source)
+        self.assertIn("GatedCSISeparablePositionEmbedding", source)
+        self.assertIn("SpatialAttentionPremixer", source)
 
     def test_mamba2_ablation_configs_follow_expected_ladder(self):
         dropin = _load_config_module("configs/wifi/petr_wifi_mamba2_dropin.py")
@@ -322,6 +330,8 @@ class WifiArchitectureTests(unittest.TestCase):
             "configs/wifi/wi_tidir_wifi_mamba2_flatten.py": "WiMamba2FlatEncoder",
             "configs/wifi/wi_tidir_wifi_mamba2_dropin.py": "WiMamba2DropInEncoder",
             "configs/wifi/wi_tidir_wifi_mamba2_flattened.py": "WiMamba2CSIEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_spatial_attn.py": "WiMamba2SpatialAttentionEncoder",
+            "configs/wifi/wi_tidir_wifi_mamba2_spatial_attn_pos.py": "WiMamba2SpatialAttentionEncoder",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan.py": "WiMamba2CSIEncoder",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py": "WiMamba2CSIEncoder",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py": "WiMamba2CSIEncoder",
@@ -341,7 +351,7 @@ class WifiArchitectureTests(unittest.TestCase):
 
         for run_id in (
             "M3", "M1FCT", "M1V2", "M1V3", "M1FLAT", "M2FLAT",
-            "M2D", "M2CSI", "M2C", "M2CP", "M2CPA",
+            "M2D", "M2CSI", "M2SA", "M2SAP", "M2C", "M2CP", "M2CPA",
         ):
             self.assertIn(run_id, source)
         for config_path in (
@@ -353,6 +363,8 @@ class WifiArchitectureTests(unittest.TestCase):
             "configs/wifi/wi_tidir_wifi_mamba2_flatten.py",
             "configs/wifi/wi_tidir_wifi_mamba2_dropin.py",
             "configs/wifi/wi_tidir_wifi_mamba2_flattened.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_spatial_attn.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_spatial_attn_pos.py",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan.py",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py",
             "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py",

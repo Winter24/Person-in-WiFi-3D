@@ -301,7 +301,7 @@ hand. This is the WiTiDAR/M4-style ablation, not the PETRHead encoder ablation.
 Default run ids:
 
 ```text
-M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2D M2CSI M2C M2CP M2CPA
+M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT M2CSI M2SA M2SAP M2D M2C M2CP M2CPA
 ```
 
 Modes:
@@ -333,6 +333,8 @@ Meaning:
 | `M2FLAT` | `configs/wifi/wi_tidir_wifi_mamba2_flatten.py` | Mamba2 flattened single-route `L=180` wrapper. |
 | `M2D` | `configs/wifi/wi_tidir_wifi_mamba2_dropin.py` | Mamba2 drop-in factorized temporal/spatial layout. |
 | `M2CSI` | `configs/wifi/wi_tidir_wifi_mamba2_flattened.py` | Mamba2 CSI flattened single-route via `WiMamba2CSIEncoder`. |
+| `M2SA` | `configs/wifi/wi_tidir_wifi_mamba2_spatial_attn.py` | Mamba2 flattened single-route with 9x9 spatial attention pre-mixer. |
+| `M2SAP` | `configs/wifi/wi_tidir_wifi_mamba2_spatial_attn_pos.py` | `M2SA` plus gated CSI positional embedding. |
 | `M2C` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan.py` | Mamba2 two-route cross-scan. |
 | `M2CP` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos.py` | Mamba2 cross-scan + CSI positional embedding. |
 | `M2CPA` | `configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py` | Mamba2 cross-scan + position + final attention. |
@@ -346,21 +348,21 @@ bash scripts/run_wimamba_backbone_ablation.sh all
 Run a fast 5-epoch candidate subset:
 
 ```bash
-ONLY_RUN_IDS="M3 M1V3 M1FLAT M2FLAT" MAX_EPOCHS=5 \
+ONLY_RUN_IDS="M3 M2FLAT M2CSI M1FLAT M1V2 M2SA M2SAP" MAX_EPOCHS=5 \
 bash scripts/run_wimamba_backbone_ablation.sh all
 ```
 
 Train only:
 
 ```bash
-ONLY_RUN_IDS="M3 M1FCT M1V2 M1V3 M1FLAT M2FLAT" \
+ONLY_RUN_IDS="M3 M2FLAT M2CSI M1FLAT M1V2 M2SA M2SAP" \
 bash scripts/run_wimamba_backbone_ablation.sh train
 ```
 
 Smoke-test model construction/benchmark path:
 
 ```bash
-ONLY_RUN_IDS="M3 M1FCT M2FLAT M2CPA" \
+ONLY_RUN_IDS="M3 M2FLAT M2CSI M2SA M2SAP" \
 bash scripts/run_wimamba_backbone_ablation.sh smoke
 ```
 

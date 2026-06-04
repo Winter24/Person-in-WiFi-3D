@@ -147,6 +147,50 @@ class CSISeparablePositionEmbedding(nn.Module):
         return self.dropout(x + self.ant_embed + self.time_embed)
 
 
+class GatedCSISeparablePositionEmbedding(CSISeparablePositionEmbedding):
+    """CSI position embedding with a learnable residual gate.
+
+    The gate is initialized at zero so the model starts from the no-position
+    baseline and only uses the antenna/time prior when training finds it useful.
+    """
+
+    def __init__(self, embed_dims, num_spatial=9, seq_len=20, dropout=0.0):
+        super().__init__(
+            embed_dims=embed_dims,
+            num_spatial=num_spatial,
+            seq_len=seq_len,
+            dropout=dropout)
+        self.gate = nn.Parameter(torch.zeros(1, 1, 1, embed_dims))
+
+    def forward(self, x):
+        pos = self.ant_embed + self.time_embed
+        return self.dropout(x + torch.tanh(self.gate) * pos)
+
+
+class SpatialAttentionPremixer(nn.Module):
+    """Self-attention over the 9 CSI spatial tokens at each timestep."""
+
+    def __init__(self,
+                 dim,
+                 num_heads=8,
+                 dropout=0.1):
+        super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.attn = nn.MultiheadAttention(
+            dim, num_heads=num_heads, dropout=dropout, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        """Forward with x in shape (B, S, T, C)."""
+        B, S, T, C = x.shape
+        residual = x
+        x_attn = self.norm(x).transpose(1, 2).contiguous().view(B * T, S, C)
+        x_attn, _ = self.attn(
+            x_attn, x_attn, x_attn, need_weights=False)
+        x_attn = x_attn.reshape(B, T, S, C).transpose(1, 2).contiguous()
+        return residual + self.dropout(x_attn)
+
+
 class FlattenedCSIMamba2Block(nn.Module):
     """Mamba2 block over full CSI length with optional route fusion."""
 
@@ -352,6 +396,9 @@ class WiMamba2CSIEncoder(BaseModule):
                  routes=('time_major',),
                  fusion='mean',
                  use_pos_embed=False,
+                 gated_pos_embed=False,
+                 spatial_attn=False,
+                 spatial_num_heads=8,
                  final_attn=False,
                  num_heads=8,
                  ffn_ratio=2.0,
@@ -366,16 +413,29 @@ class WiMamba2CSIEncoder(BaseModule):
         self.seq_len = seq_len
         self.routes = tuple(routes)
         self.use_pos_embed = use_pos_embed
+        self.gated_pos_embed = gated_pos_embed
+        self.spatial_attn_enabled = spatial_attn
         self.final_attn_enabled = final_attn
 
         if use_pos_embed:
-            self.pos_embed = CSISeparablePositionEmbedding(
+            pos_embed_cls = (GatedCSISeparablePositionEmbedding
+                             if gated_pos_embed
+                             else CSISeparablePositionEmbedding)
+            self.pos_embed = pos_embed_cls(
                 embed_dims=embed_dims,
                 num_spatial=num_spatial,
                 seq_len=seq_len,
                 dropout=dropout)
         else:
             self.pos_embed = None
+
+        if spatial_attn:
+            self.spatial_attn = SpatialAttentionPremixer(
+                dim=embed_dims,
+                num_heads=spatial_num_heads,
+                dropout=dropout)
+        else:
+            self.spatial_attn = None
 
         self.layers = nn.ModuleList([
             FlattenedCSIMamba2Block(
@@ -435,9 +495,12 @@ class WiMamba2CSIEncoder(BaseModule):
         if L != expected_len:
             raise RuntimeError(f'Expected sequence length {expected_len}, got {L}')
 
-        if self.pos_embed is not None:
+        if self.pos_embed is not None or self.spatial_attn is not None:
             x_grid = x.reshape(B, self.num_spatial, self.seq_len, C)
-            x_grid = self.pos_embed(x_grid)
+            if self.spatial_attn is not None:
+                x_grid = self.spatial_attn(x_grid)
+            if self.pos_embed is not None:
+                x_grid = self.pos_embed(x_grid)
             x = x_grid.reshape(B, L, C)
 
         for layer in self.layers:
@@ -448,3 +511,43 @@ class WiMamba2CSIEncoder(BaseModule):
 
         x = self.final_norm(x)
         return x.permute(1, 0, 2).contiguous()
+
+
+@BACKBONES.register_module()
+@MMCV_TRANSFORMER_LAYER_SEQUENCE.register_module()
+@TRANSFORMER_LAYER_SEQUENCE.register_module()
+class WiMamba2SpatialAttentionEncoder(WiMamba2CSIEncoder):
+    """Mamba2 flattened encoder with 9x9 spatial attention pre-mixing."""
+
+    def __init__(self,
+                 embed_dims=256,
+                 num_layers=3,
+                 d_state=64,
+                 d_conv=4,
+                 expand=2,
+                 headdim=64,
+                 dropout=0.1,
+                 num_spatial=9,
+                 seq_len=20,
+                 spatial_num_heads=8,
+                 use_pos_embed=False,
+                 gated_pos_embed=False,
+                 init_cfg=None):
+        super().__init__(
+            embed_dims=embed_dims,
+            num_layers=num_layers,
+            d_state=d_state,
+            d_conv=d_conv,
+            expand=expand,
+            headdim=headdim,
+            dropout=dropout,
+            num_spatial=num_spatial,
+            seq_len=seq_len,
+            routes=('time_major',),
+            fusion='mean',
+            use_pos_embed=use_pos_embed,
+            gated_pos_embed=gated_pos_embed,
+            spatial_attn=True,
+            spatial_num_heads=spatial_num_heads,
+            final_attn=False,
+            init_cfg=init_cfg)
