@@ -1,0 +1,531 @@
+                Person-in-WiFi 3D: End-to-End Multi-Person 3D Pose Estimation with Wi-Fi
+                                                    1              1*           1              1                2              1
+                                    KangweiYan ,FeiWang ,BoQian ,HanDing ,JinsongHan ,XingWei
+                                                    1Xi’an Jiaotong University, Xi’an 710049, China
+                                                     2Zhejiang University, Hangzhou 310058, China
+               {yankangwei,qb90531}@stu.xjtu.edu.cn {feynmanw,dinghan,weixing}@xjtu.edu.cn,hanjinsong@zju.edu.cn
+                                      Abstract                                 and field of view. They also struggle in severe occlusion
+                                                                               scenarios. Additionally, cameras capturing sensitive infor-
+                Wi-Fi signals, in contrast to cameras, offer privacy pro-      mation such as identity and appearance can lead to privacy
+             tection and occlusion resilience for some practical scenar-       concerns in scenarios where privacy is paramount.
+             ios such as smart homes, elderly care, and virtual reality.          Unlike camera-based solutions, Wi-Fi methods are re-
+             Recent years have seen remarkable progress in the esti-           silient to occlusions and do not capture sensitive personal
+             mation of single-person 2D pose, single-person 3D pose,           details, making them well-suited for indoor scenarios. Cur-
+             and multi-person 2D pose. This paper takes a step for-            rent Wi-Fi solutions have advanced in estimating single-
+             wardbyintroducingPerson-in-WiFi3D,apioneeringWi-Fi                person 2D/3D poses. This process involves a regression
+             system that accomplishes multi-person 3D pose estimation.         problem, mapping Wi-Fi signal variations, caused by an in-
+             Person-in-WiFi 3D has two main updates. Firstly, it has a         dividual’s movements and presence, to their corresponding
+             greater number of Wi-Fi devices to enhance the capability         2D/3D pose coordinates. For instance, WiSPPN [28] pre-
+             for capturing spatial reflections from multiple individuals.      dicts 2D keypoint coordinates using pose adjacent matrix
+             Secondly, it leverages the Transformer for end-to-end esti-       similarity loss. Similarly, MetaFi++ [41] estimates 2D co-
+             mation. Comparedtoitspredecessor, Person-in-WiFi 3D is            ordinates employing mean squared error loss. In single-
+             storage-efficient and fast. We deployed a proof-of-concept        person 3D pose estimation, solutions like WiPose [10],
+             system in 4m × 3.5m areas and collected a dataset of over         Winect[21], and GoPose [22] also utilize mean squared er-
+             97K frames with seven volunteers. Person-in-WiFi 3D at-           ror to learn 3D coordinates. In the case of Wi-Fi-based
+             tains 3D joint localization errors of 91.7mm (1-person),          multi-person pose estimation, it’s challenging to distinctly
+             108.1mm(2-person),and125.3mm(3-person),comparable                 segment individuals from 1-dimensional (1D) Wi-Fi sig-
+             to cameras and millimeter-wave radars. The project page           nals.  Addressing this, Person-in-WiFi [29] adopts tech-
+             is at https://aiotgroup.github.io/Person-in-WiFi-3D.              niques from OpenPose [2], initially regressing keypoint
+                                                                               heatmaps and part affinity fields, and then associating these
+             1. Introduction                                                   with individuals. One alternative approach is Densepose
+                                                                               from Wi-Fi [7], which transforms 1D Wi-Fi signals to
+             Human pose estimation is a critical technology with broad         1280×720×3 image-like tensors under the supervision of
+             applications in areas like elderly care, virtual reality, and     synchronized images. This method may favor overfitting
+             smart homes.     To achieve precise pose estimation, re-          colors in training scenes, such as the color of subjects’
+             searchers have explored various methods, including cam-           clothing and surrounding objects, as Wi-Fi signals do not
+             eras [2, 6, 18, 26, 33], radars [1, 13, 15, 23, 39], and Wi-Fi    inherently capture color information.
+             signals [10, 21, 22, 28, 29, 41]. Among these, camera-based          Up to now, multi-person 3D pose estimation using Wi-
+             solutions are most extensively studied, supported by a large      Fi signals remains an unsolved challenge. In our initial at-
+             research community and a wealth of labeled and unlabeled          tempt to evolve Person-in-WiFi into a 3D version for 14
+             data. This has led to the development of well-known frame-        keypoints, we represented multi-person poses with 3D key-
+             workslikeconvolutionalposemachines[33],OpenPose[2],               point heatmaps ∈ 14×64×64×64 and 3D part affinity
+             AlphaPose [6], Hourglasses network [18], HRNet [26], and          fields ∈ 42×64×64×64. Wereplaced2Doperations,like
+             more. However, camera solutions are not always applica-           convolutions in Person-in-WiFi, with 3D counterparts, and
+             ble due to their dependence on proper lighting conditions         modified the pose-processing algorithms to produce 3D co-
+                                                                               ordinates from the 3D heatmaps and fields. However, this
+                *Corresponding author.                                         deep network failed to converge. We identified six major
+                      Figure 1. This paper presents Person-in-WiFi 3D, the first multi-person 3D pose estimation system with Wi-Fi signals.
+             shortcomings in this approach: (1) the 3D network’s exces-      our self-collected dataset, over 97,000 samples. Our dataset
+             sive size; (2) slow training of the 3D network; (3) sluggish    is ethically cleared for public release. This makes it the
+             3Dpost-processing; (4) coarse spatial resolution, for exam-     first Wi-Fi pose estimationdatasetavailableforopenaccess,
+             ple, e.g., 4000mm/64 = 62.5mm in a 4m×4m×4m space;              promising to expedite future research in this domain.
+             (5) the lack of an end-to-end process, leading to error ac-     2. Related work
+             cumulation during network prediction and post-processing;
+             (6) inefficient use of storage and memory, as large matrices    2.1. Human Pose from Images
+             for keypoint heatmaps and part affinity fields are primarily
+             usedtostore3Dposecoordinates∈ p×14×3forppersons.                Multi-person pose estimation from images is a task of de-
+                In this paper, we introduce Person-in-WiFi 3D. Com-          tecting joint keypoints of every person in images. It basi-
+             pared to its 2D predecessor, Person-in-WiFi 3D features         cally has two main paradigms, i.e., top-down and bottom-
+             two significant updates. Firstly, it incorporates three Wi-Fi   up.  In the top-down paradigm, a person detector like
+             receivers placed at the corners of the sensing area, captur-    Faster RCNN [8] and Yolo [20] first crops regions of ev-
+             ingmoresignalreflectionsfromdifferenthumanbodyparts.            ery person from an image, then a single-person pose esti-
+             Secondly, Person-in-WiFi 3D is based on Transformer [27]        matorregresses the person keypoints region by region. This
+             and DETR [3], enabling direct estimation of multi-person        paradigm is more accurate and has many record-breaking
+             3Dposes from Wi-Fi signals. Person-in-WiFi 3D consists          work, such as Hourglass networks [18], AlphaPose [6],
+             of three modules: a Wi-Fi encoder, a pose decoder, and a        and HR-Net [26].    In contrast, the bottom-up paradigm
+             refine decoder. The Wi-Fi encoder is designed to extract        firstly regresses all keypoints of all persons in an image,
+             globalcontextfromtokenizedWi-Fisignals. Intheposede-            then performs keypoint grouping methods, e.g., part affin-
+             coder, multiple queries, initialized randomly, interact with    ity fields [2], associative embedding [19], and graph clus-
+             the globally extracted information to predict a set of poses.   tering [11], to align the regressed keypoints to every per-
+             The refine decoder then further refines these predictions.      son. This paradigm has the advantage of reducing the time
+             Weapproach multi-person pose estimation as a set predic-        cost of pose estimation as the number of people largely
+             tion task and utilize a set-based Hungarian loss, ensuring      increases. Recently, following the above two paradigms,
+             each individual’s ground-truth pose is uniquely predicted.      multi-person 3D pose estimation can be achieved with
+             Oursystemachieves3Djointlocalizationerrorsof91.7mm              RGB/Dimages[34,43]. SinceWi-Fisignalscarrythecom-
+             in single-person scenarios, 108.1mm in two-person scenar-       bined changes caused by all persons in the surroundings,
+             ios, and 125.3mm in three-person scenarios, as proven on a      wecannotcropinformationbelongingtoeverypersonfrom
+             self-collected dataset with over 97,000 Wi-Fi samples. Our      Wi-Fi signals. Thus, the bottom-up paradigm is more suit-
+             contributions in this work are outlined below:                  able for multi-person pose estimation from Wi-Fi signals.
+                (1) We introduce Person-in-WiFi 3D, a pioneering sys-        2.2. Human Pose from Wi-Fi
+             tem designed for estimating multi-person 3D poses using
+             Wi-Fi signals, marking a first in this area.                    Human pose estimation from WiFi signals is a rela-
+                (2) We develop the Wi-Fi Pose Transformer, an innova-        tively new and emerging research area that targets privacy-
+             tive algorithm that converts Wi-Fi signals into multi-person    preserving and occlusion use scenarios.     Current Wi-Fi
+             3Dposesinanend-to-end manner.                                   work have made notable advancements in single-person
+                (3) We comprehensively evaluate Person-in-WiFi 3D in         2D pose estimation [28, 41], single-person 3D pose es-
+             timation [10, 21, 22], and multi-person 2D pose estima-
+             tion [29]. However, the multi-person 3D pose estimation
+             is still unsolved. In the hardware aspect, WiSPPN [28] and
+             MetaFi++ [41] use 1 transmitter and 1 receiver for single-
+             person 2D pose estimation. Several work achieve single-
+             person 3D pose estimation with more Wi-Fi transceivers to
+             capture more reflection information from human body. For
+             example, WiPose [10] uses 1 transmitter and 3 receivers;
+             GoPose[22]andWinect[21]bothapply1transmitterand4                Figure2. CSIPhasedenoising,wheretheleftistheoriginalphase,
+             receivers. Unfortunately, these single-person pose estima-      and the right is the phase after denoising.
+             tion approaches cannot extend to multi-person pose estima-
+             tion becausetheir algorithms have no person detection strat-
+             egy or keypoint grouping method. Person-in-WiFi [29] is
+             thefirst multi-person 2Dposeestimationwork,whichlever-
+             ages part affinity fields [2] for keypoint grouping. However,
+             multi-person 3D pose estimation from Wi-Fi signals is still
+             an open problem.
+             3. Wi-Fi Signals
+             ChannelStateInformation.
+                Wi-Fi devices communicate via multiple subcarriers in
+             orthogonal frequency. The propagation process of the Wi-        Figure 3. One of our experiment areas, a rectangle of 4m×3.5m,
+             Fi signals between the transmitter and the receiver can be      where the camera is in the center of the horizontal axis facing the
+             formalized as Eq. 1.                                            experimental area.
+                             Y =HX +n,i∈[1,n]                       (1)
+                              i     i  i    i
+             where i is the subcarrier index; X is the bits sent by the
+                                                i                            and one antenna at a rate of 300 packets per second. The
+                                 th
+             transmitter via the i   subcarrier; Y is the bits received
+                                                  i                          three receivers are set up to monitor the channel, each uti-
+             at the receiver via the ith subcarrier; ni represents the       lizing three antennas. Concurrently, an Azure Kinect cam-
+             noise. During the propagation, Wi-Fi signals undergo vari-      era captures RGB-D videos at 15 frames per second. We
+             ous distortions including the influence of propagation dis-     manuallysynchronizeKinectwiththethreereceiversbefore
+             tance, scattering, power fading, etc.  H symbolizes the
+                                                      i                      the recording begins.  Consequently, CSI samples, sized
+             signal distortion summary, technically known as the Chan-       1×3×3×30×20,aresynchronizedwithonevideoframe.
+             nel State Information (CSI). It is represented as a complex-    The five dimensions of CSI samples respectively represent
+             value number, from which we can derive both amplitude           the meanings of
+             andphase. InWi-Fisystems,CSIphasesareoftendisrupted             (#transmitter, #receiver, #antenna, #subcarrier, #time).
+             bynoiseandotherinterferencesliketimelag,randomphase
+             offsets due to device imperfections, and measurement pro-       4. Transformer for Person-in-WiFi 3D
+             cess noise [30, 35]. We employ a phase denoising method
+             basedonlineartransformation,asproposedinPhaseFi[30],            • Tokenization. The first issue we address is the effective
+             to mitigate these interferences in CSI phases. An example       tokenization of CSI samples. In language models, tokens
+             of this denoising result is illustrated in Fig. 2.              are typically discrete words or characters organized tem-
+                Recording CSI over a period captures time-series Wi-Fi       porally. In Vision Transformers (ViT) [4], tokens are spa-
+             distortions triggered by environmental changes, including       tially ordered image patches. Our aim is to sequence CSI
+             the presence and movements of people nearby. This is the        tokens, considering CSI samples are inherently time-series
+             underlying principle enabling Wi-Fi signals to estimate hu-     data. Besides, the distinct locations of the transmitter, re-
+             manposes.                                                       ceivers, and antennas incorporate spatial information. We,
+                Hardware Configurations. Our data collection setup           therefore, flatten these to form a tensor, whose dimensions
+             includes four ThinkPad X201 laptops, one as a transmit-         are interpreted as
+             ter and the remaining three as receivers, all equipped with     #transmitter×#receiver×#antenna×#time, #subcarrier.
+             Intel 5300 network cards. The deployment is arranged as         with the first dimension encompassing spatial-temporal el-
+             illustrated in Fig. 3. The transmitter is configured to broad-  ements. For our specific CSI samples, this results in 180 to-
+             cast Wi-Fi in channel 128 (5.64GHz) with 30 subcarriers         kens(1×3×3×20),whereeachtokenisavector∈ 1×30,
+                                                       Kinect                            Hungarian loss                       ...
+                                                        SDK
+                                                                                                                     Refine Decoder
+                                                                                                                            ...
+                                                                   CSI Feature                                              ...
+                                                                     Encoder
+                                                  STE                                                                 Pose Decoder
+                                                       ⨁
+                                                                                                                            ...
+              Figure 4. Person-in-WiFi 3D employs a teacher-student framework, where the Azure Kinect serves as the supervisory element. The
+              primary function of the Wi-Fi encoder and decoder within this framework is to generate 3D poses. Subsequently, the refine decoder is
+              tasked with refining these initial outputs. To facilitate training the network in an end-to-end manner, a set-based Hungarian loss is utilized.
+              representing the subcarriers. We then combine the ampli-           sumofthecoordinates from the previous layer and the pre-
+              tudes and denoised phases along the subcarrier dimension,          dicted offsets for that layer. In other words, given the pose
+                                                                                                               th                     th
+              leading to each token being ∈ 1 × 60. A fully-connected            P     predicted by the (d−1)     decoderlayer, the d    layer
+                                                                                   d−1
+              layer is subsequently used to upscale each token to a di-          outputs the pose as per the equation:
+              mension of ∈ 1 ×256.                                                                   P =P         +∆P                      (2)
+                 •Spatial-temporalEmbedding. CSIsampletokensare                                        d     d−1        d
+              organized in a spatial-temporal sequence. To aid in dis-                                                                th
+                                                                                 where∆P representstheoffsets predicted at the d        layer.
+              tinguishing these tokens, we introduce randomly initialized                   d
+                                                                                 The initialized poses P   ∈ 100×(3K) are sampled from
+              and learnable spatial-temporal embeddings (STE), each of                                   0
+                                                                                 P     based on their confidence score ranking. This method
+              dimension ∈ 1 × 256. These embeddings are added with                init
+                                                                                 of offset prediction ensures that each layer of the decoder is
+              each token. After that, we have an input of ∈ 180 × 256,           adequately constrained.
+              which forms the foundation for the Wi-Fi encoder to effec-            •RefineDecoder. Theconceptofrefinementinoursys-
+              tively learn pose representation from the CSI samples.             tem is inspired by PETR [24]. Our refine decoder is specif-
+                 • CSI Encoder. Our architecture incorporates six en-            ically crafted to fine-tune the keypoint coordinates for more
+              coder layers to process CSI features, each comprising a            precise predictions. The layers of the refine decoder are
+              multi-head self-attention module and a feed-forward net-           modeled after the basic blocks of the DETR decoder [3],
+              work, which are fundamental components in the Trans-               andweemploythreesuchlayersinthestack. Mirroringthe
+              former architecture [27]. After the encoder stage, we uti-         pose decoder, each layer in the refine decoder produces a
+              lize a Multi-Layer Perceptron to produce an initial set of         relative offset ∆J = (∆x,∆y,∆z). The joint coordinates
+              3D poses and corresponding scores, denoted as P            ∈       output by the dth layer adhere to the equation:
+                                                                    init
+              180×(3K)and Sinit ∈ 180×1, respectively. In our ex-                                    J =J         +∆J                      (3)
+              periments, we select K as 14, which represents the 3D co-                                d     d−1        d
+              ordinates of 14 distinct keypoints.                                Differing from the pose decoder, the refine decoder selects
+                 • Pose Decoder. Following the approach of DETR [3],             only G bodies for refinement. In the training phase, we
+              our Pose decoder, equipped with 100 randomly initialized           use set-based Hungarian bipartite matching [14] between
+              and learnable queries, regresses a set of 3D body coordi-          the pose decoder outputs P ∈ 100 × (3K) and the ground
+              natesP ∈ 100×(3K)alongwithcorrespondingconfidence                  truth P   ∈ G×(3K)tochoose G bodies for refinement.
+              scores. The decoder layers are structured as basic blocks of              gt
+                                                                                 During inference, in the absence of ground truth, this selec-
+              the DETRdecoder [3], and we stack three such layers.               tion is based on confidence scores.
+                 Additionally, drawing inspiration from Deformable-                 • Loss Function. In our system, we implement a set-
+              DETR [42], we are not to predict a full pose at the final          based Hungarian loss [14] to ensure each person’s ground-
+              layer, but rather to predict an offset at each layer. The out-     truth pose receives a unique prediction. The focal loss func-
+              put poses from each layer are calculated as the cumulative         tion [16] is used as the classification loss to determine the
+              accuracy of predicting a body as a person. Additionally,             evaluation. However, the SDK’s performance on our clips
+              we employ Mean Squared Error (MSE) loss for keypoint                 was not entirely satisfactory. We meticulously cleaned the
+              regression. The total loss function is expressed as:                 dataset, frame by frame, discarding samples that the SDK
+                                                                                   failed, e.g., the 4-person case. As a result, we have a dataset
+                                    L=L +λL                               (4)
+                                           cls      kpt                            with over 97,000 samples, the details of which are outlined
+              where λ is a balancing weight between classification and             in Table. 1.
+              regression. The formula for Lkpt is:                                                  1-person   2-person    3-person     all
+                                                                                         training    28121       36242      25583      89946
+                                                ˆ
+                              L     =mean(||P −P || ).                    (5)              test       2586       3184        2054      7824
+                                kpt                    gt 2
+                                 ˆ                                                                    Table 1. Dataset statistics.
+              In this equation, P and Pgt denote the predicted 3D joint
+              coordinates and the ground truth, respectively.
+                 Theformula for Lcls is given by:                                  5.2. Evaluation Metrics
+                               (             γ
+                       L = −α(1−yˆ) log(yˆ) ify =1                        (6)      (1) Mean Per Joint Dimension Location Error (MPJ-
+                         cls           γ                                           DLE). Person-in-WiFi 3D estimates multi-person pose in
+                                 −αyˆ log(1−yˆ)          otherwise.                3Ddimension: horizontal,vertical, anddepth. Wecancom-
+              Here, α and γ are factors adjusting the impact of positive           pute the location error of the horizontal dimension as re-
+              vs. negative samples and easy vs. hard samples, while y              ported in mmPose-NLP [23] with Eq. 7 and Eq. 8.
+              and yˆ represent the class labels and confidence scores, re-                                      P
+                                                                                                        F        f
+              spectively.                                                          PJDLE(k,h)= 1 X 1 X|pre(f,p,k,h)−gt(f,p,k,h)|
+                                                                                                     F      P                                     1
+                 •TrainingDetails. WeoptimizePerson-in-WiFi3D us-                                      f=1 f p=1
+              ing the Adam optimizer [12], set with a momentum of 0.9                                                                           (7)
+              and a weight decay of 10−4. The batch size for training is                                            K
+              set at 32. The training process spans 500 epochs, starting                       MPJDLE(h)= 1 XE                   (k,h)          (8)
+                                                                                                                 K       PJDLE
+                                                        −5                                                          k=1
+              with an initial learning rate of 2 × 10      . This rate is re-
+              duced by a factor of 0.1 at the 450th epoch. In Eq.6, we             wherepre(f,p,k,h)andgt(f,p,k,h)denotethepredicted
+              set an α value of 0.25 and a γ value of 2. To balance the            and ground truth positions, respectively, for the horizon-
+              classification and keypoint localization losses, the weight λ                                th                th                 th
+              is set at 35 in Eq. 4.                                               tal dimension of the k     joint of the p    person in the f
+                                                                                   frame. The || notation is used to calculate the L1 distance.
+                                                                                                 1
+              5. Experiment                                                        Therefore, PJDLE(k,h) represents the Per Joint Dimension
+                                                                                   Localization Error (PJDLE) for the kth joint in the horizon-
+              5.1. Dataset Acquisition                                             tal dimension. MPJDLE(h) is the Mean PJDLE calculated
+              Dataset diversity. We recruited 7 volunteers, with heights           across all joints in the horizontal dimension. Similarly, we
+              of 160-177cm and weights of 55-70kg, to perform 8 daily              can compute MPJDLE(v) for vertical MPJDLE, and MPJ-
+              actions in 3 locations with different degrees of multipath ef-       DLE(d)fordepth MPJDLE.
+              fects: an office, a classroom, and a corridor. The actions              (2) Mean Per Joint Position Error (MPJPE). If we
+              were reaching out, raising hands, bending over, stretching,          compute L2 distances between 3D predictions and 3D
+                                                                                   ground truth as Eq. 9, we have joint position errors.
+              sitting down, lifting legs, standing, and walking. In each lo-
+                                                                                                      F       Pf
+              cation, 1-4 volunteers freely performed these actions for 40           PJPE(k) = 1 X 1 X∥pre(f,p,k)−gt(f,p,k)∥2 (9)
+              seconds, and we recorded 152 clips of 40 seconds each, in-                           F      P
+              cluding 32 single-person, 48 two-person, 48 three-person,                              f=1 f p=1
+                                                                                                                    K
+              and 24 four-person scenarios. This approach resulted in                               MPJPE= 1 XE                (k)             (10)
+              a total of 456 CSI and RGB-D clips, ensuring the dataset                                          K        PJPE
+              captured a wide variety of volunteers, actions, places, and                                          k=1
+              combinations of these elements across different time.                 PJPE(k)isforthePJPEofthekthjoint. MPJPEisthemean
+                 Dataset statistics. We possess 456 RGB-D clips, each              of all PJPE(k), which is widely used to evaluate 3D human
+              40 seconds long, with a total of 600 frames per clip (first          pose estimation [9].
+              550 for training, last 50 for testing) and 270,000 frames            5.3. Results
+              overall. Multi-person 3D keypoint coordinates are gener-
+              ated from these video clips using the Kinect Body Tracking           Table. 2 presents PJPE and PJDLEsacrosshorizontal, verti-
+              SDK, then act as CSI annotations for network training and            cal, and depth dimensions, with units in millimeters (mm).
+                                                                                         Metric     1-person   2-person   3-person
+                       Joint  PJPE    PJDLE(h)    PJDLE(v)     PJDLE(d)                 MPJPE         91.7      108.1      125.3
+                       neck    81.6      41.0        39.6        47.5                 MPJDLE(h)       42.4       51.2       60.6
+                       head    88.4      43.3        43.2        52.2                 MPJDLE(v)       43.3       47.7       53.8
+                left shoulder  90.5      47.5        41.2        52.6                 MPJDLE(d)       50.0       60.4       69.7
+               right shoulder  92.5      50.3        40.9        53.8
+                  left elbow  124.1      65.2        55.3        71.6         Table 3. As the number of people in the scene increases, the pre-
+                     left hip  72.9      38.1        30.2        46.3         diction errors increase.
+                 right elbow  132.9      71.2        58.3        76.1
+                    right hip  74.7      40.5        30.2        46.8
+                   left hand  182.1      91.0        98.2        87.9
+                   left knee   85.1      38.9        33.2        58.3
+                  right hand  202.9      97.8       111.3        97.9
+                  right knee   86.9      40.4        33.0        59.4
+                   left ankle  92.1      41.2        38.4        61.4
+                 right ankle   94.1      43.2        39.2        62.4
+                      Mean    107.2      53.5        49.4        62.4
+              Table 2. MPJPE and MPJDLEs, measured in millimeters (mm).
+             Notably, the largest prediction errors occur in the left and
+             right hands, with 182.1mm and 202.9mm, respectively.
+             This higher error rate is attributed to the greater diversity
+             in hand movements compared to overall body movements.            Figure 5. Cumulative distribution of MPJPE in four groups i.e.,
+             The final MPJPE is calculated at 107.2mm, a level of pre-        upper body, middle body, legs, and arms.
+             cision suitable for various applications like indoor person
+             localization and tracking, intrusion detection, and coarse-      ularly the left and right hands, the MPJPEs are significantly
+             grained action recognition. Similarly, PJDLEs for the left       higher, with 50% of estimations falling within 140mm and
+             and right hands also exhibit the largest errors, for reasons     90% within 380mm. Both Table. 2 and Fig. 5 underscore
+             analogous to those for MPJPE. The mean joint dimen-              the increased difficulty in accurately estimating arm joints
+             sion location errors, MPJDLEs, are 53.5mm, 49.4mm, and           compared to others. We think this problem could be re-
+             62.4mm in the horizontal, vertical, and depth dimensions,        lieved by enhancing the dataset with more diverse arm po-
+             respectively.                                                    sitions in future research.
+                Table. 3 displays the estimation errors in scenarios with
+             one, two, and three persons. We observe that the predic-         5.4. Visualization and Failure cases
+             tion errors escalate with an increasing number of people.
+             For instance, considering MPJPE, there is an increase of         Wevisualizemultipleinstancesofmulti-person3Dposees-
+             16.4mmfrom1-personscenarios(91.7mm)to2-personsce-                timation predictions across three different rooms, as shown
+             narios (108.1mm), and a further increase of 17.2mm from          in Fig.1. It is important to note that these images are used
+             2-person to 3-person scenarios, closely aligning with the        solely for visualization purposes and are not included in the
+             16.4mmincrement. Weinferthat transitioning from single-          deep model training. The figure demonstrates that Person-
+             person to multi-person 3D pose estimation is not inherently      in-WiFi 3D effectively localizes people, which could be
+             problematic for the Wi-Fi system. Rather, the current lim-       leveraged for tracking purposes. Additionally, it can esti-
+             itations in achieving multi-person 3D pose estimation are        mate a variety of actions, such as sitting, raising hands, and
+             algorithmic, not due to inherent constraints of the capabili-    walking. More crucially, even though the MPJPEs for arm
+             ties of Wi-Fi system.                                            joints are higher compared to other joints, the predictions
+                Togainaclearerunderstandingofpredictionerrordistri-           are sufficiently accurate to identify the actions being per-
+             bution, we analyzed the cumulative distribution of MPJPE,        formed. Therefore, Person-in-WiFi 3D is also capable of
+             categorizing it into four segments: upper body, arms, mid-       supporting action and interaction recognition applications.
+             dle body, and legs. This categorization, shown in Fig. 5,           InFig.6, wepresentsometypicalfailurecasesofPerson-
+             helps prevent overlapping of the curves. From the figure,        in-WiFi 3D. The leftmost figure illustrates the system is
+             it is evident that 50% of the MPJPEs for pose estimation         challenging to accurately estimate the positions of spare
+             in the upper body, middle body, and legs are under 80mm,         hand gestures. The middle figure depicts a scenario where
+             while90%areunder170mm. However,forthearms,partic-                Person-in-WiFi 3D incorrectly locates a person about one
+                                                                                        Joint Heatmaps (JHMs) and 3D Part Affinity Fields (PAFs)
+                                                                                        for pose grouping, leading to significant storage and mem-
+                                                                                        ory requirements. Specifically. The JHMs ∈ 14 × 64 ×
+                                                                                        64 × 64 × 64 for 14 keypoints, and the PAFs are sized at
+                                                                                        42×64×64×64×64for42limbsacross3Daxes. Stor-
+                                                                                        ing JHMs and PAFs for a single frame requires about 7 to
+                                                                                        8MB,amountingtoroughly2TBforallframes. Incontrast,
+                                                                                        our method uses a ground truth tensor sized as the number
+                                                                                        of persons p × 14 × 3 axes per frame, which totals to ap-
+                                                                                        proximately 200MB for all frames, significantly reducing
+                                                                                        the storage demand.
+                                                                                            (2) slow training. We extend Person-in-WiFi to a two-
+                                                                                        stream 3D UNet. Since UNet has to store all middle feature
+                                                                                        maps, JHMs, and PAFs, the minibatch size is limited to 4
+                                                                                        onanNvidia3090GPU.Onourdataset,totrainoneepoch,
+               Figure 6. Failure cases, (1) spare gestures (2) location prediction      the extended Person-in-WiFi takes ∼6 hours on one Nvidia
+               error, (3) out of sensing area.                                          3090 GPU. In contrast, our work supports the minibatch
+                                                                                        size of 64, only taking 20mins to train one epoch.
+               meter away from their actual position. The last figure high-                 (3) sluggish pose grouping. We also extended the pose
+               lights an instance where Person-in-WiFi 3D fails to detect a             grouping from 2D to 3D. It takes about 10s to conduct pose
+               person situated out of the system’s coverage area. Address-              groupingfor1frameusing3DJHMsandPAFs. Incontrast,
+               ing these shortcomings will likely require collecting more               our method can produce 3D human poses at 54fps.
+               data, deploying additional devices, etc.                                     • Comparison to cameras and millimeter-wave
+                                                                                        radars. Recent camera-based solutions for multi-person
+                                                                      ∗
+                           Metric      Person-in-WiFi 3D      WiPose                    3D pose estimation have reported MPJPEs in the range of
+                           MPJPE               91.7             101.8                   54-70mm [5, 32, 40]. Zhang et al. [37] reported MPJPE
+                         MPJPE(h)              42.4              42.1                   of 29.9mm on self-collected data using millimeter-wave
+                         MPJPE(v)              43.3              47.8                   radars.    The MPJPE of Person-in-WiFi 3D                stands at
+                         MPJPE(d)              50.0              58.0                   91.7mm in single-person scenarios and 107.2mm in multi-
+               Table 4.   Person-in-WiFi 3D      is more accurate than WiPose.          person scenarios, comparable to cameras and millimeter-
+                       ∗                                                                wave radars. We also tried to apply PETR [24] directly
+               (WiPose is not officially released yet. The results here originate       applied to our task, and the MPJPE is 219.0, showcasing
+               from our independent reproduction of WiPose.)                            the effectiveness of our enhancements. Notably, Person-in-
+                                                                                        WiFi 3D is trained with annotations automatically gener-
+               5.5. Comparison with existing work                                       ated by the Azure Kinect SDK, whose performance lim-
+                                                                                        its the upper bound of Person-in-WiFi 3D. Nevertheless,
+                  • Comparison with WiPose.                All current Wi-Fi-           Person-in-WiFi3D isstillthefirstworkthatachievesmulti-
+               based pose estimation research has not been open-sourced                 person 3D pose estimation with Wi-Fi signals.
+               in terms of signal processing, network frameworks, or                    5.6. Ablation Study
+               datasets. We independently reproduced WiPose [10] and
+               tested it using our dataset for single-person scenarios. As              • Number of receivers. Our configuration includes a di-
+               shown in Table. 4, Person-in-WiFi 3D demonstrates better                 agonally opposed transmitter, two transmitter, and three re-
+               performanceinsingle-person3Dposeestimationcompared                       ceivers, arranged at the corners of a rectangular area to es-
+               to WiPose.                                                               tablish the sensing zone. With three pairs of transmitters
+                  • Comparison with Person-in-WiFi.                   Person-in-        and receivers, Person-in-WiFi 3D is adept at capturing Wi-
+               WiFi [29] focuses on multi-person 2D pose estimation. We                 Fisignalsreflectedfromthehumanbodyatdifferentangles.
+               dedicated nearly half a year to adapting it for 3D pose es-              While the reduction of receivers will lead to a considerable
+               timation, but unfortunately, these efforts were unsuccess-               drop in system performance, as shown in Table 5.
+               ful. Person-in-WiFi faces several challenges in the realm
+               of multi-person 3D pose estimation, challenges which our                                    3 receivers   R1+R2      R1+R3      R2+R3       R2
+               Person-in-WiFi 3D effectively overcomes.                                   MPJPE(mm)          107.2        148.5      142.8      144.2    173.0
+                  (1) inefficient use of storage and memory. Extending
+               Person-in-WiFi for 3D poses necessitates the use of 3D                            Table 5. Performance on the number of receivers.
+                             without Refine decoder   with Refine decoder
+                  MPJPE               116.1                  107.2
+                MPJPE(h)              54.7                    53.5
+                MPJPE(v)              46.9                    49.4
+                MPJPE(d)              65.8                    62.4
+               Table 6. Refine decoder improves pose estimation performance.
+                 Metric      amplitude   amplitude+phase.    A. and P.(de.)
+                 MPJPE         192.4           137.7             107.2
+                MPJPE(h)       105.6           61.6              53.5
+                MPJPE(v)       103.1           71.1              49.4
+                MPJPE(d)       71.9            70.0              62.4
+              Table 7. Incorporating phase information and applying denoising
+              significantly improves the system outcomes. ‘A. and P.(de.)’ indi-
+              cates the use of amplitude with denoised phase.
+                       Metric     Cross-Person    Cross-Environment
+                       MPJPE          131.6             626.4                     Figure 7. Person-in-WiFi 3D remains functional in detecting per-
+                     MPJPE(h)         76.1              414.5                     sons when their view is obstructed.
+                     MPJPE(v)         57.4              304.8
+                     MPJPE(d)         62.2              133.0
+              Table 8.  Experimental results of the Cross-Person and Cross-       6. Conclusion
+              Environment settings.                                               We presented Person-in-WiFi 3D, a fully end-to-end ap-
+                 •Refinedecoder. Weconductanablationexperimenton                  proach that takes the multi-person 3D pose estimation task
+              the Refine decoder, with results detailed in Table. 6. These        as a set-based prediction problem and achieves it elegantly
+              results demonstrate that the Refine decoder improves pose           with a Transformer framework. However, the current sys-
+              estimation performance.                                             temstill has several limitations.
+                 •PhaseandPhaseDenoising. Table.7presentstheab-                      (1) The upper-bound performance Person-in-WiFi 3D is
+              lation study results on phase denoising. We explore three           severely limited by the Azuere Kinect Body Tracking SDK.
+              scenarios: using only amplitude, combining amplitude with           However,thecurrentSDKworksbadlyincaseswherethere
+              non-denoised phase, and using amplitude with denoised               are more than 3 persons in the view. Future work can intro-
+              phase. The experimental findings indicate that incorporat-          duce VICON system [25], IMUs [36], and optical mark-
+              ing phase information and applying denoising significantly          ers [17] for more accurate annotations.
+              improves outcomes of Person-in-WiFi 3D.                                (2)  Person-in-WiFi     3D has 4 distributed Wi-Fi
+                 • Occlusion. To assess the adaptability of Person-in-            transceivers.    Accurately adjusting their relative spa-
+              WiFi 3D to occlusion scenarios, we placed a white screen            tial configurations, including positions, elevations, and
+              obstructing the front perspective of the Kinect, while a side-      antenna orientations, to different places is challenging
+              view camera captured images, as shown in Fig. 7. The fig-           to ensure cross-location generalization.       Future efforts
+              ure demonstrates Person-in-WiFi 3D remains functional               could focus on increasing the tolerance of spatial con-
+              in detecting persons even when their view is obstructed.            figurations, perhaps by using environment-independent
+              Due to the absence of ground truth data from the occluded           features like BVP [38] and propagation models such as
+              Kinect perspective, we are unable to provide quantitative           Fresnel Zone [31] in Wi-Fi signal preprocessing and deep
+              results for these scenarios.                                        networks, or focus on large model pre-training and efficient
+                 • Cross-domain ability.      Person-in-WiFi 3D under-            cross-environment finetuning.
+              goes evaluation in both leave-one-person-out and leave-
+              one-environment-out scenarios. The results, displayed in            Acknowledgements – This work was supported by the National Nat-
+              Table.8, show that in cross-person cases, Person-in-WiFi            ural Science Foundation of China under grant 62102307, U21A20462,
+              3D effectively recognizes poses despite individual dif-             62372400, and 62372365, “Pioneer” and “Leading Goose” R&D Program
+              ferences in body shape and movement habits.             How-        of Zhejiang under grant No.2024C03287, Key Research and Development
+              ever, Person-in-WiFi 3D does not implement any cross-               Program of Shaanxi (ProgramNo.2021GXLH-Z-021), China Postdoctoral
+              environmentadaptationstrategies, leading to a large decline         Science Foundation under grant 2023T160511 and 2021M692562, and
+              in performance during cross-environment testing.                    CAAI-MindSporeOpenFund;anddevelopedonOpenlCommunity.
+              References                                                                   m3track: mmwave-based multi-user 3d posture tracking. In
+                [1] Sizhe An and Umit Y Ogras. Fast and scalable human pose                Proceedings of the 20th Annual International Conference on
+                    estimation using mmwave point cloud. In Proceedings of                 Mobile Systems, Applications and Services, pages 491–503,
+                    the 59th ACM/IEEE Design Automation Conference, pages                  2022. 1
+                    889–894, 2022. 1                                                  [14] Harold W Kuhn. The hungarian method for the assignment
+                [2] Zhe Cao, Tomas Simon, Shih-En Wei, and Yaser Sheikh.                   problem. Naval research logistics quarterly, 2(1-2):83–97,
+                    Realtime multi-person 2d pose estimation using part affinity           1955. 4
+                    fields. In Proceedings of the IEEE conference on computer         [15] Guangzheng Li, Ze Zhang, Hanmei Yang, Jin Pan, Dayin
+                    vision and pattern recognition, pages 7291–7299, 2017. 1,              Chen, and Jin Zhang. Capturing human pose using mmwave
+                    2, 3                                                                   radar. In 2020 IEEE International Conference on Pervasive
+                [3] NicolasCarion,FranciscoMassa,GabrielSynnaeve,Nicolas                   ComputingandCommunicationsWorkshops(PerComWork-
+                    Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-             shops), pages 1–6. IEEE, 2020. 1
+                    endobjectdetection with transformers. In Computer Vision–         [16] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and
+                                                                                                     ´
+                    ECCV2020: 16th European Conference, Glasgow, UK, Au-                   Piotr Dollar. Focal loss for dense object detection. In Pro-
+                    gust 23–28, 2020, Proceedings, Part I 16, pages 213–229.               ceedings of the IEEE international conference on computer
+                    Springer, 2020. 2, 4                                                   vision, pages 2980–2988, 2017. 4
+                [4] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov,            [17] Naureen Mahmood, Nima Ghorbani, Nikolaus F Troje, Ger-
+                    Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner,                    ard Pons-Moll, and Michael J Black.        Amass: Archive
+                    Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl-               of motion capture as surface shapes.     In Proceedings of
+                    vain Gelly, et al. An image is worth 16x16 words: Trans-               the IEEE/CVF international conference on computer vision,
+                    formers for image recognition at scale.      arXiv preprint            pages 5442–5451, 2019. 8
+                    arXiv:2010.11929, 2020. 3                                         [18] Alejandro Newell, Kaiyu Yang, and Jia Deng. Stacked hour-
+                [5] Matteo Fabbri, Fabio Lanzi, Simone Calderara, Stefano Al-              glass networks for human pose estimation.      In Computer
+                    letto, and Rita Cucchiara. Compressed volumetric heatmaps              Vision–ECCV 2016: 14th European Conference, Amster-
+                    for multi-person 3d pose estimation.     In Proceedings of             dam, The Netherlands, October 11-14, 2016, Proceedings,
+                    the IEEE/CVF conference on computer vision and pattern                 Part VIII 14, pages 483–499. Springer, 2016. 1, 2
+                    recognition, pages 7204–7213, 2020. 7                             [19] Alejandro Newell, Zhiao Huang, and Jia Deng. Associa-
+                                                                                           tive embedding: End-to-end learning for joint detection and
+                [6] Hao-Shu Fang, Shuqin Xie, Yu-Wing Tai, and Cewu Lu.                    grouping. In Advances in Neural Information Processing
+                    RMPE: Regional multi-person pose estimation. In ICCV,                  Systems. Curran Associates, Inc., 2017. 2
+                    2017. 1, 2                                                        [20] Joseph Redmon, Santosh Divvala, Ross Girshick, and Ali
+                [7] Jiaqi Geng, Dong Huang, and Fernando De la Torre. Dense-               Farhadi. You only look once: Unified, real-time object de-
+                    pose from wifi. arXiv preprint arXiv:2301.00250, 2022. 1               tection. In Proceedings of the IEEE conference on computer
+                [8] Ross Girshick. Fast r-cnn. In Proceedings of the IEEE inter-           vision and pattern recognition, pages 779–788, 2016. 2
+                    national conference on computer vision, pages 1440–1448,          [21] Yili Ren, Zi Wang, ShengTan, YingyingChen,andJieYang.
+                    2015. 2                                                                Winect: 3d human pose tracking for free-form activity using
+                [9] Catalin Ionescu, Dragos Papava, Vlad Olaru, and Cristian               commodity wifi. Proceedings of the ACM on Interactive,
+                    Sminchisescu. Human3. 6m: Large scale datasets and pre-                Mobile, Wearable and Ubiquitous Technologies, 5(4):1–29,
+                    dictive methods for 3d human sensing in natural environ-               2021. 1, 3
+                    ments. IEEE transactions on pattern analysis and machine          [22] Yili Ren, Zi Wang, Yichao Wang, Sheng Tan, Yingying
+                    intelligence, 36(7):1325–1339, 2013. 5                                 Chen, and Jie Yang. Gopose: 3d human pose estimation
+              [10] WenjunJiang, Hongfei Xue, Chenglin Miao, Shiyang Wang,                  using wifi. Proceedings of the ACM on Interactive, Mobile,
+                    Sen Lin, Chong Tian, Srinivasan Murali, Haochen Hu, Zhi                Wearable and Ubiquitous Technologies, 6(2):1–25, 2022. 1,
+                    Sun, and Lu Su. Towards 3d human pose construction using               3
+                    wifi. In Proceedings of the 26th Annual International Con-        [23] Arindam Sengupta and Siyang Cao. mmpose-nlp: A natural
+                    ference on Mobile Computing and Networking, pages 1–14,                language processing approach to precise skeletal pose esti-
+                    2020. 1, 3, 7                                                          mation using mmwave radars. IEEE Transactions on Neural
+              [11] ShengJin,WentaoLiu,EnzeXie,WenhaiWang,ChenQian,                         Networks and Learning Systems, 2022. 1, 5
+                    Wanli Ouyang, and Ping Luo. Differentiable hierarchical           [24] DahuShi,XingWei,LiangqiLi,YeRen,andWenmingTan.
+                    graph grouping for multi-person pose estimation. In Com-               End-to-end multi-person pose estimation with transformers.
+                    puter Vision–ECCV2020: 16thEuropeanConference,Glas-                    In Proceedings of the IEEE/CVF Conference on Computer
+                    gow, UK, August 23–28, 2020, Proceedings, Part VII 16,                 Vision and Pattern Recognition, pages 11069–11078, 2022.
+                    pages 718–734. Springer, 2020. 2                                       4, 7
+              [12] Diederik P Kingma and Jimmy Ba. Adam: A method for                 [25] Leonid Sigal, Alexandru O Balan, and Michael J Black. Hu-
+                    stochastic optimization.  arXiv preprint arXiv:1412.6980,              maneva: Synchronizedvideoandmotioncapturedatasetand
+                    2014. 5                                                                baseline algorithm for evaluation of articulated human mo-
+              [13] Hao Kong, Xiangyu Xu, Jiadi Yu, Qilin Chen, Chenguang                   tion.  International journal of computer vision, 87(1-2):4,
+                    Ma, Yingying Chen, Yi-Chao Chen, and Linghe Kong.                      2010. 8
+              [26] Ke Sun, Bin Xiao, Dong Liu, and Jingdong Wang. Deep                  cross-domain gesture recognition with wi-fi. IEEE Transac-
+                   high-resolution representation learning for human pose es-           tions on Pattern Analysis and Machine Intelligence, 44(11):
+                   timation. In Proceedings of the IEEE/CVF conference on               8671–8688, 2021. 8
+                   computer vision and pattern recognition, pages 5693–5703,      [39] Mingmin Zhao, Tianhong Li, Mohammad Abu Alsheikh,
+                   2019. 1, 2                                                           Yonglong Tian, Hang Zhao, Antonio Torralba, and Dina
+              [27] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-              Katabi. Through-wall human pose estimation using radio
+                   reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia           signals. In ProceedingsoftheIEEEConferenceonComputer
+                   Polosukhin. Attention is all you need. Advances in neural            Vision and Pattern Recognition, pages 7356–7365, 2018. 1
+                   information processing systems, 30, 2017. 2, 4                 [40] Jianan Zhen, Qi Fang, Jiaming Sun, Wentao Liu, Wei Jiang,
+              [28] Fei Wang, Stanislav Panev, Ziyi Dai, Jinsong Han, and Dong           Hujun Bao, and Xiaowei Zhou. Smap: Single-shot multi-
+                   Huang. Can wifi estimate person pose?      arXiv preprint            person absolute 3d pose estimation. In Computer Vision–
+                   arXiv:1904.00277, 2019. 1, 2, 3                                      ECCV2020: 16th European Conference, Glasgow, UK, Au-
+              [29] Fei Wang, Sanping Zhou, Stanislav Panev, Jinsong Han, and            gust 23–28, 2020, Proceedings, Part XV 16, pages 550–566.
+                   Dong Huang. Person-in-wifi: Fine-grained person percep-              Springer, 2020. 7
+                   tion using wifi. In Proceedings of the IEEE/CVF Interna-       [41] Yunjiao Zhou, He Huang, Shenghai Yuan, Han Zou, Lihua
+                   tional Conference on Computer Vision, pages 5452–5461,               Xie, and Jianfei Yang. Metafi++: Wifi-enabled transformer-
+                   2019. 1, 3, 7                                                        based human pose estimation for metaverse avatar simula-
+              [30] Xuyu Wang, Lingjun Gao, and Shiwen Mao. Phasefi: Phase               tion. IEEE Internet of Things Journal, 2023. 1, 2, 3
+                   fingerprintingforindoorlocalizationwithadeeplearningap-        [42] Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang
+                   proach. In 2015 IEEE Global Communications Conference                Wang, and Jifeng Dai. Deformable detr: Deformable trans-
+                   (GLOBECOM),pages1–6.IEEE,2015. 3                                     formers for end-to-end object detection.   arXiv preprint
+              [31] Xuanzhi Wang, Kai Niu, Anlan Yu, Jie Xiong, Zhiyun Yao,              arXiv:2010.04159, 2020. 4
+                   Junzhe Wang, Wenwei Li, and Daqing Zhang. Wimeasure:           [43] Christian Zimmermann, Tim Welschehold, Christian Dorn-
+                   Millimeter-level object size measurement with commodity              hege, Wolfram Burgard, and Thomas Brox. 3d human pose
+                   wifi devices. ProceedingsoftheACMonInteractive,Mobile,               estimation in rgbd images for robotic task learning. In 2018
+                   Wearable and Ubiquitous Technologies, 7(2):1–26, 2023. 8             IEEEInternational Conference on Robotics and Automation
+              [32] Zitian Wang, Xuecheng Nie, Xiaochao Qu, Yunpeng Chen,                (ICRA), pages 1986–1992. IEEE, 2018. 2
+                   andSiLiu. Distribution-awaresingle-stagemodelsformulti-
+                   person 3d pose estimation. In Proceedings of the IEEE/CVF
+                   Conference on Computer Vision and Pattern Recognition,
+                   pages 13096–13105, 2022. 7
+              [33] Shih-En Wei, Varun Ramakrishna, Takeo Kanade, and Yaser
+                   Sheikh. Convolutional pose machines. In Proceedings of the
+                   IEEE conference on Computer Vision and Pattern Recogni-
+                   tion, pages 4724–4732, 2016. 1
+              [34] Qingqiang Wu, Guanghua Xu, Sicong Zhang, Yu Li, and
+                   Fan Wei. Human 3d pose estimation in a lying position
+                   by rgb-d images for medical diagnosis and rehabilitation.
+                   In 2020 42nd Annual International Conference of the IEEE
+                   Engineering in Medicine & Biology Society (EMBC), pages
+                   5802–5805. IEEE, 2020. 2
+              [35] Yaxiong Xie, Zhenjiang Li, and Mo Li. Precise power delay
+                   profiling with commodity wifi. In Proceedings of the 21st
+                   Annual International Conference on Mobile Computing and
+                   Networking, pages 53–64, 2015. 3
+              [36] Xinyu Yi, Yuxiao Zhou, Marc Habermann, Soshi Shimada,
+                   Vladislav Golyanik, Christian Theobalt, and Feng Xu. Phys-
+                   ical inertial poser (pip): Physics-aware real-time human mo-
+                   tion tracking from sparse inertial sensors. In Proceedings
+                   of the IEEE/CVF conference on computer vision and pattern
+                   recognition, pages 13167–13178, 2022. 8
+              [37] Jianxiong Zhang, Zhongping Cao, Wen Ding, Rihui Cheng,
+                   Xuemei Guo, and Guoli Wang. Multi-spectrum fusion to-
+                   wards 3d human pose estimation using mmwave radar. In
+                   Proceedings of 2022 Chinese Intelligent Systems Confer-
+                   ence: Volume I, pages 220–232. Springer, 2022. 7
+              [38] Yi Zhang, Yue Zheng, Kun Qian, Guidong Zhang, Yunhao
+                   Liu, Chenshu Wu, and Zheng Yang. Widar3. 0: Zero-effort

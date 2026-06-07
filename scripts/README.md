@@ -452,6 +452,49 @@ work_dirs/paper/$RUN_ID
 
 or manual checkpoint variables inside the script. Prefer newer runners when possible because they support environment-based `_CKPT` overrides more cleanly.
 
+## `run_old_paper_folder_ablation.sh`
+
+Purpose: evaluate and benchmark an existing paper-style checkpoint folder tree by
+reading each run's dumped config and checkpoint directly from
+`OLD_PAPER_ROOT/$RUN_ID`. Use this for old-version folders that mix canonical
+paper runs and backbone variants, for example:
+
+```text
+M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5
+```
+
+Run full postprocess and write logs into `paper_assets`:
+
+```bash
+OLD_PAPER_ROOT="/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper" \
+LOG_ROOT="paper_assets/logs/old_paper_folder_ablation" \
+EVAL_ROOT="work_dirs/old_paper_folder_eval" \
+ONLY_RUN_IDS="M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
+bash scripts/run_old_paper_folder_ablation.sh postprocess
+```
+
+Benchmark only:
+
+```bash
+OLD_PAPER_ROOT="/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper" \
+LOG_ROOT="paper_assets/logs/old_paper_folder_ablation" \
+ONLY_RUN_IDS="M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
+bash scripts/run_old_paper_folder_ablation.sh benchmark
+```
+
+Outputs:
+
+```text
+paper_assets/logs/old_paper_folder_ablation/experiment_log.csv
+paper_assets/logs/old_paper_folder_ablation/section_latency_log.csv
+paper_assets/logs/old_paper_folder_ablation/*_eval.json
+paper_assets/logs/old_paper_folder_ablation/*_benchmark.json
+```
+
+The script does not use hard-coded config mapping. For each run, it uses the
+first sorted `*.py` config dump and `latest.pth`, or the highest `epoch_*.pth`
+if `latest.pth` does not exist.
+
 ## `run_train_5gpu.sh`
 
 Purpose: train multiple paper runs in parallel on separate GPUs.

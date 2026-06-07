@@ -572,6 +572,26 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn('[M5_linear]=""', source)
         self.assertIn("EXTRA_RUN_IDS", source)
 
+    def test_old_paper_folder_ablation_runner_reads_dumped_configs(self):
+        source = _read("scripts/run_old_paper_folder_ablation.sh")
+        readme = _read("scripts/README.md")
+
+        self.assertIn("OLD_PAPER_ROOT", source)
+        self.assertIn("old_ver/root/Person-in-WiFi-3D/work_dirs/paper", source)
+        self.assertIn("postprocess|benchmark|extract", source)
+        self.assertIn("resolve_config", source)
+        self.assertIn("find \"$dir\" -maxdepth 1 -type f -name '*.py'", source)
+        self.assertIn("resolve_checkpoint", source)
+        self.assertIn("latest.pth", source)
+        self.assertIn("epoch_*.pth", source)
+        self.assertIn("tools/test.py", source)
+        self.assertIn("tools/analysis/benchmark.py", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+        self.assertIn("experiment_log.csv", source)
+        self.assertIn("section_latency_log.csv", source)
+        self.assertIn("M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5", readme)
+        self.assertIn("run_old_paper_folder_ablation.sh postprocess", readme)
+
     def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
         base_cfg = _read("configs/wifi/petr_wifi.py")
         b5_cfg = _read("configs/wifi/wi_tidir_wifi.py")

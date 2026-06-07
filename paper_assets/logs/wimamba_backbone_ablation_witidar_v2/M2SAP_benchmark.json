@@ -1,0 +1,26 @@
+{
+  "config": "work_dirs/wimamba_backbone_ablation_witidar_hybrid_v1/M2SAP/wi_tidir_wifi_mamba2_spatial_attn_pos.py",
+  "checkpoint": "work_dirs/wimamba_backbone_ablation_witidar_hybrid_v1/M2SAP/latest.pth",
+  "device": "cuda:0",
+  "input_shape": [
+    1,
+    3,
+    3,
+    20,
+    60
+  ],
+  "times": 100,
+  "warmup": 10,
+  "params_m": 3.8888,
+  "trainable_params_m": 3.8888,
+  "flops_g": null,
+  "latency_ms": 5.0166,
+  "fps": 199.3371,
+  "peak_memory_allocated_mb": 26.5,
+  "peak_memory_reserved_mb": 282.0,
+  "section_latency_ms": {
+    "backbone": 0.3978,
+    "witidar_encoder": 3.3633,
+    "witidar_decoder_attn": 0.2661
+  }
+}

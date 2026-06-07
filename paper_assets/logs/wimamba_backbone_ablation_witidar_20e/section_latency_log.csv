@@ -1,0 +1,5 @@
+experiment_id,latency_ms,fps,params_m,peak_memory_allocated_mb,backbone,witidar_encoder,witidar_decoder_attn
+M3,5.6233,177.8318,7.0587,38.49,0.3846,2.5338,0.2355
+M2FLAT,4.6975,212.8803,3.6175,25.29,0.3957,3.106,0.2641
+M2CSI,4.6703,214.1193,3.6175,25.29,0.399,3.1161,0.2664
+M1FLAT,2.7864,358.8835,4.0737,26.5,0.3746,1.3225,0.2427
