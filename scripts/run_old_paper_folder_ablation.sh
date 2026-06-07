@@ -43,7 +43,7 @@ Purpose:
   Evaluate/benchmark an existing paper-style folder tree by reading each
   run's dumped config and checkpoint directly from OLD_PAPER_ROOT/$RUN_ID.
   This is intended for old_ver/work_dirs/paper folders with mixed run names
-  such as M1, M1FLAT, M1V2, M2, M2CSI, M2FLAT, M3, M4, M5.
+  such as M0, M1, M1FLAT, M1V2, M2, M2CSI, M2FLAT, M3, M4, M5.
 
 Modes:
   postprocess  Evaluate + benchmark + append experiment CSV for every run.
@@ -55,7 +55,7 @@ Environment:
   OLD_PAPER_ROOT=/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper
   LOG_ROOT=paper_assets/logs/old_paper_folder_ablation
   EVAL_ROOT=work_dirs/old_paper_folder_eval
-  ONLY_RUN_IDS="M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5"
+  ONLY_RUN_IDS="M0 M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5"
   TEST_GPU=0
   BENCHMARK_DEVICE=cuda:0
   BENCHMARK_TIMES=100
@@ -160,6 +160,7 @@ resolve_checkpoint() {
 note_for_run() {
   local run_id="$1"
   case "$run_id" in
+    M0) printf '%s\n' "old paper M0 checkpoint folder" ;;
     M1) printf '%s\n' "old paper M1 checkpoint folder" ;;
     M1FLAT) printf '%s\n' "old paper M1FLAT checkpoint folder" ;;
     M1V2) printf '%s\n' "old paper M1V2 checkpoint folder" ;;

@@ -1,0 +1,27 @@
+{
+  "config": "/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper/M2/petr_wifi_mamba.py",
+  "checkpoint": "/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper/M2/latest.pth",
+  "device": "cuda:0",
+  "input_shape": [
+    1,
+    3,
+    3,
+    20,
+    60
+  ],
+  "times": 100,
+  "warmup": 10,
+  "params_m": 11.9669,
+  "trainable_params_m": 11.9669,
+  "flops_g": null,
+  "latency_ms": 13.7736,
+  "fps": 72.6024,
+  "peak_memory_allocated_mb": 151.16,
+  "peak_memory_reserved_mb": 162.0,
+  "section_latency_ms": {
+    "backbone": 0.3906,
+    "petr_encoder": 3.9693,
+    "petr_decoder": 2.8822,
+    "petr_refine_decoder": 1.9453
+  }
+}

@@ -460,7 +460,7 @@ reading each run's dumped config and checkpoint directly from
 paper runs and backbone variants, for example:
 
 ```text
-M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5
+M0 M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5
 ```
 
 Run full postprocess and write logs into `paper_assets`:
@@ -469,7 +469,7 @@ Run full postprocess and write logs into `paper_assets`:
 OLD_PAPER_ROOT="/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper" \
 LOG_ROOT="paper_assets/logs/old_paper_folder_ablation" \
 EVAL_ROOT="work_dirs/old_paper_folder_eval" \
-ONLY_RUN_IDS="M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
+ONLY_RUN_IDS="M0 M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
 bash scripts/run_old_paper_folder_ablation.sh postprocess
 ```
 
@@ -478,7 +478,7 @@ Benchmark only:
 ```bash
 OLD_PAPER_ROOT="/root/Person-in-WiFi-3D/work_dirs/old_ver/root/Person-in-WiFi-3D/work_dirs/paper" \
 LOG_ROOT="paper_assets/logs/old_paper_folder_ablation" \
-ONLY_RUN_IDS="M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
+ONLY_RUN_IDS="M0 M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5" \
 bash scripts/run_old_paper_folder_ablation.sh benchmark
 ```
 

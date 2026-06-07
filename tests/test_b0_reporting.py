@@ -88,7 +88,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
         return ds
 
     @staticmethod
-    def _deterministic_match(gt_kpts, pred_kpts):
+    def _deterministic_match(gt_kpts, pred_kpts, **kwargs):
         """Replacement for calc_mpjpe_and_match that always returns a valid result.
 
         Returns fixed-value metrics so counts/finiteness assertions are stable
@@ -182,6 +182,85 @@ class TestEvaluateBreakdown(unittest.TestCase):
         self.assertEqual(result['count_3p'], 0)
         # All 3 frames have 2-person GT
         self.assertEqual(result['count_2p'], 3)
+
+    def test_empty_predictions_are_penalized_instead_of_skipped(self):
+        """Frames with GT but no prediction must affect MPJPE via miss penalty."""
+        WifiPoseDataset, _ = _import_wifi_pose()
+
+        results = [self._make_fake_results(0)]
+        gt_frames = [
+            {'gt_keypoints': self._make_fake_gt(2), 'img_name': 'missed_frame'}
+        ]
+
+        ds = self._make_ds(WifiPoseDataset)
+        ds.get_item_single_frame = lambda i: gt_frames[i]
+
+        result = ds.evaluate(results)
+
+        self.assertEqual(result['count_2p'], 1)
+        self.assertEqual(result['matched_2p'], 0)
+        self.assertAlmostEqual(result['mpjpe'], 500.0)
+        self.assertAlmostEqual(result['mpjpe_2p'], 500.0)
+
+    def test_mpjpe_is_weighted_by_gt_person_count(self):
+        """Overall MPJPE denominator is total GT persons, not frame count."""
+        import numpy as np
+        WifiPoseDataset, _ = _import_wifi_pose()
+
+        results = [
+            self._make_fake_results(1),
+            self._make_fake_results(5),
+        ]
+        gt_frames = [
+            {'gt_keypoints': self._make_fake_gt(1), 'img_name': 'one_person'},
+            {'gt_keypoints': self._make_fake_gt(5), 'img_name': 'five_people'},
+        ]
+
+        ds = self._make_ds(WifiPoseDataset)
+        ds.get_item_single_frame = lambda i: gt_frames[i]
+
+        def person_weighted_match(gt_kpts, pred_kpts, **kwargs):
+            n = gt_kpts.shape[0]
+            metric = 20.0 if n == 1 else 100.0
+            matched_gt = gt_kpts
+            matched_pred = pred_kpts[:n]
+            metrics = [np.array(metric), np.array(metric), np.array(metric), np.array(metric)]
+            per_joint = np.full(gt_kpts.shape[1], metric, dtype=np.float32)
+            return metrics, per_joint, matched_pred, matched_gt
+
+        ds.calc_mpjpe_and_match = person_weighted_match
+
+        result = ds.evaluate(results)
+
+        self.assertAlmostEqual(result['mpjpe'], (20.0 * 1 + 100.0 * 5) / 6)
+
+    def test_outlier_match_is_rejected_and_reported_as_miss_and_false_positive(self):
+        """A far prediction should not be accepted as a true matched person."""
+        WifiPoseDataset, _ = _import_wifi_pose()
+        import torch
+
+        results = [
+            (
+                [np.zeros((1, 5), dtype=np.float32)],
+                [np.full((1, 14, 3), 3.0, dtype=np.float32)],
+            )
+        ]
+        gt_frames = [
+            {
+                'gt_keypoints': torch.zeros(1, 14, 3).float(),
+                'img_name': 'outlier_frame',
+            }
+        ]
+
+        ds = self._make_ds(WifiPoseDataset)
+        ds.get_item_single_frame = lambda i: gt_frames[i]
+
+        result = ds.evaluate(results, match_threshold_mm=500.0)
+
+        self.assertEqual(result['matched_persons'], 0)
+        self.assertEqual(result['missed_persons'], 1)
+        self.assertEqual(result['false_positive_persons'], 1)
+        self.assertAlmostEqual(result['mpjpe'], 500.0)
 
     def test_metrics_out_json_export(self):
         """--metrics-out should create a valid JSON with full schema."""

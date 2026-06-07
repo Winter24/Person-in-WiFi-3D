@@ -313,20 +313,37 @@ class WifiPoseDataset(dataset):
                 proposal_nums=(100, 300, 1000),
                 iou_thrs=None,
                 metric_items=None,
-                metrics_out=None):
+                metrics_out=None,
+                miss_penalty_mm=500.0,
+                match_threshold_mm=500.0):
+        """Evaluate pose predictions with GT-person-weighted MPJPE.
 
-        # --- PHẦN KHỞI TẠO CÁC LIST ĐỂ LƯU KẾT QUẢ ---
-        all_mpjpe_metrics = [] # MPJPE, PJDLE_h, PJDLE_v, PJDLE_d cho từng mẫu
-        all_per_joint_mpjpe = [] # MPJPE cho từng khớp, shape (num_samples, 14)
-        all_bone_length_errors = [] # Sai số chiều dài xương, shape (num_samples, num_bones)
+        Missed GT persons receive ``miss_penalty_mm`` so empty or partial
+        detections are reflected in the reported MPJPE instead of being
+        skipped. False positives are not included in MPJPE, but matched/missed
+        counts are reported so detection coverage is visible.
+        """
+        metric_sums = np.zeros(4, dtype=np.float64)
+        per_joint_sum = np.zeros(len(self.JOINT_NAMES), dtype=np.float64)
+        all_bone_length_errors = []
 
-        # Per-person-count buckets: key = number of GT persons (1, 2, 3)
-        bucket_mpjpe = {1: [], 2: [], 3: []}
-        # GT-split denominator: counts every frame with valid GT,
-        # regardless of whether prediction exists or matching succeeded.
+        total_gt_persons = 0
+        total_predicted_persons = 0
+        total_matched_persons = 0
+        total_missed_persons = 0
+        total_false_positive_persons = 0
+
+        bucket_metric_sums = {
+            1: np.zeros(4, dtype=np.float64),
+            2: np.zeros(4, dtype=np.float64),
+            3: np.zeros(4, dtype=np.float64),
+        }
+        bucket_gt_persons = {1: 0, 2: 0, 3: 0}
         bucket_gt_count = {1: 0, 2: 0, 3: 0}
+        bucket_matched_frames = {1: 0, 2: 0, 3: 0}
+        bucket_missed_persons = {1: 0, 2: 0, 3: 0}
+        bucket_false_positive_persons = {1: 0, 2: 0, 3: 0}
 
-        # Tải chiều dài xương ground-truth từ file JSON
         try:
             bone_stats_path = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -344,7 +361,6 @@ class WifiPoseDataset(dataset):
             gt_bone_lengths_mean = None
             bones_definition_from_json = None
 
-        # Tạo mapping từ TARGET_BONES tới chỉ số trong gt_bone_lengths_mean
         reliable_gt_lengths_mean = None
         if gt_bone_lengths_mean is not None:
             json_indices = []
@@ -356,86 +372,100 @@ class WifiPoseDataset(dataset):
                         break
             reliable_gt_lengths_mean = gt_bone_lengths_mean[json_indices]
 
-        # --- VÒNG LẶP XỬ LÝ KẾT QUẢ ---
         for i in range(len(results)):
             info = self.get_item_single_frame(i)
             gt_keypoints = info['gt_keypoints']
 
-            # Bỏ qua nếu không có ground-truth
             if gt_keypoints.shape[0] == 0:
                 continue
 
             n_gt_persons = int(gt_keypoints.shape[0])
+            total_gt_persons += n_gt_persons
 
-            # Count every valid-GT frame for the per-split denominator,
-            # before any prediction-availability guard.
             if n_gt_persons in bucket_gt_count:
                 bucket_gt_count[n_gt_persons] += 1
+                bucket_gt_persons[n_gt_persons] += n_gt_persons
 
             det_bboxes, det_keypoints = results[i]
+            kpt_pred = det_keypoints[0] if len(det_keypoints) else np.zeros(
+                (0, gt_keypoints.shape[1], gt_keypoints.shape[2]),
+                dtype=np.float32)
+            n_pred_persons = int(kpt_pred.shape[0])
+            total_predicted_persons += n_pred_persons
 
-            # Chỉ xử lý lớp 'person' (label 0)
-            kpt_pred = det_keypoints[0]
+            matched_results = None
+            if n_pred_persons > 0:
+                kpt_pred = torch.tensor(
+                    kpt_pred, dtype=gt_keypoints.dtype,
+                    device=gt_keypoints.device)
+                matched_results = self.calc_mpjpe_and_match(
+                    gt_keypoints, kpt_pred,
+                    match_threshold_mm=match_threshold_mm)
 
-            # Bỏ qua nếu không có dự đoán nào
-            if kpt_pred.shape[0] == 0:
-                # Nếu có ground-truth nhưng không có dự đoán, coi như sai số là rất lớn
-                # Hoặc đơn giản là bỏ qua để tính trên các mẫu có dự đoán
-                continue
-
-            kpt_pred = torch.tensor(kpt_pred, dtype=gt_keypoints.dtype, device=gt_keypoints.device)
-
-            # --- TÍNH TOÁN CÁC METRIC ---
-            # 1. Khớp cặp và tính toán MPJPE, PJDLE
-            matched_results = self.calc_mpjpe_and_match(gt_keypoints, kpt_pred)
-
+            matched_count = 0
             if matched_results:
-                # Nếu có ít nhất một cặp được khớp
                 mpjpe_metrics, per_joint_mpjpe, matched_pred_kpts, matched_gt_kpts = matched_results
-                all_mpjpe_metrics.append(mpjpe_metrics)
-                all_per_joint_mpjpe.append(per_joint_mpjpe)
+                matched_count = int(matched_gt_kpts.shape[0])
+                metric_values = np.asarray(
+                    [float(np.asarray(value)) for value in mpjpe_metrics],
+                    dtype=np.float64)
+                per_joint_values = np.asarray(per_joint_mpjpe, dtype=np.float64)
 
-                # Bucket by GT person count
-                if n_gt_persons in bucket_mpjpe:
-                    bucket_mpjpe[n_gt_persons].append(mpjpe_metrics[0])  # overall MPJPE only
+                metric_sums += metric_values * matched_count
+                per_joint_sum += per_joint_values * matched_count
+                total_matched_persons += matched_count
 
-                # 2. Tính toán sai số chiều dài xương trên các cặp đã khớp
+                if n_gt_persons in bucket_metric_sums:
+                    bucket_metric_sums[n_gt_persons] += metric_values * matched_count
+                    bucket_matched_frames[n_gt_persons] += 1
+
                 if reliable_gt_lengths_mean is not None:
-                    bone_error = self.calc_bone_length_error(matched_pred_kpts, reliable_gt_lengths_mean)
+                    bone_error = self.calc_bone_length_error(
+                        matched_pred_kpts, reliable_gt_lengths_mean)
                     all_bone_length_errors.append(bone_error)
 
-        # --- TỔNG HỢP VÀ IN KẾT QUẢ ---
-        if not all_mpjpe_metrics:
-            print("Không có mẫu nào được đánh giá (có thể do không có dự đoán hoặc ground-truth).")
+            missed_count = n_gt_persons - matched_count
+            if missed_count > 0:
+                penalty_values = np.full(4, miss_penalty_mm, dtype=np.float64)
+                metric_sums += penalty_values * missed_count
+                per_joint_sum += miss_penalty_mm * missed_count
+                total_missed_persons += missed_count
+                if n_gt_persons in bucket_metric_sums:
+                    bucket_metric_sums[n_gt_persons] += penalty_values * missed_count
+                    bucket_missed_persons[n_gt_persons] += missed_count
+
+            false_positive_count = max(0, n_pred_persons - matched_count)
+            if false_positive_count > 0:
+                total_false_positive_persons += false_positive_count
+                if n_gt_persons in bucket_false_positive_persons:
+                    bucket_false_positive_persons[n_gt_persons] += false_positive_count
+
+        if total_gt_persons == 0:
+            print("No ground-truth samples were available for evaluation.")
             return {}
 
-        # Tính trung bình các metric MPJPE/PJDLE
-        avg_mpjpe_metrics = np.mean(all_mpjpe_metrics, axis=0)
+        avg_mpjpe_metrics = metric_sums / float(total_gt_persons)
+        avg_per_joint_mpjpe = per_joint_sum / float(total_gt_persons)
 
-        # Tính trung bình MPJPE trên từng khớp
-        avg_per_joint_mpjpe = np.mean(all_per_joint_mpjpe, axis=0)
-
-        # Tính trung bình sai số chiều dài xương
         if all_bone_length_errors:
             avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
         else:
             avg_bone_length_error = np.zeros(len(self.TARGET_BONES))
 
-        # Per-person-count breakdown
-        mpjpe_1p = float(np.mean(bucket_mpjpe[1])) if bucket_mpjpe[1] else float('nan')
-        mpjpe_2p = float(np.mean(bucket_mpjpe[2])) if bucket_mpjpe[2] else float('nan')
-        mpjpe_3p = float(np.mean(bucket_mpjpe[3])) if bucket_mpjpe[3] else float('nan')
-        # count_Xp = true GT-split denominator (all frames with X GT persons,
-        # including missed predictions).  matched_Xp = frames where matching
-        # actually produced a result (numerator for the per-split MPJPE).
+        mpjpe_1p = (float(bucket_metric_sums[1][0] / bucket_gt_persons[1])
+                    if bucket_gt_persons[1] else float('nan'))
+        mpjpe_2p = (float(bucket_metric_sums[2][0] / bucket_gt_persons[2])
+                    if bucket_gt_persons[2] else float('nan'))
+        mpjpe_3p = (float(bucket_metric_sums[3][0] / bucket_gt_persons[3])
+                    if bucket_gt_persons[3] else float('nan'))
+
         count_1p = bucket_gt_count[1]
         count_2p = bucket_gt_count[2]
         count_3p = bucket_gt_count[3]
-        matched_1p = len(bucket_mpjpe[1])
-        matched_2p = len(bucket_mpjpe[2])
-        matched_3p = len(bucket_mpjpe[3])
+        matched_1p = bucket_matched_frames[1]
+        matched_2p = bucket_matched_frames[2]
+        matched_3p = bucket_matched_frames[3]
 
-        # Tạo dictionary kết quả (giữ tương thích với workflow cũ)
         result_dict = OrderedDict(
             mpjpe=float(avg_mpjpe_metrics[0]),
             mpjpeh=float(avg_mpjpe_metrics[1]),
@@ -450,9 +480,21 @@ class WifiPoseDataset(dataset):
             matched_1p=matched_1p,
             matched_2p=matched_2p,
             matched_3p=matched_3p,
+            total_gt_persons=total_gt_persons,
+            predicted_persons=total_predicted_persons,
+            matched_persons=total_matched_persons,
+            missed_persons=total_missed_persons,
+            false_positive_persons=total_false_positive_persons,
+            missed_1p=bucket_missed_persons[1],
+            missed_2p=bucket_missed_persons[2],
+            missed_3p=bucket_missed_persons[3],
+            false_positive_1p=bucket_false_positive_persons[1],
+            false_positive_2p=bucket_false_positive_persons[2],
+            false_positive_3p=bucket_false_positive_persons[3],
+            miss_penalty_mm=float(miss_penalty_mm),
+            match_threshold_mm=float(match_threshold_mm),
         )
 
-        # In ra bảng kết quả chi tiết
         print("\n" + "="*60)
         print(" " * 15 + "EVALUATION REPORT")
         print("="*60)
@@ -466,11 +508,17 @@ class WifiPoseDataset(dataset):
         print(f"  1-person:  {mpjpe_1p:.2f} mm  (n={count_1p}, matched={matched_1p})")
         print(f"  2-person:  {mpjpe_2p:.2f} mm  (n={count_2p}, matched={matched_2p})")
         print(f"  3-person:  {mpjpe_3p:.2f} mm  (n={count_3p}, matched={matched_3p})")
+        print(f"  matched persons: {total_matched_persons} / {total_gt_persons}")
+        print(f"  missed persons:  {total_missed_persons} "
+              f"(penalty={miss_penalty_mm:.1f} mm)")
+        print(f"  match threshold: {match_threshold_mm:.1f} mm")
+        print(f"  false positives: {total_false_positive_persons}")
         print("-"*60)
         print(" " * 10 + "PER-JOINT MPJPE (mm)")
         print("-"*60)
-        # Sắp xếp để dễ xem
-        sorted_joint_errors = sorted(zip(self.JOINT_NAMES, avg_per_joint_mpjpe), key=lambda item: item[1], reverse=True)
+        sorted_joint_errors = sorted(
+            zip(self.JOINT_NAMES, avg_per_joint_mpjpe),
+            key=lambda item: item[1], reverse=True)
         for joint_name, error in sorted_joint_errors:
             print(f"{joint_name:<15} | {error:.2f}")
         if all_bone_length_errors:
@@ -478,33 +526,20 @@ class WifiPoseDataset(dataset):
             print(" " * 10 + "BONE LENGTH ERROR (mm)")
             print("-"*60)
             bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
-            sorted_bone_errors = sorted(zip(bone_names, avg_bone_length_error), key=lambda item: item[1], reverse=True)
+            sorted_bone_errors = sorted(
+                zip(bone_names, avg_bone_length_error),
+                key=lambda item: item[1], reverse=True)
             for bone_name, error in sorted_bone_errors:
                 print(f"{bone_name:<25} | {error:.2f}")
         print("="*60)
 
-        # --- EXPORT JSON (nếu metrics_out được chỉ định) ---
         if metrics_out:
             per_joint_dict = {name: float(err) for name, err in zip(self.JOINT_NAMES, avg_per_joint_mpjpe)}
             bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
             bone_dict = {name: float(err) for name, err in zip(bone_names, avg_bone_length_error)}
-            export = OrderedDict(
-                mpjpe=result_dict['mpjpe'],
-                mpjpeh=result_dict['mpjpeh'],
-                mpjpev=result_dict['mpjpev'],
-                mpjped=result_dict['mpjped'],
-                mpjpe_1p=mpjpe_1p,
-                mpjpe_2p=mpjpe_2p,
-                mpjpe_3p=mpjpe_3p,
-                count_1p=count_1p,
-                count_2p=count_2p,
-                count_3p=count_3p,
-                matched_1p=matched_1p,
-                matched_2p=matched_2p,
-                matched_3p=matched_3p,
-                per_joint_mpjpe=per_joint_dict,
-                bone_length_error=bone_dict,
-            )
+            export = OrderedDict(result_dict)
+            export['per_joint_mpjpe'] = per_joint_dict
+            export['bone_length_error'] = bone_dict
             os.makedirs(os.path.dirname(os.path.abspath(metrics_out)), exist_ok=True)
             with open(metrics_out, 'w') as f:
                 json.dump(export, f, indent=2, default=_json_serializer)
@@ -531,86 +566,116 @@ class WifiPoseDataset(dataset):
         
         return error.mean(dim=0).cpu().numpy() # Trả về sai số trung bình cho từng xương
 
-    def calc_mpjpe_and_match(self, gt_kpts, pred_kpts):
-        """Khớp cặp GT và Pred, sau đó tính các loại MPJPE."""
+    def calc_mpjpe_and_match(self, gt_kpts, pred_kpts,
+                             match_threshold_mm=500.0):
+        """Match GT and predictions, then compute matched-person MPJPE."""
         n_gt, n_pred = gt_kpts.shape[0], pred_kpts.shape[0]
-        
-        # Tạo ma trận chi phí
-        cost_matrix = torch.cdist(gt_kpts.view(n_gt, -1), pred_kpts.view(n_pred, -1), p=2)
-        cost_matrix = cost_matrix.cpu().numpy()
-        
-        # Dùng thuật toán Hungary để khớp cặp
-        gt_indices, pred_indices = linear_sum_assignment(cost_matrix)
-        
-        # Lấy ra các cặp đã được khớp
+        if n_gt == 0 or n_pred == 0:
+            return None
+        if linear_sum_assignment is None:
+            raise ImportError('Please run "pip install scipy" to install scipy first.')
+
+        cost_matrix = torch.cdist(
+            gt_kpts.reshape(n_gt, -1).float(),
+            pred_kpts.reshape(n_pred, -1).float(),
+            p=2)
+        gt_indices, pred_indices = linear_sum_assignment(
+            cost_matrix.detach().cpu().numpy())
+        gt_indices = torch.as_tensor(gt_indices, dtype=torch.long, device=gt_kpts.device)
+        pred_indices = torch.as_tensor(pred_indices, dtype=torch.long, device=pred_kpts.device)
+
+        pair_errors_mm = torch.norm(
+            gt_kpts[gt_indices] - pred_kpts[pred_indices],
+            p=2, dim=-1).mean(dim=-1) * 1000
+        valid_pairs = pair_errors_mm <= match_threshold_mm
+        if valid_pairs.sum().item() == 0:
+            return None
+        gt_indices = gt_indices[valid_pairs]
+        pred_indices = pred_indices[valid_pairs]
+
         matched_gt = gt_kpts[gt_indices]
         matched_pred = pred_kpts[pred_indices]
-        
         if matched_gt.numel() == 0:
             return None
 
-        # Tính toán các metric trên các cặp đã khớp
-        # Sai số Euclid trên từng khớp
-        per_joint_error_3d = torch.norm(matched_gt - matched_pred, p=2, dim=-1) # shape: (num_matched, 14)
-        
-        # MPJPE tổng thể
-        mpjpe = per_joint_error_3d.mean() * 1000 # mm
-        
-        # PJDLE
-        per_joint_error_dim = torch.abs(matched_gt - matched_pred) # shape: (num_matched, 14, 3)
-        mpjpeh = per_joint_error_dim[..., 0].mean() * 1000 # mm
-        mpjpev = per_joint_error_dim[..., 1].mean() * 1000 # mm (đổi Y và Z để khớp với paper)
-        mpjped = per_joint_error_dim[..., 2].mean() * 1000 # mm
-        
-        mpjpe_metrics = [mpjpe.cpu().numpy(), mpjpeh.cpu().numpy(), mpjpev.cpu().numpy(), mpjped.cpu().numpy()]
-        per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000 # mm, shape (14,)
-        
+        per_joint_error_3d = torch.norm(matched_gt - matched_pred, p=2, dim=-1)
+        mpjpe = per_joint_error_3d.mean() * 1000
+
+        per_joint_error_dim = torch.abs(matched_gt - matched_pred)
+        mpjpeh = per_joint_error_dim[..., 0].mean() * 1000
+        mpjpev = per_joint_error_dim[..., 1].mean() * 1000
+        mpjped = per_joint_error_dim[..., 2].mean() * 1000
+
+        mpjpe_metrics = [
+            mpjpe.cpu().numpy(),
+            mpjpeh.cpu().numpy(),
+            mpjpev.cpu().numpy(),
+            mpjped.cpu().numpy(),
+        ]
+        per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000
         return mpjpe_metrics, per_joint_mpjpe, matched_pred, matched_gt
-    
-    def calc_mpjpe(self, real, pred, no, root=0):
+
+    def calc_mpjpe(self, real, pred, no, root=0, penalty_mm=500.0):
+        """Legacy metric helper returning per-frame person-summed errors.
+
+        Unmatched GT persons receive ``penalty_mm``. This avoids the historical
+        ``pred[-1]`` silent bug when a GT person has no matched prediction.
+        """
         n = real.shape[0]
         m = pred.shape[0]
+        if n == 0:
+            return 0.0, 0.0, 0.0, 0.0
+
         j, c = pred.shape[1:]
         assert j == real.shape[1] and c == real.shape[2]
-        if isinstance(root,list):
-            real_root = real.unsqueeze(1).expand(n, m, j, c)
-            pred_root = pred.unsqueeze(0).expand(n, m, j, c)
-            #n*m*j  n*j
-            distance_array = torch.ones((n,m), dtype=torch.float) * 2 ** 24  # TODO: magic number!
-            for i in range(n):
-                for j in range(m):
-                    distance_array[i][j] = torch.norm(real[i]-pred[j], p=2, dim=-1).mean()
 
-            # distance_array = torch.norm(real_root-pred_root, p=2, dim=-1)*vis_mask.unsqueeze(1).expand(n, m, j)
-            # distance_array = distance_array.sum(-1) / vis_mask.sum(-1).unsqueeze(1)
-            # print(torch.min(distance_array))
+        if m == 0:
+            penalty = penalty_mm * n
+            return penalty, penalty, penalty, penalty
+
+        if isinstance(root, list):
+            distance_array = torch.ones((n, m), dtype=torch.float, device=real.device) * 1e6
+            for gt_idx in range(n):
+                for pred_idx in range(m):
+                    distance_array[gt_idx, pred_idx] = torch.norm(
+                        real[gt_idx] - pred[pred_idx], p=2, dim=-1).mean()
         else:
-            real_root = real[:, root].unsqueeze(0).expand(n, m, c)
-            pred_root = pred[:, root].unsqueeze(1).expand(n, m, c)
-            distance_array = torch.pow(real_root - pred_root, 2)
-        corres = torch.ones(n, dtype=torch.long)*-1
-        occupied = torch.zeros(m, dtype=torch.long)
+            real_root = real[:, root].unsqueeze(1).expand(n, m, c)
+            pred_root = pred[:, root].unsqueeze(0).expand(n, m, c)
+            distance_array = torch.norm(real_root - pred_root, p=2, dim=-1)
 
-        while torch.min(distance_array) < 50:   # threshold 30.
-            min_idx = torch.where(distance_array == torch.min(distance_array))
-            
-            for i in range(len(min_idx[0])):
-                distance_array[min_idx[0][i]][min_idx[1][i]] = 50
-                if corres[min_idx[0][i]] >= 0 or occupied[min_idx[1][i]]:
-                    continue
-                else:
-                    corres[min_idx[0][i]] = min_idx[1][i]
-                    occupied[min_idx[1][i]] = 1
-        new_pred = pred[corres]
-        #np.save('/home/yankangwei/opera-main/result/pose_pred/%s.npy' %no, new_pred)
-        #np.save('/home/yankangwei/opera-main/result/pose_gt/%s.npy' %no, real)
-        mpjpe = torch.sqrt(torch.pow(real - new_pred, 2).sum(-1))
-        mpjpeh = torch.sqrt(torch.pow(real[:,:,0] - new_pred[:,:,0], 2))
-        mpjpev = torch.sqrt(torch.pow(real[:,:,1] - new_pred[:,:,1], 2))
-        mpjped = torch.sqrt(torch.pow(real[:,:,2] - new_pred[:,:,2], 2))
-        # mpjpe = torch.norm(real-new_pred, p=2, dim=-1) #n*j
-        # mpjpe_mean = (mpjpe*vis_mask.float()).sum(-1)/vis_mask.float().sum(-1) if vis_mask is not None else mpjpe.mean(-1)
-        return mpjpe.mean()*1000, mpjpeh.mean()*1000, mpjpev.mean()*1000, mpjped.mean()*1000
+        corres = torch.ones(n, dtype=torch.long, device=real.device) * -1
+        dist_mat = distance_array.clone()
+        while dist_mat.numel() > 0 and torch.min(dist_mat) < 50:
+            min_idx = torch.where(dist_mat == torch.min(dist_mat))
+            gt_idx = int(min_idx[0][0].item())
+            pred_idx = int(min_idx[1][0].item())
+            corres[gt_idx] = pred_idx
+            dist_mat[gt_idx, :] = 1e6
+            dist_mat[:, pred_idx] = 1e6
+
+        sum_mpjpe = 0.0
+        sum_h = 0.0
+        sum_v = 0.0
+        sum_d = 0.0
+        for gt_idx in range(n):
+            pred_idx = int(corres[gt_idx].item())
+            if pred_idx < 0:
+                sum_mpjpe += penalty_mm
+                sum_h += penalty_mm
+                sum_v += penalty_mm
+                sum_d += penalty_mm
+                continue
+
+            matched_real = real[gt_idx]
+            matched_pred = pred[pred_idx]
+            sum_mpjpe += torch.norm(matched_real - matched_pred, p=2, dim=-1).mean().item() * 1000
+            per_dim = torch.abs(matched_real - matched_pred)
+            sum_h += per_dim[:, 0].mean().item() * 1000
+            sum_v += per_dim[:, 1].mean().item() * 1000
+            sum_d += per_dim[:, 2].mean().item() * 1000
+
+        return sum_mpjpe, sum_h, sum_v, sum_d
 # if __name__ == "__main__":
 #     path = 'data/'
 #     train_ds = Train_Dataset(path)

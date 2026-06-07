@@ -589,7 +589,7 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("tools/analysis/append_experiment_log.py", source)
         self.assertIn("experiment_log.csv", source)
         self.assertIn("section_latency_log.csv", source)
-        self.assertIn("M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5", readme)
+        self.assertIn("M0 M1 M1FLAT M1V2 M2 M2CSI M2FLAT M3 M4 M5", readme)
         self.assertIn("run_old_paper_folder_ablation.sh postprocess", readme)
 
     def test_bone_warmup_hook_is_wired_globally_and_overridden_for_b5(self):
