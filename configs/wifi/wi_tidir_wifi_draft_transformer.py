@@ -1,0 +1,31 @@
+_base_ = ['./wi_tidir_wifi_transformer.py']
+
+model = dict(
+    backbone=dict(
+        type='WifiInputAdapter',
+        in_channels=60,
+        embed_dims=256,
+        mode='spectral'),
+    bbox_head=dict(
+        type='opera.WiTiDARHead',
+        transformer_encoder=dict(
+            type='mmcv.DetrTransformerEncoder',
+            num_layers=6,
+            transformerlayers=dict(
+                type='mmcv.BaseTransformerLayer',
+                attn_cfgs=dict(
+                    type='mmcv.MultiheadAttention',
+                    embed_dims=256,
+                    num_heads=8,
+                    dropout=0.1),
+                feedforward_channels=1024,
+                ffn_dropout=0.1,
+                operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
+        mamba_cfg=None,
+        loss_bone=None,
+        flow_refine_mode='none',
+        flow_num_steps=1,
+        flow_noise_strength=0.0,
+        loss_flow_weight=0.0))
+
+work_dir = './work_dirs/wi_tidir_wifi_draft_transformer'

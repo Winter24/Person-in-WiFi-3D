@@ -68,6 +68,65 @@ $WORK_ROOT/$RUN_ID/latest.pth
 $WORK_ROOT/$RUN_ID/epoch_*.pth newest by version sort
 ```
 
+## `run_paper_m0_m9_fixed_seed.sh`
+
+Purpose: run the canonical fixed-seed M0-M9 ladder end to end.
+
+Default run ids:
+
+```text
+M0 M1 M2 M3 M4 M5 M6 M7 M8 M9
+```
+
+Meaning:
+
+| Run ID | Summary |
+| --- | --- |
+| `M0` | Linear input + Transformer encoder + PETRHead, no flow. |
+| `M1` | Spectral tokenizer + Transformer encoder + PETRHead, no flow. |
+| `M2` | Spectral tokenizer + Mamba-1 encoder + PETRHead, no flow. |
+| `M3` | Spectral tokenizer + Mamba2-CSI encoder + PETRHead, no flow. |
+| `M4` | Spectral tokenizer + Transformer encoder + WiTiDAR draft head, no flow. |
+| `M5` | Spectral tokenizer + Mamba-1 encoder + WiTiDAR draft head, no flow. |
+| `M6` | Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR draft head, no flow. |
+| `M7` | Spectral tokenizer + Transformer encoder + WiTiDAR head with rectified flow. |
+| `M8` | Spectral tokenizer + Mamba-1 encoder + WiTiDAR head with rectified flow. |
+| `M9` | Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR head with rectified flow. |
+
+Run all:
+
+```bash
+bash scripts/run_paper_m0_m9_fixed_seed.sh all
+```
+
+Train only:
+
+```bash
+bash scripts/run_paper_m0_m9_fixed_seed.sh train
+```
+
+Postprocess existing checkpoints:
+
+```bash
+bash scripts/run_paper_m0_m9_fixed_seed.sh postprocess
+```
+
+Run a subset:
+
+```bash
+ONLY_RUN_IDS="M0 M3 M6 M9" bash scripts/run_paper_m0_m9_fixed_seed.sh all
+```
+
+Default outputs:
+
+```text
+work_dirs/paper_m0_m9/
+work_dirs/paper_m0_m9_eval/
+paper_assets/logs/m0_m9/
+paper_assets/logs/m0_m9/experiment_log.csv
+paper_assets/logs/m0_m9/section_latency_log.csv
+```
+
 ## `auto_fix_triton_libcuda.sh`
 
 Purpose: fix the common Colab/Triton error where `triton.common.build.libcuda_dirs()` cannot find `libcuda.so`.

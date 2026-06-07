@@ -26,6 +26,9 @@ model = dict(
             loss_weight=2.0),
         loss_kpt=dict(type='mmdet.L1Loss', loss_weight=5.0),
         loss_bone=dict(_delete_=True, type='BoneLengthLoss', loss_weight=2.0),
+        flow_refine_mode='rectified_flow',
+        flow_num_steps=1,
+        flow_noise_strength=0.1,
         loss_flow_weight=10.0,
         train_cfg=dict(
             assigner=dict(

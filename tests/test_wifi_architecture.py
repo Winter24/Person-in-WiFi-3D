@@ -84,6 +84,36 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertEqual(cfg.model["bbox_head"]["transformer_encoder"]["num_layers"], 6)
         self.assertIsNone(cfg.model["bbox_head"]["mamba_cfg"])
         self.assertIsNone(cfg.model["bbox_head"]["loss_bone"])
+        self.assertEqual(cfg.model["bbox_head"]["flow_refine_mode"], "rectified_flow")
+
+    def test_witidar_draft_configs_disable_flow_for_m0_m9_ladder(self):
+        expected = {
+            "configs/wifi/wi_tidir_wifi_draft_transformer.py": (
+                "mmcv.DetrTransformerEncoder", None),
+            "configs/wifi/wi_tidir_wifi_draft_mamba1.py": (
+                None, "WiMambaEncoder"),
+            "configs/wifi/wi_tidir_wifi_draft_mamba2_csi.py": (
+                None, "WiMamba2CSIEncoder"),
+        }
+
+        for relative_path, (transformer_type, mamba_type) in expected.items():
+            with self.subTest(relative_path=relative_path):
+                cfg = _load_config_module(relative_path)
+                head = cfg.model["bbox_head"]
+
+                self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+                self.assertEqual(head["type"], "opera.WiTiDARHead")
+                self.assertEqual(head["flow_refine_mode"], "none")
+                self.assertEqual(head["flow_num_steps"], 1)
+                self.assertEqual(head["loss_flow_weight"], 0.0)
+                if transformer_type is None:
+                    self.assertIsNone(head.get("transformer_encoder"))
+                else:
+                    self.assertEqual(head["transformer_encoder"]["type"], transformer_type)
+                if mamba_type is None:
+                    self.assertIsNone(head.get("mamba_cfg"))
+                else:
+                    self.assertEqual(head["mamba_cfg"]["type"], mamba_type)
 
     def test_witidir_linear_config_keeps_witidar_stack_and_switches_backbone_to_linear(self):
         cfg = _load_config_module("configs/wifi/wi_tidir_wifi_linear.py")
@@ -520,6 +550,52 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("if self.encoder_type == 'mamba':", source)
         self.assertIn("elif self.encoder_type == 'transformer':", source)
         self.assertIn("self.encoder(query=feat, key=None, value=None)", source)
+
+    def test_witidar_head_flow_mode_and_num_steps_are_runtime_controls(self):
+        source = _read("opera/models/dense_heads/wi_tidar_head.py")
+        flow_source = _read("opera/models/utils/rectified_flow.py")
+
+        self.assertIn("flow_refine_mode='rectified_flow'", source)
+        self.assertIn("flow_num_steps=1", source)
+        self.assertIn("flow_noise_strength=0.1", source)
+        self.assertIn("self.flow_refine_mode = flow_refine_mode", source)
+        self.assertIn("self.flow_num_steps = int(flow_num_steps)", source)
+        self.assertIn("if self.flow_refine_mode == 'none':", source)
+        self.assertIn("self.flow_model = None", source)
+        self.assertIn("elif self.flow_refine_mode == 'rectified_flow':", source)
+        self.assertIn("num_steps=self.flow_num_steps", source)
+        self.assertIn("noise_strength=flow_noise_strength", source)
+        self.assertIn("def __init__(self, velocity_net, sigma_min=1e-5, noise_strength=0.1):", flow_source)
+        self.assertIn("self.noise_strength = noise_strength", flow_source)
+        self.assertIn("x_0 = x_0 + torch.randn_like(x_0) * self.noise_strength", flow_source)
+
+    def test_m0_m9_full_runner_defines_canonical_ladder(self):
+        source = _read("scripts/run_paper_m0_m9_fixed_seed.sh")
+        aliases = _read("tools/analysis/experiment_id_aliases.json")
+
+        self.assertIn("RUN_IDS=(M0 M1 M2 M3 M4 M5 M6 M7 M8 M9)", source)
+        expected_configs = {
+            "M0": "configs/wifi/petr_wifi.py",
+            "M1": "configs/wifi/petr_wifi.py",
+            "M2": "configs/wifi/petr_wifi_mamba.py",
+            "M3": "configs/wifi/petr_wifi_mamba2_crossscan_pos_attn.py",
+            "M4": "configs/wifi/wi_tidir_wifi_draft_transformer.py",
+            "M5": "configs/wifi/wi_tidir_wifi_draft_mamba1.py",
+            "M6": "configs/wifi/wi_tidir_wifi_draft_mamba2_csi.py",
+            "M7": "configs/wifi/wi_tidir_wifi_transformer.py",
+            "M8": "configs/wifi/wi_tidir_wifi.py",
+            "M9": "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py",
+        }
+        for run_id, config_path in expected_configs.items():
+            self.assertIn(f'[{run_id}]="{config_path}"', source)
+            self.assertIn(f'"{run_id}": "{run_id}"', aliases)
+
+        self.assertNotIn('"B0"', aliases)
+        self.assertIn("tools/test.py", source)
+        self.assertIn("tools/analysis/benchmark.py", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+        self.assertIn("experiment_log.csv", source)
+        self.assertIn("section_latency_log.csv", source)
 
     def test_losses_init_no_longer_imports_limb_loss(self):
         source = _read("opera/models/losses/__init__.py")
