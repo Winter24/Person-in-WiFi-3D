@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sơ đồ kiến trúc không gian Person-in-WiFi 3D</title>
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-tx: #38bdf8;
+            --accent-rx: #a855f7;
+            --accent-human: #f43f5e;
+            --accent-camera: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .container {
+            display: flex;
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 1150px;
+            height: 620px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .canvas-container {
+            flex: 1.3;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-right: 1px solid #334155;
+        }
+
+        .panel {
+            flex: 0.7;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            background-color: #111827;
+            overflow-y: auto;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Interactive Nodes */
+        .node {
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            filter: brightness(1.25) drop-shadow(0 0 10px currentColor);
+        }
+
+        /* Wave Propagation Animations */
+        .wifi-wave {
+            stroke-dasharray: 8, 8;
+            animation: dash 30s linear infinite;
+        }
+
+        .wave-tx {
+            stroke: var(--accent-tx);
+            animation-duration: 18s;
+        }
+
+        .wave-rx {
+            stroke: var(--accent-rx);
+            animation-duration: 14s;
+            animation-direction: reverse;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+        /* Information Panel */
+        .panel h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 8px;
+            color: #fff;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            align-self: flex-start;
+        }
+
+        .badge-default { background-color: #475569; color: #fff; }
+        .badge-tx { background-color: #0284c7; color: #fff; }
+        .badge-rx { background-color: #7e22ce; color: #fff; }
+        .badge-human { background-color: #be123c; color: #fff; }
+        .badge-camera { background-color: #d97706; color: #fff; }
+
+        .detail-section {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .detail-section p {
+            margin-bottom: 10px;
+        }
+
+        .detail-section ul {
+            margin-top: 5px;
+            margin-bottom: 10px;
+            margin-left: 20px;
+        }
+
+        .detail-section li {
+            margin-bottom: 6px;
+        }
+
+        .instruction {
+            margin-top: auto;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-style: italic;
+            text-align: center;
+            border-top: 1px solid #334155;
+            padding-top: 15px;
+        }
+
+        .room-border {
+            stroke: #475569;
+            stroke-width: 2.5;
+            fill: none;
+            stroke-dasharray: 6, 4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Sơ đồ Không gian và Thực thể Hệ thống Person-in-WiFi 3D</h1>
+        <p>Di chuột hoặc click vào từng thiết bị để xem thông số phần cứng và vai trò vật lý trong mô hình</p>
+    </div>
+
+    <div class="container">
+        <div class="canvas-container">
+            <svg viewBox="0 0 600 500" preserveAspectRatio="xMidYMid meet">
+                <rect x="70" y="60" width="440" height="360" class="room-border" />
+                
+                <text x="290" y="45" fill="#94a3b8" font-size="13" font-weight="bold" text-anchor="middle">+---------------------------- 4.0 Mét ----------------------------+</text>
+                
+                <text x="525" y="235" fill="#94a3b8" font-size="13" font-weight="bold">3.5</text>
+                <text x="525" y="252" fill="#94a3b8" font-size="13" font-weight="bold">Mét</text>
+                <line x1="520" y1="60" x2="520" y2="420" stroke="#475569" stroke-width="1" stroke-dasharray="2,2" />
+
+                <path d="M 70 420 Q 180 310 290 200" fill="none" stroke-width="2" class="wifi-wave wave-tx" />
+                <path d="M 290 200 Q 180 130 70 60" fill="none" stroke-width="2.5" class="wifi-wave wave-rx" />
+                <path d="M 290 200 Q 400 130 510 60" fill="none" stroke-width="2.5" class="wifi-wave wave-rx" />
+                <path d="M 290 200 Q 400 310 510 420" fill="none" stroke-width="2.5" class="wifi-wave wave-rx" />
+
+                <g class="node" id="node-rx1" style="color: var(--accent-rx);">
+                    <circle cx="70" cy="60" r="16" fill="#7e22ce" />
+                    <line x1="62" y1="60" x2="62" y2="35" stroke="#fff" stroke-width="2" />
+                    <line x1="70" y1="60" x2="70" y2="30" stroke="#fff" stroke-width="2" />
+                    <line x1="78" y1="60" x2="78" y2="35" stroke="#fff" stroke-width="2" />
+                    
+                    <text x="96" y="64" fill="#fff" font-size="12" font-weight="bold">[Bộ Thu 1 (Rx1)]</text>
+                    <text x="96" y="80" fill="#cbd5e1" font-size="11">- Laptop ThinkPad X201</text>
+                    <text x="96" y="94" fill="#cbd5e1" font-size="11">- Card Intel 5300</text>
+                    <text x="96" y="108" fill="#a855f7" font-size="11">- 3 Ăng-ten thu 📶📶📶</text>
+                </g>
+
+                <g class="node" id="node-rx2" style="color: var(--accent-rx);">
+                    <circle cx="510" cy="60" r="16" fill="#7e22ce" />
+                    <line x1="502" y1="60" x2="502" y2="35" stroke="#fff" stroke-width="2" />
+                    <line x1="510" y1="60" x2="510" y2="30" stroke="#fff" stroke-width="2" />
+                    <line x1="518" y1="60" x2="518" y2="35" stroke="#fff" stroke-width="2" />
+                    
+                    <text x="494" y="64" fill="#fff" font-size="12" font-weight="bold" text-anchor="end">[Bộ Thu 2 (Rx2)]</text>
+                    <text x="494" y="80" fill="#cbd5e1" font-size="11" text-anchor="end">- Laptop ThinkPad X201</text>
+                    <text x="494" y="94" fill="#cbd5e1" font-size="11" text-anchor="end">- Card Intel 5300</text>
+                    <text x="494" y="108" fill="#a855f7" font-size="11" text-anchor="end">- 3 Ăng-ten thu 📶📶📶</text>
+                </g>
+
+                <g class="node" id="node-tx" style="color: var(--accent-tx);">
+                    <circle cx="70" cy="420" r="16" fill="#0284c7" />
+                    <line x1="70" y1="420" x2="70" y2="390" stroke="#fff" stroke-width="2" />
+                    <circle cx="70" cy="387" r="2.5" fill="#fff" />
+                    
+                    <text x="96" y="414" fill="#fff" font-size="12" font-weight="bold">[Bộ Phát (Tx)]</text>
+                    <text x="96" y="430" fill="#cbd5e1" font-size="11">- Laptop ThinkPad X201</text>
+                    <text x="96" y="444" fill="#cbd5e1" font-size="11">- Card Intel 5300</text>
+                    <text x="96" y="458" fill="#38bdf8" font-size="11">- 1 Ăng-ten phát 📶</text>
+                </g>
+
+                <g class="node" id="node-rx3" style="color: var(--accent-rx);">
+                    <circle cx="510" cy="420" r="16" fill="#7e22ce" />
+                    <line x1="502" y1="420" x2="502" y2="395" stroke="#fff" stroke-width="2" />
+                    <line x1="510" y1="420" x2="510" y2="390" stroke="#fff" stroke-width="2" />
+                    <line x1="518" y1="420" x2="518" y2="395" stroke="#fff" stroke-width="2" />
+                    
+                    <text x="494" y="414" fill="#fff" font-size="12" font-weight="bold" text-anchor="end">[Bộ Thu 3 (Rx3)]</text>
+                    <text x="494" y="430" fill="#cbd5e1" font-size="11" text-anchor="end">- Laptop ThinkPad X201</text>
+                    <text x="494" y="444" fill="#cbd5e1" font-size="11" text-anchor="end">- Card Intel 5300</text>
+                    <text x="494" y="458" fill="#a855f7" font-size="11" text-anchor="end">- 3 Ăng-ten thu 📶📶📶</text>
+                </g>
+
+                <g class="node" id="node-human" style="color: var(--accent-human);">
+                    <circle cx="290" cy="200" r="22" fill="#be123c" fill-opacity="0.75" stroke="#f43f5e" stroke-width="2" />
+                    <circle cx="290" cy="188" r="4" fill="#fff" />
+                    <line x1="290" y1="192" x2="290" y2="208" stroke="#fff" stroke-width="2" />
+                    <line x1="282" y1="197" x2="298" y2="197" stroke="#fff" stroke-width="2" />
+                    <line x1="290" y1="208" x2="284" y2="218" stroke="#fff" stroke-width="2" />
+                    <line x1="290" y1="208" x2="296" y2="218" stroke="#fff" stroke-width="2" />
+                    
+                    <text x="290" y="145" fill="#f43f5e" font-size="13" font-weight="bold" text-anchor="middle">Khu vực di chuyển</text>
+                    <text x="290" y="162" fill="#cbd5e1" font-size="12" text-anchor="middle">(Tình nguyện viên)</text>
+                </g>
+
+                <g class="node" id="node-camera" style="color: var(--accent-camera);">
+                    <rect x="265" y="295" width="50" height="24" rx="4" fill="#d97706" stroke="#fbbf24" stroke-width="1.5" />
+                    <circle cx="290" cy="307" r="6" fill="#fff" />
+                    <circle cx="290" cy="307" r="3" fill="#111827" />
+                    <line x1="290" y1="319" x2="290" y2="328" stroke="#fbbf24" stroke-width="2" />
+                    <line x1="290" y1="328" x2="282" y2="340" stroke="#fbbf24" stroke-width="1.5" />
+                    <line x1="290" y1="328" x2="298" y2="340" stroke="#fbbf24" stroke-width="1.5" />
+                    
+                    <text x="290" y="358" fill="#fbbf24" font-size="12" font-weight="bold" text-anchor="middle">[Camera Trung Tâm]</text>
+                    <text x="290" y="374" fill="#cbd5e1" font-size="11" text-anchor="middle">- Azure Kinect</text>
+                    <text x="290" y="388" fill="#cbd5e1" font-size="11" text-anchor="middle">- Quay RGB-D (15 FPS)</text>
+                </g>
+            </svg>
+        </div>
+
+        <div class="panel" id="info-panel">
+            <h2 id="panel-title">Tổng quan hệ thống</h2>
+            <div id="panel-badge" class="badge badge-default">Hệ thống tổng quát</div>
+            <div id="panel-desc" class="detail-section">
+                Chọn hoặc di chuột vào bất kỳ thực thể phần cứng nào trên sơ đồ không gian phòng mẫu nghiệm ($4.0\text{m} \times 3.5\text{m}$) để xem cấu hình chi tiết, các thông số kỹ thuật và giải thích vai trò của dòng tín hiệu theo đúng paper <b>Person-in-WiFi 3D (CVPR 2024)</b>.
+            </div>
+            <div class="instruction">
+                Sơ đồ có thể nhúng trực tiếp vào Notion dưới dạng một khối Code HTML/Embed.
+            </div>
+        </div>
+    </div>
+
+    <script {nonce}>
+        const infoData = {
+            default: {
+                title: "Tổng quan hệ thống",
+                badge: "Hệ thống tổng quát",
+                badgeClass: "badge-default",
+                desc: "Chọn hoặc di chuột vào bất kỳ thực thể phần cứng nào trên sơ đồ không gian phòng mẫu nghiệm ($4.0\\text{m} \\times 3.5\\text{m}$) để xem cấu hình chi tiết, các thông số kỹ thuật và giải thích vai trò của dòng tín hiệu theo đúng paper <b>Person-in-WiFi 3D (CVPR 2024)</b>."
+            },
+            tx: {
+                title: "Bộ Phát (Transmitter - Tx)",
+                badge: "Cấu hình đầu phát",
+                badgeClass: "badge-tx",
+                desc: `<p><b>Vị trí không gian:</b> Góc dưới bên trái phòng.</p>
+                       <p><b>Cấu hình chi tiết:</b></p>
+                       <ul>
+                           <li>Laptop IBM ThinkPad X201 tích hợp card mạng Intel Link 5300.</li>
+                           <li><b>Số lượng ăng-ten: Chỉ sử dụng 1 ăng-ten phát duy nhất (📶).</b></li>
+                           <li>Phát sóng vô tuyến liên tục (Chuẩn OFDM) trên băng tần <b>5.64GHz</b> (Kênh 128).</li>
+                           <li>Tốc độ phát gói tin: định mức ổn định ở mức <b>300 packets/second (300 Hz)</b>.</li>
+                       </ul>
+                       <p><b>Bản chất vật lý:</b> Cấu hình 1 ăng-ten duy nhất nhằm tạo ra một <i>nguồn phát điểm sơ cấp đồng nhất</i>, triệt tiêu hiện tượng nhiễu tự giao thoa đa luồng tại gốc, đảm bảo tính toàn vẹn của véc-tơ pha cho các chùm sóng dội.</p>`
+            },
+            rx1: {
+                title: "[Bộ Thu 1 (Rx1)]",
+                badge: "True MIMO 3x3 - Góc trên trái",
+                badgeClass: "badge-rx",
+                desc: `<p><b>Vị trí không gian:</b> Góc trên bên trái phòng học mẫu nghiệm.</p>
+                       <p><b>Thiết bị & Cấu hình:</b> Laptop ThinkPad X201 tích hợp card Intel 5300 kết nối PCIe. Sử dụng đồng thời cụm <b>3 ăng-ten thu (📶📶📶)</b> để bắt tín hiệu đa luồng.</p>
+                       <p><b>Cơ chế vật lý đặc trưng:</b></p>
+                       <ul>
+                           <li>Cả 3 luồng nhận RF-chain đều tích hợp trên cùng một miếng bán dẫn (Single Die) và chia sẻ chung một bộ tạo dao động nội <b>(Shared Local Oscillator)</b>.</li>
+                           <li>Khi chùm sóng vô tuyến phản xạ từ cơ thể người chạm tới, cả 3 ăng-ten tiến hành lấy mẫu tín hiệu CSI hoàn toàn đồng thời.</li>
+                       </ul>`
+            },
+            rx2: {
+                title: "[Bộ Thu 2 (Rx2)]",
+                badge: "True MIMO 3x3 - Góc trên phải",
+                badgeClass: "badge-rx",
+                desc: `<p><b>Vị trí không gian:</b> Góc trên bên phải không gian khảo sát.</p>
+                       <p><b>Thiết bị & Cấu hình:</b> Laptop ThinkPad X201 + Card Intel 5300. Sử dụng cụm <b>3 ăng-ten nhận độc lập (📶📶📶)</b>.</p>`
+            },
+            rx3: {
+                title: "[Bộ Thu 3 (Rx3)]",
+                badge: "True MIMO 3x3 - Góc dưới phải",
+                badgeClass: "badge-rx",
+                desc: `<p><b>Vị trí không gian:</b> Góc dưới bên phải không gian khảo sát.</p>
+                       <p><b>Thiết bị & Cấu hình:</b> Laptop ThinkPad X201 + Card Intel 5300. Sử dụng cụm <b>3 ăng-ten nhận độc lập (📶📶📶)</b>.</p>
+                       `
+            },
+            human: {
+                title: "Khu vực di chuyển (Tình nguyện viên)",
+                badge: "Thực thể phản xạ sóng",
+                badgeClass: "badge-human",
+                desc: `<p><b>Cơ chế tương tác vật lý vô tuyến:</b></p>
+                       <ul>
+                           <li>Cơ thể người cấu tạo phần lớn từ nước, đóng vai trò như một môi trường có hằng số điện môi cao, phản xạ mạnh mẽ sóng điện từ tần số cao 5.64GHz.</li>
+                           <li>Khi tình nguyện viên thực hiện các động tác cử động tự do (đi bộ, vung tay, đá chân, cúi người), sự dịch chuyển cơ học của các phân đoạn chi trực tiếp làm biến đổi hình học quang học đường truyền sóng (Multipath propagation).</li>
+                           <li>Sự thay đổi chiều dài hình học này ánh xạ trực tiếp thành hiện tượng lệch pha (Phase shifts) và suy hao biên độ (Amplitude drops) cục bộ trên toàn bộ <b>30 sóng mang phụ (subcarriers)</b> của Wi-Fi.</li>
+                       </ul>`
+            },
+            camera: {
+                title: "[Camera Trung Tâm]",
+                badge: "Cảm biến Ground-Truth RGB-D",
+                badgeClass: "badge-camera",
+                desc: `<p><b>Cấu hình & Nhiệm vụ phần cứng:</b></p>
+                       <ul>
+                           <li>Thiết bị: Camera chiều sâu chuyên dụng <b>Azure Kinect</b> đặt cố định tại vị trí trung tâm phía dưới sơ đồ phòng.</li>
+                           <li>Chế độ hoạt động: Thu thập video định dạng <b>RGB-D (Màu & Chiều sâu đồng thời)</b>.</li>
+                           <li>Tốc độ đóng băng luồng hình ảnh: Chuẩn <b>15 FPS</b>.</li>
+                       </ul>
+                       <p><b>Vai trò cốt lõi:</b> Thiết bị này KHÔNG tham gia vào quá trình suy luận (Inference) thời gian thực bằng sóng Wi-Fi. Nhiệm vụ duy nhất của nó là quét và thu thập dữ liệu tọa độ đám mây điểm cấu trúc cơ thể người để tự động sinh nhãn Ground-Truth 3D (14 khớp xương chính), dùng để tính toán hàm tổn thất (Loss Function) tối ưu hóa mạng nơ-ron trong quá trình huấn luyện (Training).</p>`
+            }
+        };
+
+        function updatePanel(key) {
+            const data = infoData[key] || infoData.default;
+            document.getElementById('panel-title').innerHTML = data.title;
+            document.getElementById('panel-desc').innerHTML = data.desc;
+            
+            const badge = document.getElementById('panel-badge');
+            badge.innerHTML = data.badge;
+            badge.className = 'badge ' + data.badgeClass;
+        }
+
+        // Add event listeners to SVG nodes for mouseenter
+        document.getElementById('node-tx').addEventListener('mouseenter', () => updatePanel('tx'));
+        document.getElementById('node-rx1').addEventListener('mouseenter', () => updatePanel('rx1'));
+        document.getElementById('node-rx2').addEventListener('mouseenter', () => updatePanel('rx2'));
+        document.getElementById('node-rx3').addEventListener('mouseenter', () => updatePanel('rx3'));
+        document.getElementById('node-human').addEventListener('mouseenter', () => updatePanel('human'));
+        document.getElementById('node-camera').addEventListener('mouseenter', () => updatePanel('camera'));
+
+        // Interactive Click Logic to Lock state
+        const nodes = ['node-tx', 'node-rx1', 'node-rx2', 'node-rx3', 'node-human', 'node-camera'];
+        let locked = false;
+
+        nodes.forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = id.replace('node-', '');
+                updatePanel(key);
+                locked = true;
+            });
+        });
+
+        document.addEventListener('click', () => {
+            updatePanel('default');
+            locked = false;
+        });
+    </script>
+</body>
+</html>
