@@ -44,7 +44,7 @@ declare -A CONFIG_PATHS=(
   [M6]="configs/wifi/wi_tidir_wifi_draft_mamba2_csi.py"
   [M7]="configs/wifi/wi_tidir_wifi_transformer.py"
   [M8]="configs/wifi/wi_tidir_wifi.py"
-  [M9]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py"
+  [M9]="configs/wifi/wi_tidir_wifi_mamba2_flattened.py"
 )
 
 declare -A CFG_OPTIONS=(
@@ -67,10 +67,10 @@ declare -A RUN_NOTES=(
   [M3]="Spectral tokenizer + Mamba2-CSI encoder + PETRHead, no flow"
   [M4]="Spectral tokenizer + Transformer encoder + WiTiDAR draft head, no flow"
   [M5]="Spectral tokenizer + Mamba-1 encoder + WiTiDAR draft head, no flow"
-  [M6]="Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR draft head, no flow"
+  [M6]="Spectral tokenizer + Mamba2-CSI flattened encoder + WiTiDAR draft head, no flow"
   [M7]="Spectral tokenizer + Transformer encoder + WiTiDAR head with rectified flow"
   [M8]="Spectral tokenizer + Mamba-1 encoder + WiTiDAR head with rectified flow"
-  [M9]="Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR head with rectified flow"
+  [M9]="Spectral tokenizer + Mamba2-CSI flattened encoder + WiTiDAR head with rectified flow"
 )
 
 usage() {

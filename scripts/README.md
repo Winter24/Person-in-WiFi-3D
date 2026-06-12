@@ -88,10 +88,10 @@ Meaning:
 | `M3` | Spectral tokenizer + Mamba2-CSI encoder + PETRHead, no flow. |
 | `M4` | Spectral tokenizer + Transformer encoder + WiTiDAR draft head, no flow. |
 | `M5` | Spectral tokenizer + Mamba-1 encoder + WiTiDAR draft head, no flow. |
-| `M6` | Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR draft head, no flow. |
+| `M6` | Spectral tokenizer + Mamba2-CSI flattened encoder + WiTiDAR draft head, no flow. |
 | `M7` | Spectral tokenizer + Transformer encoder + WiTiDAR head with rectified flow. |
 | `M8` | Spectral tokenizer + Mamba-1 encoder + WiTiDAR head with rectified flow. |
-| `M9` | Spectral tokenizer + Mamba2-CSI encoder + WiTiDAR head with rectified flow. |
+| `M9` | Spectral tokenizer + Mamba2-CSI flattened encoder + WiTiDAR head with rectified flow. |
 
 Run all:
 

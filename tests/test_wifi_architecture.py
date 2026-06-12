@@ -114,6 +114,11 @@ class WifiArchitectureTests(unittest.TestCase):
                     self.assertIsNone(head.get("mamba_cfg"))
                 else:
                     self.assertEqual(head["mamba_cfg"]["type"], mamba_type)
+                    if relative_path.endswith("wi_tidir_wifi_draft_mamba2_csi.py"):
+                        self.assertEqual(head["mamba_cfg"]["routes"], ("time_major",))
+                        self.assertEqual(head["mamba_cfg"]["fusion"], "mean")
+                        self.assertFalse(head["mamba_cfg"]["use_pos_embed"])
+                        self.assertFalse(head["mamba_cfg"]["final_attn"])
 
     def test_witidir_linear_config_keeps_witidar_stack_and_switches_backbone_to_linear(self):
         cfg = _load_config_module("configs/wifi/wi_tidir_wifi_linear.py")
@@ -584,12 +589,15 @@ class WifiArchitectureTests(unittest.TestCase):
             "M6": "configs/wifi/wi_tidir_wifi_draft_mamba2_csi.py",
             "M7": "configs/wifi/wi_tidir_wifi_transformer.py",
             "M8": "configs/wifi/wi_tidir_wifi.py",
-            "M9": "configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py",
+            "M9": "configs/wifi/wi_tidir_wifi_mamba2_flattened.py",
         }
         for run_id, config_path in expected_configs.items():
             self.assertIn(f'[{run_id}]="{config_path}"', source)
             self.assertIn(f'"{run_id}": "{run_id}"', aliases)
 
+        self.assertNotIn(
+            '[M9]="configs/wifi/wi_tidir_wifi_mamba2_crossscan_pos_attn.py"',
+            source)
         self.assertNotIn('"B0"', aliases)
         self.assertIn("tools/test.py", source)
         self.assertIn("tools/analysis/benchmark.py", source)

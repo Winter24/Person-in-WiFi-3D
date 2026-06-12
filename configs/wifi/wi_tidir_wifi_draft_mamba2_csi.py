@@ -1,4 +1,4 @@
-_base_ = ['./wi_tidir_wifi_mamba2_crossscan_pos_attn.py']
+_base_ = ['./wi_tidir_wifi_mamba2_flattened.py']
 
 model = dict(
     backbone=dict(
@@ -19,12 +19,10 @@ model = dict(
             expand=2,
             headdim=64,
             dropout=0.1,
-            routes=('time_major', 'serpentine'),
-            fusion='learned',
-            use_pos_embed=True,
-            final_attn=True,
-            num_heads=8,
-            ffn_ratio=2.0),
+            routes=('time_major',),
+            fusion='mean',
+            use_pos_embed=False,
+            final_attn=False),
         flow_refine_mode='none',
         flow_num_steps=1,
         flow_noise_strength=0.0,
