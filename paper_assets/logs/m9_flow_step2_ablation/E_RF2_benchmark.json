@@ -1,5 +1,5 @@
 {
-  "config": "work_dirs/full_alation_20e/M9/wi_tidir_wifi_mamba2_flattened.py",
+  "config": "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py",
   "checkpoint": "work_dirs/full_alation_20e/M9/latest.pth",
   "device": "cuda:0",
   "input_shape": [
@@ -14,13 +14,13 @@
   "params_m": 3.6175,
   "trainable_params_m": 3.6175,
   "flops_g": null,
-  "latency_ms": 4.8326,
-  "fps": 206.9299,
+  "latency_ms": 5.2115,
+  "fps": 191.8825,
   "peak_memory_allocated_mb": 25.29,
   "peak_memory_reserved_mb": 282.0,
   "section_latency_ms": {
-    "backbone": 0.3986,
-    "witidar_encoder": 3.1259,
-    "witidar_decoder_attn": 0.2641
+    "backbone": 0.3776,
+    "witidar_encoder": 3.0714,
+    "witidar_decoder_attn": 0.2513
   }
 }

@@ -14,13 +14,13 @@
   "params_m": 7.0587,
   "trainable_params_m": 7.0587,
   "flops_g": null,
-  "latency_ms": 3.9803,
-  "fps": 251.2391,
+  "latency_ms": 6.8595,
+  "fps": 145.7829,
   "peak_memory_allocated_mb": 38.49,
   "peak_memory_reserved_mb": 52.0,
   "section_latency_ms": {
-    "backbone": 0.3789,
-    "witidar_encoder": 2.4962,
-    "witidar_decoder_attn": 0.2358
+    "backbone": 0.4723,
+    "witidar_encoder": 3.0691,
+    "witidar_decoder_attn": 0.2849
   }
 }

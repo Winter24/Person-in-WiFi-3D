@@ -291,6 +291,67 @@ work_dirs/flow_numstep_eval/
 paper_assets/logs/flow_numstep_ablation/
 ```
 
+## `run_m9_flow_step2_ablation.sh`
+
+Purpose: run the Step-2 M9 flow diagnostics after the M6/M9 mismatch analysis.
+This runner focuses on canonical flattened Mamba2-CSI M9 and produces an extra
+diagnostic CSV with matched-only MPJPE and missed-person rate.
+
+Default run ids:
+
+```text
+E_NOFLOW E_RF1 E_RF2 E_RF4 E_RF8 T_FW1 T_FW2 T_FW5 T_N0 T_N005
+```
+
+Meaning:
+
+| Run ID | Summary |
+| --- | --- |
+| `E_NOFLOW` | Evaluate the existing M9 checkpoint with flow disabled. |
+| `E_RF1` | Evaluate the existing M9 checkpoint with flow `num_steps=1`. |
+| `E_RF2` | Evaluate the existing M9 checkpoint with flow `num_steps=2`. |
+| `E_RF4` | Evaluate the existing M9 checkpoint with flow `num_steps=4`. |
+| `E_RF8` | Evaluate the existing M9 checkpoint with flow `num_steps=8`. |
+| `T_FW1` | Train M9 with `loss_flow_weight=1.0`. |
+| `T_FW2` | Train M9 with `loss_flow_weight=2.0`. |
+| `T_FW5` | Train M9 with `loss_flow_weight=5.0`. |
+| `T_N0` | Train M9 with `flow_noise_strength=0.0`. |
+| `T_N005` | Train M9 with `flow_noise_strength=0.05`. |
+
+Fast eval-only diagnostic using the existing M9 checkpoint:
+
+```bash
+ONLY_RUN_IDS="E_NOFLOW E_RF1 E_RF2 E_RF4 E_RF8" \
+M9_BASE_CKPT="work_dirs/full_alation_20e/M9/latest.pth" \
+LOG_ROOT="paper_assets/logs/m9_flow_step2_ablation" \
+TEST_GPU=0 \
+BENCHMARK_DEVICE=cuda:0 \
+bash scripts/run_m9_flow_step2_ablation.sh postprocess
+```
+
+Train and postprocess the full Step-2 set:
+
+```bash
+M9_BASE_CKPT="work_dirs/full_alation_20e/M9/latest.pth" \
+WORK_ROOT="work_dirs/m9_flow_step2_ablation" \
+EVAL_ROOT="work_dirs/m9_flow_step2_eval" \
+LOG_ROOT="paper_assets/logs/m9_flow_step2_ablation" \
+TRAIN_GPU=0 \
+TEST_GPU=0 \
+BENCHMARK_DEVICE=cuda:0 \
+bash scripts/run_m9_flow_step2_ablation.sh all
+```
+
+Default outputs:
+
+```text
+work_dirs/m9_flow_step2_ablation/
+work_dirs/m9_flow_step2_eval/
+paper_assets/logs/m9_flow_step2_ablation/experiment_log.csv
+paper_assets/logs/m9_flow_step2_ablation/section_latency_log.csv
+paper_assets/logs/m9_flow_step2_ablation/flow_diagnostic_summary.csv
+```
+
 ## `run_paper_m0_m4_fixed_seed.sh`
 
 Purpose: run the fixed-seed paper ladder for M0-M4.

@@ -14,14 +14,14 @@
   "params_m": 13.1302,
   "trainable_params_m": 13.1302,
   "flops_g": null,
-  "latency_ms": 12.8209,
-  "fps": 77.9973,
+  "latency_ms": 8.4229,
+  "fps": 118.7242,
   "peak_memory_allocated_mb": 155.6,
   "peak_memory_reserved_mb": 166.0,
   "section_latency_ms": {
-    "backbone": 0.0632,
-    "petr_encoder": 2.5939,
-    "petr_decoder": 2.8557,
-    "petr_refine_decoder": 1.9718
+    "backbone": 0.059,
+    "petr_encoder": 2.4299,
+    "petr_decoder": 2.6833,
+    "petr_refine_decoder": 1.8553
   }
 }

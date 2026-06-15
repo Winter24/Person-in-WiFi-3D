@@ -120,6 +120,91 @@ class WifiArchitectureTests(unittest.TestCase):
                         self.assertFalse(head["mamba_cfg"]["use_pos_embed"])
                         self.assertFalse(head["mamba_cfg"]["final_attn"])
 
+    def test_mamba2_flattened_eval_no_flow_config_bypasses_flow_refiner(self):
+        cfg = _load_config_module(
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_no_flow.py")
+        source = _read(
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_no_flow.py")
+        head = cfg.model["bbox_head"]
+
+        self.assertIn("_base_ = ['./wi_tidir_wifi_mamba2_flattened.py']", source)
+        self.assertEqual(cfg.model["backbone"]["mode"], "spectral")
+        self.assertEqual(head["type"], "opera.WiTiDARHead")
+        self.assertEqual(head["mamba_cfg"]["type"], "WiMamba2CSIEncoder")
+        self.assertEqual(head["mamba_cfg"]["routes"], ("time_major",))
+        self.assertEqual(head["mamba_cfg"]["fusion"], "mean")
+        self.assertFalse(head["mamba_cfg"]["use_pos_embed"])
+        self.assertFalse(head["mamba_cfg"]["final_attn"])
+        self.assertEqual(head["flow_refine_mode"], "none")
+        self.assertEqual(head["flow_num_steps"], 1)
+        self.assertEqual(head["flow_noise_strength"], 0.0)
+        self.assertEqual(head["loss_flow_weight"], 0.0)
+
+    def test_m9_flow_step2_ablation_configs_define_expected_controls(self):
+        expected = {
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py": (
+                2, 0.1, 10.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_4step.py": (
+                4, 0.1, 10.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_8step.py": (
+                8, 0.1, 10.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w1.py": (
+                1, 0.1, 1.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w2.py": (
+                1, 0.1, 2.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w5.py": (
+                1, 0.1, 5.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_noise_0.py": (
+                1, 0.0, 10.0),
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_noise_005.py": (
+                1, 0.05, 10.0),
+        }
+
+        for relative_path, (num_steps, noise, loss_weight) in expected.items():
+            with self.subTest(relative_path=relative_path):
+                cfg = _load_config_module(relative_path)
+                source = _read(relative_path)
+                head = cfg.model["bbox_head"]
+
+                self.assertIn(
+                    "_base_ = ['./wi_tidir_wifi_mamba2_flattened.py']",
+                    source)
+                self.assertEqual(head["flow_refine_mode"], "rectified_flow")
+                self.assertEqual(head["flow_num_steps"], num_steps)
+                self.assertEqual(head["flow_noise_strength"], noise)
+                self.assertEqual(head["loss_flow_weight"], loss_weight)
+
+    def test_m9_flow_step2_ablation_runner_is_end_to_end(self):
+        source = _read("scripts/run_m9_flow_step2_ablation.sh")
+
+        for run_id in (
+            "E_NOFLOW", "E_RF1", "E_RF2", "E_RF4", "E_RF8",
+            "T_FW1", "T_FW2", "T_FW5", "T_N0", "T_N005",
+        ):
+            self.assertIn(run_id, source)
+        for config_path in (
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_no_flow.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_4step.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_8step.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w1.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w2.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_w5.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_noise_0.py",
+            "configs/wifi/wi_tidir_wifi_mamba2_flattened_flow_noise_005.py",
+        ):
+            self.assertIn(config_path, source)
+        self.assertIn("M9_BASE_CKPT", source)
+        self.assertIn('Skip train for eval-only run', source)
+        self.assertIn("tools/train.py", source)
+        self.assertIn("tools/test.py", source)
+        self.assertIn("tools/analysis/benchmark.py", source)
+        self.assertIn("tools/analysis/append_experiment_log.py", source)
+        self.assertIn("flow_diagnostic_summary.csv", source)
+        self.assertIn("matched_only_mpjpe", source)
+        self.assertIn("miss_rate_pct", source)
+
     def test_witidir_linear_config_keeps_witidar_stack_and_switches_backbone_to_linear(self):
         cfg = _load_config_module("configs/wifi/wi_tidir_wifi_linear.py")
         source = _read("configs/wifi/wi_tidir_wifi_linear.py")
