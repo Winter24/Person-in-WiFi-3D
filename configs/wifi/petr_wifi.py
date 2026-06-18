@@ -1,5 +1,6 @@
+
 dataset_type = 'opera.WifiPoseDataset'
-data_root = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose'
+data_root = '/content/Person-in-WiFi-3D/data/wifipose'
 train_pipeline = [
     dict(
         type='opera.DefaultFormatBundle',
@@ -26,7 +27,8 @@ data = dict(
     workers_per_gpu=2,
     train=dict(
         type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/train_data',
+        dataset_root='/content/Person-in-WiFi-3D/data/wifipose/train_data',
+        # limit_samples=1,
         pipeline=[
             dict(
                 type='opera.DefaultFormatBundle',
@@ -41,7 +43,8 @@ data = dict(
         mode='train'),
     val=dict(
         type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/test_data',
+        dataset_root='/content/Person-in-WiFi-3D/data/wifipose/test_data',
+        # limit_samples=1,
         pipeline=[
             dict(
                 type='mmdet.MultiScaleFlipAug',
@@ -57,7 +60,7 @@ data = dict(
         mode='test'),
     test=dict(
         type='opera.WifiPoseDataset',
-        dataset_root='/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/test_data',
+        dataset_root='/content/Person-in-WiFi-3D/data/wifipose/test_data',
         pipeline=[
             dict(
                 type='mmdet.MultiScaleFlipAug',
@@ -83,6 +86,9 @@ workflow = [('train', 1)]
 opencv_num_threads = 0
 mp_start_method = 'fork'
 auto_scale_lr = dict(enable=False, base_batch_size=16)
+
+
+
 model = dict(
     type='opera.PETR',
     backbone=dict(
@@ -119,7 +125,7 @@ model = dict(
                 type='mmcv.DetrTransformerEncoder',
                 num_layers=6,
                 transformerlayers=dict(
-                    type='mmcv.BaseTransformerLayer',
+                    type='WiFiFNetLayer',
                     attn_cfgs=dict(
                         type='mmcv.MultiheadAttention',
                         embed_dims=256,
@@ -156,7 +162,7 @@ model = dict(
                 num_layers=2,
                 return_intermediate=True,
                 transformerlayers=dict(
-                    type='mmcv.DetrTransformerDecoderLayer',
+                    type='WiFiGraphLayer',
                     attn_cfgs=[
                         dict(
                             type='mmcv.MultiheadAttention',
@@ -171,7 +177,7 @@ model = dict(
                     ],
                     feedforward_channels=1024,
                     ffn_dropout=0.1,
-                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
+                    operation_order=('self_attn', 'graph', 'norm', 'cross_attn', 'norm',
                                      'ffn', 'norm')))),
         positional_encoding=dict(
             type='mmcv.SinePositionalEncoding',
@@ -185,6 +191,7 @@ model = dict(
             alpha=0.25,
             loss_weight=4.0),
         loss_kpt=dict(type='mmdet.MSELoss', loss_weight=35.0), #70 -> 35
+        # loss_bone=dict(type='BoneLengthLoss', loss_weight=10.0), # Thử với trọng số 10.0
         loss_kpt_rpn=dict(type='mmdet.MSELoss', loss_weight=35.0),
         loss_oks=dict(type='opera.OKSLoss', loss_weight=2.0),
         loss_hm=dict(type='opera.CenterFocalLoss', loss_weight=4.0),
@@ -209,8 +216,8 @@ optimizer = dict(
             reference_points=dict(lr_mult=0.1))))
 optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
 lr_config = dict(policy='step', step=[450])
-runner = dict(type='EpochBasedRunner', max_epochs=5)
+runner = dict(type='EpochBasedRunner', max_epochs=10)
 find_unused_parameters = True
-work_dir = '/home/winter24/Person-in-WiFi-3D-repo/data/wifipose/result'
+work_dir = '/content/Person-in-WiFi-3D/data/wifipose/result'
 auto_resume = False
 gpu_ids = range(0, 3)

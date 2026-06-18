@@ -21,6 +21,17 @@ from opera.apis import init_random_seed, set_random_seed, train_model
 from opera.datasets import build_dataset
 from opera.models import build_model
 
+import sys
+# 1. Thêm đường dẫn gốc vào hệ thống để Python tìm thấy file
+sys.path.append('/content/Person-in-WiFi-3D') 
+
+# 2. Import trực tiếp để chạy lệnh đăng ký (register)
+try:
+    import custom_layers
+    print(">>> Đã import thành công custom_layers và đăng ký WiFiConformerLayer!")
+except ImportError as e:
+    print(f">>> LỖI: Không tìm thấy file custom_layers.py. Chi tiết: {e}")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a model')
