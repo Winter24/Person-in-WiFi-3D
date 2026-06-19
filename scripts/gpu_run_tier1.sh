@@ -20,12 +20,16 @@ M0_CFG=${M0_CFG:-configs/wifi/petr_wifi.py}
 
 mkdir -p "${OUT_DIR}"
 
+echo "==== Verify L1 per-joint MPJDLE export patch ===="
+python scripts/verify_l1_per_joint_mpjdle.py
+
 echo "==== [G1] Eval M9_RF2 (Mamba2-CSI WiTiDAR + 2-step rectified flow) ===="
 python tools/test.py \
   "${M9_RF2_CFG}" \
   "${CKPT_M9}" \
   --eval mpjpe \
-  --metrics-out "${OUT_DIR}/M9_RF2_eval.json"
+  --metrics-out "${OUT_DIR}/M9_RF2_eval.json" \
+  2>&1 | tee "${OUT_DIR}/G1_M9_RF2_eval.log"
 
 echo
 echo "==== [G2] Eval M0 (original PETR-style baseline) ===="
@@ -33,7 +37,8 @@ python tools/test.py \
   "${M0_CFG}" \
   "${CKPT_M0}" \
   --eval mpjpe \
-  --metrics-out "${OUT_DIR}/M0_eval.json"
+  --metrics-out "${OUT_DIR}/M0_eval.json" \
+  2>&1 | tee "${OUT_DIR}/G2_M0_eval.log"
 
 echo
 echo "==== Tier 1 done. Sanity check: ===="
@@ -69,5 +74,10 @@ if not ok:
     sys.exit(2)
 print('Tier 1 sanity passed.')
 PY
+
+python scripts/verify_l1_per_joint_mpjdle.py \
+  --eval-json "${OUT_DIR}/M9_RF2_eval.json"
+python scripts/verify_l1_per_joint_mpjdle.py \
+  --eval-json "${OUT_DIR}/M0_eval.json"
 
 ls -la "${OUT_DIR}/"
