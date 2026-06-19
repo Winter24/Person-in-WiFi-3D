@@ -1,34 +1,29 @@
-% PLACEHOLDER — regenerate via:
-%   python scripts/extract_per_joint_mpjpe.py \
-%       --eval-json paper_assets/logs/rev2/M9_RF2_eval.json \
-%       --compare-json paper_assets/logs/rev2/M0_eval.json \
-%       --out paper_assets/manuscript_latex/resfes2026_witidar/tables/per_joint_table.tex
 \begin{table}[htbp]
-\caption{Per-joint MPJPE for M9\_RF2 versus the M0 PETR-style baseline on the
-same test split as Table~\ref{tab:main-ablation}. Units: millimeters.
-\textbf{Placeholder values; regenerate after GPU eval (Tier~1).}}
+\caption{Per-joint MPJPE for the selected M9\_RF2 model versus the original
+PETR-style M0 baseline, evaluated on the same test split as
+Table~\ref{tab:main}. Lower is better. Units: millimeters.}
 \label{tab:per-joint}
 \centering
 \begin{tabular}{l c c}
 \toprule
 joint & M9\_RF2 (ours) & M0 (PETR) \\
 \midrule
-neck & TBD & TBD \\
-head & TBD & TBD \\
-left shoulder & TBD & TBD \\
-right shoulder & TBD & TBD \\
-left elbow & TBD & TBD \\
-right elbow & TBD & TBD \\
-left wrist & TBD & TBD \\
-right wrist & TBD & TBD \\
-left hip & TBD & TBD \\
-right hip & TBD & TBD \\
-left knee & TBD & TBD \\
-right knee & TBD & TBD \\
-left ankle & TBD & TBD \\
-right ankle & TBD & TBD \\
-\midrule
-\textbf{Mean} & \textbf{165.5} & \textbf{172.5} \\
+    neck & 159.2 & 163.0 \\
+    head & 147.3 & 154.2 \\
+    left shoulder & 155.8 & 162.3 \\
+    right shoulder & 155.2 & 161.8 \\
+    left elbow & 126.9 & 139.3 \\
+    right elbow & 193.5 & 194.0 \\
+    left wrist & 128.7 & 138.1 \\
+    right wrist & 260.1 & 251.7 \\
+    left hip & 128.0 & 146.7 \\
+    right hip & 199.9 & 203.2 \\
+    left knee & 126.4 & 139.6 \\
+    right knee & 124.7 & 142.2 \\
+    left ankle & 132.9 & 141.6 \\
+    right ankle & 278.3 & 278.0 \\
+    \midrule
+    \textbf{Mean} & \textbf{165.5} & \textbf{172.6} \\
 \bottomrule
 \end{tabular}
 \end{table}

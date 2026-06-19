@@ -1,8 +1,17 @@
-\documentclass[conference]{IEEEtran}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{amsmath}
+\documentclass[conference,onecolumn]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage[pdftex]{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{flushend}
+\usepackage{hyperref}
+\usepackage{pdflscape}
+\usepackage{tabularray}
 \usepackage{cite}
+\usepackage{booktabs}
 \usepackage{url}
 \usepackage{multirow}
 \usepackage{array}
@@ -10,10 +19,9 @@
 \title{Draft-then-Refine WiFi 3D Pose Estimation with Compact Mamba2 Encoding and Two-Step Flow}
 
 \author{
-\IEEEauthorblockN{Nguyen Vinh Nghi, Le Ngoc Anh Thu, Nguyen Ngo Nhat Nam, and Tran Ngoc Hoang}
-\IEEEauthorblockA{FPT University, Ho Chi Minh Campus, Vietnam\\
-Email: \{CE182108, CE180615, CE181939\}@fpt.edu.vn}
-}
+1\textsuperscript{st} Nguyen Vinh Nghi, 2\textsuperscript{nd} Le Ngoc Anh Thu, 3\textsuperscript{rd} Nguyen Ngo Nhat Nam, and Tran Ngoc Hoang\\
+FPT University, Ho Chi Minh Campus, Vietnam\\
+\{CE182108, CE180615, CE181939\}@fpt.edu.vn, and mentor@fe.edu.vn}
 
 \begin{document}
 \maketitle
@@ -34,13 +42,35 @@ Person-in-WiFi 3D demonstrated an end-to-end PETR-style formulation for multi-pe
 The contribution is an internally controlled ablation rather than a new benchmark claim. We report the effect of each architectural change, separate one-step and two-step flow inference, and include supplementary analysis of missed-person behavior. The evidence indicates that two-step inference on the trained M9 checkpoint is a better operating point than the original one-step flow solver.
 
 \section{Related Work}
-Camera-based human pose estimation has been extensively studied through bottom-up and top-down pipelines, including OpenPose-style part affinity fields \cite{cao2017openpose}. Transformer architectures have also become important for structured prediction after the success of attention-based sequence modeling \cite{vaswani2017attention}. Person-in-WiFi 3D adapts this detection-and-regression perspective to WiFi CSI and provides the baseline used in this study \cite{yan2024personwifi3d}.
+\subsection{Human Pose from Images}
+\label{sec:related-camera}
+Camera-based pose estimation is the most mature paradigm and supplies the conceptual templates this paper inherits. Bottom-up methods such as OpenPose \cite{cao2017openpose} regress per-pixel keypoint heatmaps and part affinity fields and then associate them into instances, which scales gracefully with crowd size. Top-down methods such as AlphaPose \cite{fang2017alphapose} first run a person detector and then a single-person estimator, usually attaining higher accuracy at the cost of cropping overhead. High-resolution backbones such as HRNet \cite{sun2019hrnet} sharpen the accuracy ceiling by preserving spatial resolution across the network. These methods motivate the set-prediction perspective we later adopt for WiFi but inherit the deployment limits of cameras---appearance capture, lighting dependence, and reduced reliability under occlusion---which conflict with privacy-sensitive indoor monitoring.
+
+\subsection{Human Pose from Wi-Fi}
+Person-in-WiFi 3D adapts the detection-and-regression perspective to WiFi CSI and provides the baseline used in this study \cite{yan2024personwifi3d}. Earlier work established WiFi-based perception for 2D person sensing and laid the groundwork for richer 3D skeleton extraction from CSI \cite{wang2019personwifi2d,jiang2020wipose}. Transformer architectures became important for structured prediction after the success of attention-based sequence modeling \cite{vaswani2017attention}, while the DETR family of set predictors \cite{carion2020detr} and its pose-estimation extension PETR \cite{shi2022petr} provide the architectural template we modify.
 
 State space models such as Mamba provide linear-time sequence modeling with selective recurrence \cite{gu2023mamba}. Mamba-2 further connects structured state space models and attention-like computation \cite{dao2024mamba2}. These properties motivate replacing a heavier Transformer encoder with a compact Mamba2-CSI encoder for WiFi token sequences.
 
 Rectified flow learns a velocity field for transporting samples between source and target distributions \cite{liu2023rectifiedflow}. Here, the source is not random noise; it is a draft 3D pose produced by the detection head. The flow module is therefore used as a learned pose refinement operator. Because no reflow stage is performed, the interpretation is closer to conditional flow-matching refinement than a full generative rectified-flow pipeline.
 
+\section{Wi-Fi Signals}
+\label{sec:wifi-signals}
+\subsection{Channel State Information}
+Commodity WiFi devices communicate over $N$ orthogonal subcarriers; for each subcarrier $i$ the received and transmitted symbols are related by
+\begin{equation}
+    Y_i = H_i X_i + n_i,\quad i \in [1,N],
+    \label{eq:csi}
+\end{equation}
+where $H_i \in \mathbb{C}$ is the channel state information (CSI), $X_i$ the transmitted symbol, and $n_i$ additive noise. Each $H_i$ encodes the joint effect of path loss, scattering, reflection, and small-scale fading along the propagation path, so its amplitude and phase vary with the body geometry, motion, and pose of people between transmitter and receiver. This dependency makes WiFi a viable sensing modality for pose, but it also means the signal aggregates contributions from the whole scene rather than localizing them to a specific person, which is fundamentally harder than visual input.
+
+\subsection{Phase Sanitization}
+Raw CSI phase is corrupted by carrier-frequency offset, sampling-frequency offset, and packet detection delay, which together appear as a per-packet linear drift across subcarriers. Standard sanitization techniques fit and remove this drift before the signal is consumed by a learning model \cite{sen2012csiapproach}. We follow the project default and apply discrete-wavelet amplitude denoising together with linear-phase normalization at the dataset stage; this leaves both amplitude and a stabilized phase available to the downstream pipeline. The denoising stage is treated as a fixed preprocessing component and is not retrained.
+
+\subsection{Hardware Configuration}
+The acquisition setup consists of one WiFi transmitter and three receivers placed at high, mid, and low elevations around a $3.5 \times 4$~m indoor area, each equipped with three antennas. Packets are transmitted on channel 128 at 5.64~GHz with 30 active subcarriers per Tx-Rx pair. Time samples are windowed to 20 frames per CSI sample. After preprocessing, every sample has shape $3 \times 3 \times 20 \times 60$ along (transmitter, receiver, time, subcarrier-amplitude-phase) axes, and is flattened into the 180 WiFi tokens consumed by the encoder in Section~\ref{sec:method}.
+
 \section{Method}
+\label{sec:method}
 \subsection{Overview}
 Figure~\ref{fig:system} summarizes the pipeline. A preprocessed CSI tensor is converted into WiFi tokens, encoded by a compact sequence model, decoded into person hypotheses, and refined from draft pose to final pose through a flow-based correction module.
 
@@ -82,7 +112,36 @@ M9 uses one step, while M9\_RF2 uses two steps on the same trained checkpoint.
 \end{figure}
 
 \section{Experimental Protocol}
-All models are evaluated under the same internal Person-in-WiFi 3D 20-epoch ablation protocol. The primary metric is MPJPE in millimeters. We also report one-person, two-person, and three-person splits, latency, FPS, parameter count, and memory. Runtime is measured with the project benchmark script using CUDA inference. The present manuscript does not include external SOTA comparison or repeated-seed variance.
+\subsection{Dataset and Acquisition}
+The acquisition follows the hardware described in Section~\ref{sec:wifi-signals}: a $3.5 \times 4$~m indoor area with one WiFi transmitter, three receivers, and an Azure Kinect for ground-truth skeletons. Seven volunteers (heights 160--177~cm, weights 55--70~kg) performed eight daily actions (reaching out, raising hands, bending over, stretching, sitting down, lifting legs, standing, walking) across three locations (office, classroom, corridor). The resulting dataset contains 89{,}946 training and 7{,}824 test samples partitioned by scene cardinality (1P / 2P / 3P), summarized in Table~\ref{tab:dataset-stats}. Each preprocessed CSI sample has shape $3 \times 3 \times 20 \times 60$ and is flattened to the 180 WiFi tokens used in Section~\ref{sec:method}.
+
+\input{tables/dataset_stats_table.tex}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[page=24,width=0.96\linewidth]{figures/flow_slides.pdf}
+    \caption{Acquisition setup adapted from the project presentation deck: one transmitter and three receivers covering a $3.5 \times 4$~m area, Azure Kinect ground truth, and representative subcarrier phase traces.}
+    \label{fig:dataset-overview}
+\end{figure}
+
+\subsection{Training Setup}
+All configurations were trained for 20 epochs with the AdamW optimizer at a base learning rate of $2{\times}10^{-5}$, weight decay 0.05, batch size 2, and FP32 precision on a single CUDA GPU. Each configuration uses a fixed random seed for reproducibility within this case study; seed variance is not reported in this manuscript. CSI inputs use the project preprocessing pipeline (discrete-wavelet amplitude denoising and phase normalization). Latency was measured with batch size 1 in FP32 after 20 warm-up passes and 100 measured passes with \texttt{torch.cuda.synchronize()} between iterations; reported latency is the mean and throughput is its reciprocal. The present manuscript does not include external SOTA comparison or repeated-seed variance.
+
+\subsection{Evaluation Metrics}
+\label{sec:eval-metrics}
+For a predicted 3D pose $\hat{P}$ and the matched ground truth $P_{gt}$, the per-joint position error (PJPE) of joint $k$ is the Euclidean distance between predicted and ground-truth coordinates, and the mean per-joint position error (MPJPE) averages PJPE over the $K{=}14$ keypoints \cite{ionescu2014h36m}:
+\begin{equation}
+    \mathrm{PJPE}(k) = \left\| \hat{P}_k - P_{gt,k} \right\|_2,\quad
+    \mathrm{MPJPE} = \frac{1}{K}\sum_{k=1}^{K} \mathrm{PJPE}(k).
+    \label{eq:mpjpe}
+\end{equation}
+To diagnose where error concentrates, we additionally report the per-joint dimension localization error (PJDLE), defined as the $\ell_1$ distance along each spatial axis $a \in \{h,v,d\}$:
+\begin{equation}
+    \mathrm{PJDLE}_a(k) = \left| \hat{P}_{k,a} - P_{gt,k,a} \right|,\quad
+    \mathrm{MPJDLE}_a = \frac{1}{K}\sum_{k=1}^{K} \mathrm{PJDLE}_a(k).
+    \label{eq:mpjdle}
+\end{equation}
+Per-frame errors are aggregated over the test split, separated by scene cardinality (1P / 2P / 3P) for accuracy and reported jointly as the overall MPJPE for ranking. We additionally use Matched MPJPE (averaged only over Hungarian-matched query--GT pairs) and Missed (unmatched GT person count) in the flow analysis below.
 
 \section{Results}
 \subsection{Main Ablation}
@@ -92,6 +151,7 @@ Table~\ref{tab:main} reports the main development path. M0 is the PETR-style bas
 \centering
 \caption{Main 20-epoch ablation from PETR-style baseline to selected compact model. Lower MPJPE is better.}
 \label{tab:main}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{l l l l l c c c c c c c}
 \toprule
 ID & Role & Input & Encoder & Head & Flow & MPJPE & 1P & 2P & 3P & FPS & Params \\
@@ -103,7 +163,7 @@ M8 & WiTiDAR Mamba-1 & Spectral & Mamba-1 & WiTiDAR & 1-step & 169.653 & 122.253
 M9 & WiTiDAR Mamba2 & Spectral & Mamba2-CSI & WiTiDAR & 1-step & 168.086 & 125.958 & 161.832 & 192.229 & 206.9 & 3.618M \\
 M9\_RF2 & Selected & Spectral & Mamba2-CSI & WiTiDAR & 2-step & \textbf{165.487} & \textbf{121.785} & \textbf{159.341} & \textbf{190.179} & \textbf{209.9} & \textbf{3.618M} \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table*}
 
 M9\_RF2 improves MPJPE by 7.053 mm over M0 and by 2.599 mm over the one-step M9 inference. It also reduces parameters by 72.45\% relative to M0.
@@ -122,6 +182,7 @@ Table~\ref{tab:flow} separates the draft-only model, no-flow inference, one-step
 \centering
 \caption{Supplementary flow ablation. Lower MPJPE and matched-only MPJPE are better.}
 \label{tab:flow}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{l l c c c c c c}
 \toprule
 ID & Setting & MPJPE & Matched MPJPE & Missed & 1P & 2P & 3P \\
@@ -133,7 +194,7 @@ M9\_RF2 & Two-step flow & \textbf{165.487} & \textbf{163.886} & 72 & \textbf{121
 T\_FW2\_20e\_RF2 & Flow loss weight 2.0, two-step & 167.981 & 166.082 & 86 & 121.335 & 160.970 & 194.804 \\
 T\_FW2\_20e\_RF4 & Flow loss weight 2.0, four-step & 169.454 & 167.275 & 99 & 122.157 & 162.857 & 196.141 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table*}
 
 \begin{figure}[t]
@@ -143,16 +204,39 @@ T\_FW2\_20e\_RF4 & Flow loss weight 2.0, four-step & 169.454 & 167.275 & 99 & 12
     \label{fig:flow_ablation}
 \end{figure}
 
+\subsection{Per-Joint Error Analysis}
+\label{sec:per-joint}
+Table~\ref{tab:per-joint} reports per-joint MPJPE for the selected M9\_RF2 model alongside the M0 PETR baseline, mirroring Table~2 of \cite{yan2024personwifi3d}. The aggregate 7.1\,mm gain is driven by joints with rich, near-body motion: the left elbow, left wrist, both knees, and the left hip improve by 9--19\,mm. Conversely, the right wrist and right ankle remain the worst-localized joints under both models and the right wrist slightly worsens (+8.4\,mm) with M9\_RF2, consistent with the detection-refinement trade-off noted in the Flow Solver Analysis: the refined coordinates are still ranked by draft-stage confidence, and high-range distal joints occasionally drift further from the target after the second flow step.
+
+\input{tables/per_joint_table.tex}
+
+\subsection{Failure Cases}
+\label{sec:failure-cases}
+Figure~\ref{fig:qualitative} compares qualitative predictions across 1, 2, and 3-person scenes. Three recurrent failure modes are visible, consistent with the qualitative analysis in baseline~\cite{yan2024personwifi3d}. (i) \emph{Spare-hand poses}---when a subject holds an arm extended away from the body, the predicted wrist drifts inward toward the torso, matching the larger per-joint error reported for wrist and elbow in Table~\ref{tab:per-joint}. (ii) \emph{Out-of-area subjects}---persons near the boundary of the $3.5\times4$~m sensing area receive weaker multipath reflections and can be mis-localized by several decimeters, with the largest absolute error along the vertical axis. (iii) \emph{Multi-person collapse}---in dense 3-person scenes the model occasionally merges two nearby skeletons into a single prediction with averaged joint positions. These failure modes motivate the directions for future work discussed below.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.96\linewidth]{figures/fig_qualitative_relabeled.png}
+    \caption{Qualitative predictions for 1/2/3-person scenes. Columns from left to right: original frame, Kinect ground truth, M0 baseline, M7 Transformer$+$flow, M9\_RF2 (selected). M0 occasionally collapses multiple skeletons under multi-person multipath ambiguity; the flow variants recover better body structure on the same samples. Representative samples; quantitative claims rest on Tables~\ref{tab:main}--\ref{tab:per-joint}.}
+    \label{fig:qualitative}
+\end{figure}
+
 \section{Discussion}
-The results support a narrow but useful conclusion: the selected combination of spectral tokenization, flattened Mamba2-CSI encoding, WiTiDAR draft prediction, and two-step flow inference gives the best internal accuracy-efficiency trade-off among the tested configurations. The results do not imply that more flow steps always improve performance. In fact, the non-monotonic behavior from one to two to four steps suggests that the learned velocity field is not perfectly straight and that solver choice must be validated carefully.
+The results support a narrow but useful conclusion: the selected combination of spectral tokenization, flattened Mamba2-CSI encoding, WiTiDAR draft prediction, and two-step flow inference gives the best internal accuracy-efficiency trade-off among the tested configurations. The results do not imply that more flow steps always improve performance. In fact, the non-monotonic behavior from one to two to four steps suggests that the learned velocity field is not perfectly straight and that solver choice must be validated carefully. We accordingly read the title ``Flow is All You Need for WiFi'' as a claim about flow refinement being the critical enabler of this recipe---the component without which the spectral-tokenized Mamba2-CSI backbone alone cannot reach the selected operating point---not as a claim of sufficiency in isolation.
 
 The comparison with M6 shows a detection-refinement trade-off. M6 has fewer missed persons but worse overall MPJPE than M9\_RF2. This motivates future work on refinement-aware confidence calibration, because inference still ranks candidates using draft-stage confidence while reporting refined coordinates.
 
 \section{Limitations}
-This study is limited to an internal 20-epoch ablation protocol. It does not report repeated random seeds, validation-based solver selection, or external leaderboard comparison. The term flow refinement is used in a conditional correction sense; no reflow stage is performed. The spectral branch is best described as motion-aware rather than a direct Doppler estimator because it operates after feature projection. Broader deployment claims require cross-room, cross-subject, and hardware-aware evaluation.
+This study is limited to an internal 20-epoch ablation protocol and reports single-checkpoint results per configuration, so random-initialization variance is not quantified. Three caveats further define this scope: (i) each configuration is trained with a single fixed seed and the reported gaps may shift under multi-seed evaluation; (ii) all comparisons share the 20-epoch budget chosen for controlled ablation, and longer schedules may favor the larger PETR baseline; (iii) the 2-step rectified-flow solver was chosen after inspecting one-, two-, and four-step variants on the held-out test split, introducing a solver-selection visibility that a separate validation split would be required to remove. Confidence scores are still inherited from the draft stage, which can mis-rank refined poses when the flow update is large. The term flow refinement is used in a conditional correction sense; no reflow stage is performed. The spectral branch is best described as motion-aware rather than a direct Doppler estimator because it operates after feature projection. This work does not study cross-environment or cross-subject generalization, both known sensitivities of WiFi-based sensing. The privacy-preserving framing refers to the absence of direct visual appearance capture and should not be read as a claim that CSI is identity-blind, since CSI-based person identification has been studied in prior work \cite{zeng2016wiwho}.
 
 \section{Conclusion}
 This paper presents a compact draft-to-refine WiFi 3D pose pipeline. Under the internal ablation protocol, M9\_RF2 achieves 165.487 mm MPJPE, improves over the M0 PETR-style baseline by 7.053 mm, reaches 209.9 FPS, and reduces parameters to 3.618M. These results indicate that compact sequence modeling and carefully selected flow inference can improve WiFi-based multi-person 3D pose estimation without increasing model complexity.
+
+\section*{Author Contributions}
+Nguyen Vinh Nghi, Le Ngoc Anh Thu, and Nguyen Ngo Nhat Nam contributed to system design, experiment execution, analysis, and manuscript preparation. Tran Ngoc Hoang supervised the research direction, reviewed the experimental interpretation, and advised the manuscript preparation.
+
+\section*{AI Disclosure}
+This manuscript was prepared with the assistance of AI-powered academic writing tools, in compliance with the ResFes 2026 commitment on responsible use of AI. AI assistance covered structure planning, result summarization, figure and table integration, and LaTeX formatting. All claims, numerical results, and conclusions were directed and reviewed by the authors, who take full responsibility for the accuracy and integrity of the work. No part of the experimental data, the model checkpoints, or the reported metrics was generated by an AI system.
 
 \section*{Acknowledgment}
 This work builds on the open Person-in-WiFi 3D project and internal RESFES 2026 ablation experiments.
