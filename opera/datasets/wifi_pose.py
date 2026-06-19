@@ -325,6 +325,7 @@ class WifiPoseDataset(dataset):
         """
         metric_sums = np.zeros(4, dtype=np.float64)
         per_joint_sum = np.zeros(len(self.JOINT_NAMES), dtype=np.float64)
+        per_joint_mpjdle_sum = np.zeros((len(self.JOINT_NAMES), 3), dtype=np.float64)
         all_bone_length_errors = []
 
         total_gt_persons = 0
@@ -404,15 +405,17 @@ class WifiPoseDataset(dataset):
 
             matched_count = 0
             if matched_results:
-                mpjpe_metrics, per_joint_mpjpe, matched_pred_kpts, matched_gt_kpts = matched_results
+                mpjpe_metrics, per_joint_mpjpe, per_joint_mpjdle, matched_pred_kpts, matched_gt_kpts = matched_results
                 matched_count = int(matched_gt_kpts.shape[0])
                 metric_values = np.asarray(
                     [float(np.asarray(value)) for value in mpjpe_metrics],
                     dtype=np.float64)
                 per_joint_values = np.asarray(per_joint_mpjpe, dtype=np.float64)
+                per_joint_mpjdle_values = np.asarray(per_joint_mpjdle, dtype=np.float64)
 
                 metric_sums += metric_values * matched_count
                 per_joint_sum += per_joint_values * matched_count
+                per_joint_mpjdle_sum += per_joint_mpjdle_values * matched_count
                 total_matched_persons += matched_count
 
                 if n_gt_persons in bucket_metric_sums:
@@ -429,6 +432,7 @@ class WifiPoseDataset(dataset):
                 penalty_values = np.full(4, miss_penalty_mm, dtype=np.float64)
                 metric_sums += penalty_values * missed_count
                 per_joint_sum += miss_penalty_mm * missed_count
+                per_joint_mpjdle_sum += miss_penalty_mm * missed_count
                 total_missed_persons += missed_count
                 if n_gt_persons in bucket_metric_sums:
                     bucket_metric_sums[n_gt_persons] += penalty_values * missed_count
@@ -446,6 +450,7 @@ class WifiPoseDataset(dataset):
 
         avg_mpjpe_metrics = metric_sums / float(total_gt_persons)
         avg_per_joint_mpjpe = per_joint_sum / float(total_gt_persons)
+        avg_per_joint_mpjdle = per_joint_mpjdle_sum / float(total_gt_persons)
 
         if all_bone_length_errors:
             avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
@@ -537,8 +542,17 @@ class WifiPoseDataset(dataset):
             per_joint_dict = {name: float(err) for name, err in zip(self.JOINT_NAMES, avg_per_joint_mpjpe)}
             bone_names = [f"{self.JOINT_NAMES[b[0]]}-{self.JOINT_NAMES[b[1]]}" for b in self.TARGET_BONES]
             bone_dict = {name: float(err) for name, err in zip(bone_names, avg_bone_length_error)}
+            per_joint_mpjdle_dict = {
+                name: {
+                    'h': float(avg_per_joint_mpjdle[i, 0]),
+                    'v': float(avg_per_joint_mpjdle[i, 1]),
+                    'd': float(avg_per_joint_mpjdle[i, 2]),
+                }
+                for i, name in enumerate(self.JOINT_NAMES)
+            }
             export = OrderedDict(result_dict)
             export['per_joint_mpjpe'] = per_joint_dict
+            export['per_joint_mpjdle'] = per_joint_mpjdle_dict
             export['bone_length_error'] = bone_dict
             os.makedirs(os.path.dirname(os.path.abspath(metrics_out)), exist_ok=True)
             with open(metrics_out, 'w') as f:
@@ -613,7 +627,8 @@ class WifiPoseDataset(dataset):
             mpjped.cpu().numpy(),
         ]
         per_joint_mpjpe = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000
-        return mpjpe_metrics, per_joint_mpjpe, matched_pred, matched_gt
+        per_joint_mpjdle = per_joint_error_dim.mean(dim=0).cpu().numpy() * 1000
+        return mpjpe_metrics, per_joint_mpjpe, per_joint_mpjdle, matched_pred, matched_gt
 
     def calc_mpjpe(self, real, pred, no, root=0, penalty_mm=500.0):
         """Legacy metric helper returning per-frame person-summed errors.

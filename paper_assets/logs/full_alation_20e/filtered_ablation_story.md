@@ -1,5 +1,7 @@
 # Filtered 20e Ablation Story
 
+> Superseded note: this file is retained for provenance only. The current source of truth for paper writing is `paper_assets/logs/full_alation_20e/PAPER_READY_ABLATION_SUPPLEMENT.md`, and the tightened manuscript section is `paper_assets/manuscript_sections/ablation_results.md`. The selected model is `M9_RF2`, not the original one-step `M9` inference.
+
 _Filtered main-table proposal for the 20-epoch WiFi 3D pose ablation, based on the rerun artifacts in `paper_assets/logs/full_alation_20e`._
 
 ---
@@ -44,7 +46,7 @@ Under this framing, `M2` and `M3` are removed because they keep PETRHead and onl
 | --- | ---: | --- |
 | `M7` | -0.930 | Replacing PETRHead with WiTiDAR-flow improves accuracy and efficiency when the encoder remains Transformer-based. |
 | `M8` | +0.381 | Mamba-1 reduces parameter count but does not improve MPJPE in the complete WiTiDAR-flow setting. |
-| `M9` | **-1.185** | Mamba2-CSI flattened is the strongest encoder choice inside the WiTiDAR-flow family. |
+| `M9` | **-1.185** | Mamba2-CSI flattened was the strongest one-step encoder choice inside this historical WiTiDAR-flow table. Use `M9_RF2` for the current selected model. |
 
 ## New scientific story
 
@@ -54,37 +56,37 @@ First, `M1` shows that replacing the raw linear WiFi input adapter with a spectr
 
 Second, `M7` shows that after spectral tokenization, the model benefits from replacing PETRHead with the WiTiDAR-flow head. Compared with `M1`, `M7` improves MPJPE by `0.930` mm, reduces latency from `12.039` ms to `6.860` ms, and cuts parameters from `13.199M` to `7.059M`.
 
-Third, `M7`, `M8`, and `M9` compare encoder choices under the same high-level design: spectral input, WiTiDAR head, and flow refinement. In this controlled final-design family, `M9` gives the best overall trade-off. It has the best MPJPE, best 2-person MPJPE, lowest latency, highest FPS, fewest parameters, and lowest memory among the main-table models.
+Third, `M7`, `M8`, and `M9` compare encoder choices under the same high-level design: spectral input, WiTiDAR head, and flow refinement. In this historical filtered table, `M9` was the strongest one-step WiTiDAR-flow row. The current paper-ready result supersedes that reading by evaluating the same trained `M9` checkpoint with two rectified-flow inference steps, reported as `M9_RF2`.
 
 The core claim should therefore be:
 
-> The proposed spectral WiTiDAR-flow model with a flattened Mamba2-CSI encoder achieves the best accuracy-efficiency trade-off among the complete design variants, improving over the original PETR baseline while substantially reducing latency, memory, and parameter count.
+> The spectral WiTiDAR-flow model with a flattened Mamba2-CSI encoder and two-step rectified-flow inference achieves the best accuracy-efficiency trade-off among the tested complete design variants, improving over the original PETR baseline while substantially reducing latency, memory, and parameter count.
 
 ## Recommended conclusion
 
 The filtered table supports a more coherent paper narrative than the full table. The full table mixes three different questions: whether spectral tokenization helps PETR, whether Mamba encoders help PETRHead, and whether no-flow draft WiTiDAR variants outperform flow-enabled variants. The filtered table instead focuses on the intended model-development path.
 
-With this framing, `M9` is the natural proposed model:
+With the superseding RF2 evaluation, `M9_RF2` is the selected model:
 
-- It improves MPJPE over `M0` by `4.454` mm, or `2.58%`.
-- It is `1.74x` faster than `M0`.
+- It improves MPJPE over `M0` by `7.053` mm, or `4.09%`.
+- It is `1.77x` faster than `M0`.
 - It uses only `27.5%` of the `M0` parameter count.
 - It uses only `16.3%` of the `M0` peak allocated memory.
-- It improves over the spectral PETR baseline `M1` by `1.185` mm while being much faster and smaller.
+- It improves over the spectral PETR baseline `M1` by `3.784` mm while being much faster and smaller.
 
 The strongest defensible conclusion is not that flow alone is always beneficial. The main-table conclusion should be that the complete WiTiDAR-flow architecture, when paired with the flattened Mamba2-CSI encoder, gives the best practical balance of accuracy and efficiency.
 
 ## Caveat for supplementary reporting
 
-`M6` remains important as a supplementary or internal ablation because it is a no-flow draft model with slightly lower MPJPE than `M9` in the current 20e rerun. If reviewers ask whether flow independently improves the Mamba2-CSI branch, the current data do not support that isolated claim.
+`M6` remains important as a supplementary or internal ablation because it is a no-flow draft model with fewer missed persons than `M9_RF2`, although its overall MPJPE is worse. If reviewers ask whether flow independently improves every Mamba2-CSI branch, the current data do not support that isolated claim.
 
 For that reason, the paper should avoid wording such as "flow consistently improves performance." A safer and more accurate statement is:
 
-> Flow is part of the final WiTiDAR head design, and the final Mamba2-CSI WiTiDAR-flow model provides the best accuracy-efficiency trade-off among complete candidate architectures in the main comparison.
+> Flow is part of the selected WiTiDAR head design, and the Mamba2-CSI WiTiDAR-flow model with two-step inference provides the best accuracy-efficiency trade-off among complete candidate architectures in the main comparison.
 
 ## Suggested paper table caption
 
-Table X. Filtered 20-epoch ablation following the proposed model-design path. `M0` is the original PETR baseline. `M1` adds spectral tokenization. `M7` replaces PETRHead with the complete WiTiDAR-flow head while keeping a Transformer encoder. `M8` and `M9` compare Mamba encoder variants under the same WiTiDAR-flow setting. The proposed `M9` model achieves the best MPJPE among the main-table variants while being substantially faster and smaller than the original baseline.
+Table X. Filtered 20-epoch ablation following the model-design path. `M0` is the original PETR baseline. `M1` adds spectral tokenization. `M7` replaces PETRHead with the complete WiTiDAR-flow head while keeping a Transformer encoder. `M8` and `M9` compare Mamba encoder variants under the same WiTiDAR-flow setting. This historical table is superseded by the current paper-ready table that adds `M9_RF2` as the selected two-step inference result.
 
 ## Data sources
 

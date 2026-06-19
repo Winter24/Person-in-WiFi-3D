@@ -93,9 +93,8 @@ If the paper must position `M9` as the proposed final model, it is defensible as
 1. Promote `M6` as the main compact model and present `M9` as a flow refinement that improves 2-person and horizontal MPJPE but slightly hurts overall MPJPE, or
 2. Run additional flow ablations for Mamba2-CSI to find settings where flow consistently improves over `M6`.
 
-Recommended next ablations:
+Historical next ablations, now superseded by the `M9_RF2` and `T_FW2_20e` follow-up runs:
 
-- `M9` with lower `loss_flow_weight`: 1.0, 2.0, 5.0
-- `M9` with `flow_noise_strength`: 0.0, 0.05, 0.1
-- `M9` with more `flow_num_steps`: 2, 4, 8
-- Repeat `M6` and `M9` across at least 3 seeds to confirm the 0.513 mm gap.
+- `M9` with lower `loss_flow_weight` was tested through the `T_FW2_20e` branch and did not beat `M9_RF2`.
+- `M9` with more `flow_num_steps` was tested; two-step inference is the selected setting, while four-step inference did not improve the result.
+- Additional random-initialization replication is outside the current paper-section execution scope.
