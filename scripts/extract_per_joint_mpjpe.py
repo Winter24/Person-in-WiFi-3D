@@ -107,7 +107,7 @@ def render(eval_d: dict, compare_d: dict | None) -> str:
         return rf"""\begin{{table}}[htbp]
 \caption{{Per-joint mean per-joint position error (MPJPE) and per-axis
 projected dimension localization error (PJDLE) for the selected M9\_RF2
-model, evaluated on the same test split used in Table~\ref{{tab:main-ablation}}.
+model, evaluated on the same test split used in Table~\ref{{tab:main}}.
 Mirrors baseline Table~2 of \cite{{yan2024personwifi3d}} for direct
 comparison. Units: millimeters.}}
 \label{{tab:per-joint}}
@@ -134,7 +134,7 @@ joint & MPJPE & PJDLE(h) & PJDLE(v) & PJDLE(d) \\
         return rf"""\begin{{table}}[htbp]
 \caption{{Per-joint MPJPE for the selected M9\_RF2 model versus the original
 PETR-style M0 baseline, evaluated on the same test split as
-Table~\ref{{tab:main-ablation}}. Lower is better. Units: millimeters.}}
+Table~\ref{{tab:main}}. Lower is better. Units: millimeters.}}
 \label{{tab:per-joint}}
 \centering
 \begin{{tabular}}{{l c c}}

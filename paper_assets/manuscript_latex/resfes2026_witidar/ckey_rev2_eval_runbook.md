@@ -28,7 +28,7 @@ OK: opera/datasets/wifi_pose.py contains the complete L1 per_joint_mpjdle patch.
 
 This check is static and does not require a full GPU eval.
 
-## 3. Run Tier 1 Eval
+## 3. Run Minimal Rev2/L1.5 Eval Refresh
 
 ```bash
 mkdir -p paper_assets/logs/rev2
@@ -36,22 +36,29 @@ mkdir -p paper_assets/logs/rev2
 CKPT_M0=work_dirs/full_alation_20e/M0/latest.pth \
 CKPT_M9=work_dirs/full_alation_20e/M9/latest.pth \
 OUT_DIR=paper_assets/logs/rev2 \
-bash scripts/gpu_run_tier1.sh
+bash scripts/gpu_run_rev2_l15_refresh.sh
 ```
 
 The runner writes:
 
 - `paper_assets/logs/rev2/M9_RF2_eval.json`
 - `paper_assets/logs/rev2/M0_eval.json`
+- `paper_assets/logs/rev2/M9_no_flow_eval.json`
+- `paper_assets/logs/rev2/M9_RF1_eval.json`
 - `paper_assets/logs/rev2/G1_M9_RF2_eval.log`
 - `paper_assets/logs/rev2/G2_M0_eval.log`
+- `paper_assets/logs/rev2/G5a_M9_no_flow_eval.log`
+- `paper_assets/logs/rev2/G5b_M9_RF1_eval.log`
 
 Expected sanity:
 
 - `M9_RF2_eval.json`: MPJPE about `165.487` mm.
-- `M0_eval.json`: MPJPE about `172.540` mm.
-- Both JSON files have `per_joint_mpjpe` with 14 entries.
-- Both JSON files have `per_joint_mpjdle` with 14 entries, each with `h/v/d`.
+- `M0_eval.json`: MPJPE about `172.554` mm.
+- `M9_no_flow_eval.json`: MPJPE about `167.736` mm.
+- `M9_RF1_eval.json`: MPJPE about `168.088` mm.
+- All four JSON files have `per_joint_mpjpe` with 14 entries.
+- All four JSON files have `per_joint_mpjdle` with 14 entries, each with `h/v/d`.
+- All four JSON files have `matched_mpjpe`, `matched_mpjpeh`, `matched_mpjpev`, and `matched_mpjped`.
 
 ## 4. Optional Manual JSON Check
 
@@ -61,6 +68,12 @@ python3 scripts/verify_l1_per_joint_mpjdle.py \
 
 python3 scripts/verify_l1_per_joint_mpjdle.py \
   --eval-json paper_assets/logs/rev2/M0_eval.json
+
+python3 scripts/verify_l1_per_joint_mpjdle.py \
+  --eval-json paper_assets/logs/rev2/M9_no_flow_eval.json
+
+python3 scripts/verify_l1_per_joint_mpjdle.py \
+  --eval-json paper_assets/logs/rev2/M9_RF1_eval.json
 ```
 
 ## 5. Bring Results Back
@@ -71,3 +84,5 @@ tar -czf /tmp/rev2_tier1_results.tgz paper_assets/logs/rev2/
 
 Download `/tmp/rev2_tier1_results.tgz` to local, then generate
 `tables/per_joint_table.tex` with `scripts/extract_per_joint_mpjpe.py`.
+
+Receiver-subset evals from `scripts/gpu_run_tier2.sh` do not need to be rerun for the Rev2 manuscript unless matched-only receiver diagnostics are required later.

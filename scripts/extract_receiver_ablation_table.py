@@ -30,10 +30,13 @@ def load(path: Path) -> dict:
 
 
 def row(label: str, d: dict) -> str:
+    matched = d.get('matched_persons', 0)
+    missed = d.get('missed_persons', 0)
     return (f'{label} & {d["mpjpe"]:.1f} & '
             f'{d.get("mpjpe_1p", 0):.1f} & '
             f'{d.get("mpjpe_2p", 0):.1f} & '
-            f'{d.get("mpjpe_3p", 0):.1f}')
+            f'{d.get("mpjpe_3p", 0):.1f} & '
+            f'{matched} & {missed}')
 
 
 def main() -> int:
@@ -64,15 +67,15 @@ def main() -> int:
 
     tex = rf"""\begin{{table}}[htbp]
 \caption{{Per-receiver evaluation of M9\_RF2 on the same test split as
-Table~\ref{{tab:main-ablation}}. Receivers not in the subset are zero-masked
+Table~\ref{{tab:main}}. Receivers not in the subset are zero-masked
 at the input of the WiTiDAR pipeline (the model is not retrained).
 Mirrors baseline Table~5 of \cite{{yan2024personwifi3d}}. Units: mm; lower
 is better.}}
 \label{{tab:receiver-ablation}}
 \centering
-\begin{{tabular}}{{l c c c c}}
+\begin{{tabular}}{{l c c c c c c}}
 \toprule
-receiver subset & MPJPE & 1P & 2P & 3P \\
+receiver subset & MPJPE & 1P & 2P & 3P & matched & missed \\
 \midrule
 {body}
 \bottomrule

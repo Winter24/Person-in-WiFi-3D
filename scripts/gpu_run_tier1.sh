@@ -48,7 +48,7 @@ TOL = 0.5
 out_dir = sys.argv[1]
 EXPECT = {
     os.path.join(out_dir, 'M9_RF2_eval.json'): 165.487,
-    os.path.join(out_dir, 'M0_eval.json'):     172.540,
+    os.path.join(out_dir, 'M0_eval.json'):     172.554,
 }
 ok = True
 for path, target in EXPECT.items():

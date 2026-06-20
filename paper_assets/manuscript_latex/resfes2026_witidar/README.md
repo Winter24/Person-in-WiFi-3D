@@ -4,14 +4,14 @@ This folder contains the LaTeX manuscript source, references, tables, and figure
 
 Main files:
 
-- `main.tex`: current manuscript source.
-- `main.rev2.tex`: revision-2 copy of the manuscript source.
+- `main.tex`: source-of-truth manuscript content.
+- `main.rev2.tex`: thin revision-2 wrapper that inputs `main.tex`.
 - `references.bib`: bibliography used by `main.tex`.
 - `references.rev2.bib`: revision-2 copy of the bibliography.
 - `figures/`: copied paper figures and slide-derived visual assets.
 - `tables/`: generated table fragments and Markdown source tables.
 
-Compile from this folder:
+Compile the source-of-truth PDF from this folder:
 
 ```bash
 pdflatex main.tex
@@ -20,4 +20,6 @@ pdflatex main.tex
 pdflatex main.tex
 ```
 
-Auxiliary LaTeX build files are intentionally not tracked.
+If a venue requires the revision wrapper filename, compile `main.rev2.tex` with `bibtex main.rev2`; the body content is still read from `main.tex`.
+
+Submission source should include only the manuscript sources and assets required to build the paper: `main.tex`, `main.rev2.tex`, `references.bib`, table fragments used by the manuscript, figure files referenced by the manuscript, and the final PDF. Do not package LaTeX build intermediates (`.aux`, `.bbl`, `.blg`, `.fdb_latexmk`, `.fls`, `.log`, `.out`, `.synctex.gz`), local tool settings, internal runbooks, or response placeholders.

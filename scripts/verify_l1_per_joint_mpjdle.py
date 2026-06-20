@@ -25,6 +25,11 @@ REQUIRED_MARKERS = [
     "export['per_joint_mpjdle'] = per_joint_mpjdle_dict",
     "per_joint_mpjdle = per_joint_error_dim.mean(dim=0).cpu().numpy() * 1000",
     "return mpjpe_metrics, per_joint_mpjpe, per_joint_mpjdle, matched_pred, matched_gt",
+    # L1.5 markers: matched-only (no miss-penalty) MPJPE export
+    "matched_metric_sums = np.zeros(4, dtype=np.float64)",
+    "matched_metric_sums += metric_values * matched_count",
+    "avg_matched_metrics = matched_metric_sums / float(total_matched_persons)",
+    "matched_mpjpe=float(avg_matched_metrics[0]),",
 ]
 
 
@@ -47,7 +52,7 @@ def verify_source(path: Path) -> bool:
             print(f"  - {marker}", file=sys.stderr)
         return False
 
-    print(f"OK: {path} contains the complete L1 per_joint_mpjdle patch.")
+    print(f"OK: {path} contains the complete L1/L1.5 metric export patch.")
     return True
 
 
@@ -69,6 +74,10 @@ def verify_json(path: Path) -> bool:
         if len(value) != 14:
             print(f"FAIL: {key} has {len(value)} entries; expected 14.", file=sys.stderr)
             ok = False
+    for scalar_key in ("matched_mpjpe", "matched_mpjpeh", "matched_mpjpev", "matched_mpjped"):
+        if scalar_key not in data:
+            print(f"FAIL: {path} missing scalar key {scalar_key!r}.", file=sys.stderr)
+            ok = False
 
     mpjdle = data.get("per_joint_mpjdle", {})
     for joint, axes in mpjdle.items():
@@ -82,7 +91,9 @@ def verify_json(path: Path) -> bool:
 
     if ok:
         sample = next(iter(mpjdle.items())) if mpjdle else None
-        print(f"OK: {path} has 14 per_joint_mpjpe and 14 per_joint_mpjdle entries.")
+        print(
+            f"OK: {path} has 14 per_joint_mpjpe, 14 per_joint_mpjdle, "
+            "and matched_mpjpe scalar entries.")
         print(f"    sample per_joint_mpjdle: {sample}")
     return ok
 

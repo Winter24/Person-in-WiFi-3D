@@ -324,6 +324,7 @@ class WifiPoseDataset(dataset):
         counts are reported so detection coverage is visible.
         """
         metric_sums = np.zeros(4, dtype=np.float64)
+        matched_metric_sums = np.zeros(4, dtype=np.float64)  # matched-only, no miss penalty
         per_joint_sum = np.zeros(len(self.JOINT_NAMES), dtype=np.float64)
         per_joint_mpjdle_sum = np.zeros((len(self.JOINT_NAMES), 3), dtype=np.float64)
         all_bone_length_errors = []
@@ -414,6 +415,7 @@ class WifiPoseDataset(dataset):
                 per_joint_mpjdle_values = np.asarray(per_joint_mpjdle, dtype=np.float64)
 
                 metric_sums += metric_values * matched_count
+                matched_metric_sums += metric_values * matched_count
                 per_joint_sum += per_joint_values * matched_count
                 per_joint_mpjdle_sum += per_joint_mpjdle_values * matched_count
                 total_matched_persons += matched_count
@@ -451,6 +453,10 @@ class WifiPoseDataset(dataset):
         avg_mpjpe_metrics = metric_sums / float(total_gt_persons)
         avg_per_joint_mpjpe = per_joint_sum / float(total_gt_persons)
         avg_per_joint_mpjdle = per_joint_mpjdle_sum / float(total_gt_persons)
+        if total_matched_persons > 0:
+            avg_matched_metrics = matched_metric_sums / float(total_matched_persons)
+        else:
+            avg_matched_metrics = np.full(4, float('nan'), dtype=np.float64)
 
         if all_bone_length_errors:
             avg_bone_length_error = np.mean(all_bone_length_errors, axis=0)
@@ -476,6 +482,10 @@ class WifiPoseDataset(dataset):
             mpjpeh=float(avg_mpjpe_metrics[1]),
             mpjpev=float(avg_mpjpe_metrics[2]),
             mpjped=float(avg_mpjpe_metrics[3]),
+            matched_mpjpe=float(avg_matched_metrics[0]),
+            matched_mpjpeh=float(avg_matched_metrics[1]),
+            matched_mpjpev=float(avg_matched_metrics[2]),
+            matched_mpjped=float(avg_matched_metrics[3]),
             mpjpe_1p=mpjpe_1p,
             mpjpe_2p=mpjpe_2p,
             mpjpe_3p=mpjpe_3p,

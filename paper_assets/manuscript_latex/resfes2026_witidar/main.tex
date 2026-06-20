@@ -27,7 +27,7 @@ FPT University, Ho Chi Minh Campus, Vietnam\\
 \maketitle
 
 \begin{abstract}
-WiFi-based human pose estimation offers an occlusion-resilient alternative to camera-based sensing, but estimating multi-person 3D skeletons from channel state information remains difficult because WiFi signals are noisy, low-dimensional, and strongly affected by multipath propagation. This paper studies a compact draft-to-refine redesign of the Person-in-WiFi 3D pipeline. Starting from the PETR-style baseline, we introduce motion-aware spectral tokenization, a flattened Mamba2-CSI encoder, a lightweight WiTiDAR pose head, and two-step flow-based inference. Under the internal 20-epoch ablation protocol, the selected M9\_RF2 configuration achieves 165.487 mm MPJPE, improving over the M0 baseline by 7.053 mm while increasing throughput from 118.7 FPS to 209.9 FPS and reducing parameters from 13.130M to 3.618M. The claim is deliberately bounded to this internal ablation setting; the results support an accuracy-efficiency trade-off rather than broad superiority over external systems.
+WiFi-based human pose estimation offers an occlusion-resilient alternative to camera-based sensing, but estimating multi-person 3D skeletons from channel state information remains difficult because WiFi signals are noisy, low-dimensional, and strongly affected by multipath propagation. This paper studies a compact draft-to-refine redesign of the Person-in-WiFi 3D pipeline. Starting from the PETR-style baseline, we introduce motion-aware spectral tokenization, a flattened Mamba2-CSI encoder, a lightweight WiTiDAR pose head, and two-step flow-based inference. Under the internal 20-epoch ablation protocol, the selected M9\_RF2 configuration achieves 165.487 mm MPJPE, improving over the M0 baseline by 7.067 mm while increasing throughput from 118.7 FPS to 209.9 FPS and reducing parameters from 13.130M to 3.618M. The claim is deliberately bounded to this internal ablation setting; the results support an accuracy-efficiency trade-off rather than broad superiority over external systems.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -39,7 +39,7 @@ WiFi channel state information (CSI) provides a non-visual sensing signal that c
 
 Person-in-WiFi 3D demonstrated an end-to-end PETR-style formulation for multi-person 3D pose estimation from WiFi CSI \cite{yan2024personwifi3d}. In this work, we ask whether that pipeline can be made smaller and faster while preserving or improving pose accuracy. Our redesign follows a staged path from the original baseline to a compact draft-to-refine model. The final selected model, M9\_RF2, combines spectral tokenization, Mamba2-CSI sequence modeling, a WiTiDAR draft head, and two-step flow refinement at inference.
 
-The contribution is an internally controlled ablation rather than a new benchmark claim. We report the effect of each architectural change, separate one-step and two-step flow inference, and include supplementary analysis of missed-person behavior. The evidence indicates that two-step inference on the trained M9 checkpoint is a better operating point than the original one-step flow solver.
+The contribution is an internally controlled ablation rather than a new benchmark claim. Beyond replacing the encoder, the study isolates a draft-confidence detection stage from conditional pose-flow refinement under compact CSI sequence modeling. We report the effect of each architectural change, separate one-step and two-step flow inference, and include supplementary analysis of missed-person behavior. The evidence indicates that two-step inference on the trained M9 checkpoint is a better operating point than the original one-step flow solver.
 
 \section{Related Work}
 \subsection{Human Pose from Images}
@@ -76,8 +76,8 @@ Figure~\ref{fig:system} summarizes the pipeline. A preprocessed CSI tensor is co
 
 \begin{figure}[t]
     \centering
-    \includegraphics[page=8,width=0.95\linewidth]{figures/flow_slides.pdf}
-    \caption{System overview adapted from the project presentation deck.}
+    \includegraphics[width=0.95\linewidth]{figures/fig_system_overview.pdf}
+    \caption{System overview of the WiTiDAR draft-to-refine pipeline.}
     \label{fig:system}
 \end{figure}
 
@@ -104,10 +104,15 @@ x_{k+1}=x_k+\Delta t\, v_\theta(x_k,t_k,c).
 \end{equation}
 M9 uses one step, while M9\_RF2 uses two steps on the same trained checkpoint.
 
+\subsection{Implementation Details}
+The selected M9\_RF2 model uses 100 learned person queries, 256-dimensional embeddings, and 14 output keypoints. CSI is first mapped by a spectral \texttt{WifiInputAdapter}; the flattened Mamba2-CSI encoder has three layers with $d_{state}{=}64$, $d_{conv}{=}4$, expansion 2, head dimension 64, dropout 0.1, a \texttt{time\_major} route, mean route fusion, no positional embedding, and no final attention block. The WiTiDAR head applies 8-head query attention, a two-layer MLP draft regressor, and a binary classification head. The flow refiner is a \texttt{VelocityMLP} with input dimension 42, condition dimension 256, time embedding dimension 64, hidden dimension 512, and three residual velocity blocks.
+
+Training uses focal classification loss with weight 2.0, keypoint L1 loss with weight 5.0, bone-length loss with weight 2.0, and flow loss with weight 10.0. Flow noise strength is 0.1. All reported 20-epoch models use AdamW with learning rate $2{\times}10^{-5}$ and weight decay 0.05. At evaluation time, predictions are assigned to ground truth with Hungarian matching under a 500\,mm match threshold. Unmatched ground-truth persons receive a 500\,mm penalty in overall MPJPE, while Matched MPJPE excludes this penalty and averages only over assigned prediction--GT pairs.
+
 \begin{figure}[t]
     \centering
-    \includegraphics[page=20,width=0.95\linewidth]{figures/flow_slides.pdf}
-    \caption{Draft-to-refine flow module adapted from the project presentation deck.}
+    \includegraphics[width=0.95\linewidth]{figures/fig_flow_refinement.pdf}
+    \caption{Conditional pose-flow refinement from draft coordinates to refined 3D keypoints.}
     \label{fig:flow}
 \end{figure}
 
@@ -119,8 +124,8 @@ The acquisition follows the hardware described in Section~\ref{sec:wifi-signals}
 
 \begin{figure}[t]
     \centering
-    \includegraphics[page=24,width=0.96\linewidth]{figures/flow_slides.pdf}
-    \caption{Acquisition setup adapted from the project presentation deck: one transmitter and three receivers covering a $3.5 \times 4$~m area, Azure Kinect ground truth, and representative subcarrier phase traces.}
+    \includegraphics[width=0.96\linewidth]{figures/fig_dataset_setup.pdf}
+    \caption{Acquisition setup: one transmitter and three receivers covering a $3.5 \times 4$~m area, Azure Kinect ground truth, and representative subcarrier phase traces.}
     \label{fig:dataset-overview}
 \end{figure}
 
@@ -156,17 +161,17 @@ Table~\ref{tab:main} reports the main development path. M0 is the PETR-style bas
 \toprule
 ID & Role & Input & Encoder & Head & Flow & MPJPE & 1P & 2P & 3P & FPS & Params \\
 \midrule
-M0 & Baseline & Linear & Transformer & PETRHead & No & 172.540 & 126.059 & 168.183 & 196.492 & 118.7 & 13.130M \\
+M0 & Baseline & Linear & Transformer & PETRHead & No & 172.554 & 136.141 & 168.012 & 192.529 & 118.7 & 13.130M \\
 M1 & Spectral baseline & Spectral & Transformer & PETRHead & No & 169.271 & 125.502 & 165.038 & 193.273 & 83.1 & 13.199M \\
 M7 & WiTiDAR Transformer & Spectral & Transformer & WiTiDAR & 1-step & 168.342 & 127.129 & 162.775 & 191.390 & 145.8 & 7.059M \\
 M8 & WiTiDAR Mamba-1 & Spectral & Mamba-1 & WiTiDAR & 1-step & 169.653 & 122.253 & 165.397 & 193.943 & 109.4 & 5.827M \\
-M9 & WiTiDAR Mamba2 & Spectral & Mamba2-CSI & WiTiDAR & 1-step & 168.086 & 125.958 & 161.832 & 192.229 & 206.9 & 3.618M \\
+M9 & WiTiDAR Mamba2 & Spectral & Mamba2-CSI & WiTiDAR & 1-step & 168.088 & 125.959 & 161.833 & 192.233 & 206.9 & 3.618M \\
 M9\_RF2 & Selected & Spectral & Mamba2-CSI & WiTiDAR & 2-step & \textbf{165.487} & \textbf{121.785} & \textbf{159.341} & \textbf{190.179} & \textbf{209.9} & \textbf{3.618M} \\
 \bottomrule
 \end{tabular}}
 \end{table*}
 
-M9\_RF2 improves MPJPE by 7.053 mm over M0 and by 2.599 mm over the one-step M9 inference. It also reduces parameters by 72.45\% relative to M0.
+M9\_RF2 improves MPJPE by 7.067 mm over M0 and by 2.601 mm over the one-step M9 inference. It also reduces parameters by 72.45\% relative to M0. This overall gain should be interpreted together with matched-only behavior: M9\_RF2 reduces missed persons substantially relative to M0, while matched-only localization is comparable rather than uniformly better. Thus, the main advantage is improved detection coverage and operating efficiency, not a claim that every matched pose is localized more accurately.
 
 \begin{figure}[t]
     \centering
@@ -188,8 +193,8 @@ Table~\ref{tab:flow} separates the draft-only model, no-flow inference, one-step
 ID & Setting & MPJPE & Matched MPJPE & Missed & 1P & 2P & 3P \\
 \midrule
 M6 & Draft Mamba2-CSI & 167.573 & 166.381 & \textbf{54} & 125.532 & 164.528 & 188.363 \\
-M9\_no\_flow & M9 checkpoint, flow disabled & 167.732 & 165.919 & 82 & 122.942 & 161.484 & 192.178 \\
-M9 & One-step flow & 168.086 & 166.409 & 76 & 125.958 & 161.832 & 192.229 \\
+M9\_no\_flow & M9 checkpoint, flow disabled & 167.736 & 165.919 & 82 & 122.874 & 163.028 & 191.428 \\
+M9 & One-step flow & 168.088 & 166.409 & 76 & 125.959 & 161.833 & 192.233 \\
 M9\_RF2 & Two-step flow & \textbf{165.487} & \textbf{163.886} & 72 & \textbf{121.785} & \textbf{159.341} & \textbf{190.179} \\
 T\_FW2\_20e\_RF2 & Flow loss weight 2.0, two-step & 167.981 & 166.082 & 86 & 121.335 & 160.970 & 194.804 \\
 T\_FW2\_20e\_RF4 & Flow loss weight 2.0, four-step & 169.454 & 167.275 & 99 & 122.157 & 162.857 & 196.141 \\
@@ -210,6 +215,12 @@ Table~\ref{tab:per-joint} reports per-joint MPJPE for the selected M9\_RF2 model
 
 \input{tables/per_joint_table.tex}
 
+\subsection{Per-Receiver Ablation}
+\label{sec:receiver-ablation}
+We additionally evaluate the selected M9\_RF2 model when only a subset of the three WiFi receivers is available at inference. Receivers outside the subset are zero-masked at the input of the WiTiDAR pipeline; the model is not retrained. Table~\ref{tab:receiver-ablation} reports the resulting MPJPE alongside the per-cardinality (1P/2P/3P) splits. With all three receivers the model achieves 165.5\,mm. Removing a single receiver raises MPJPE to between 401 and 433\,mm depending on which pair remains, and inference with one receiver reaches 498\,mm. These are out-of-distribution receiver-pruned evaluations: the model was trained and selected for the fixed full three-receiver setting. The results should therefore be read as a hardware-sensitivity test, not as evidence of graceful missing-receiver robustness; receiver-pruned deployment would require receiver dropout, augmentation, or retraining.
+
+\input{tables/receiver_ablation_table.tex}
+
 \subsection{Failure Cases}
 \label{sec:failure-cases}
 Figure~\ref{fig:qualitative} compares qualitative predictions across 1, 2, and 3-person scenes. Three recurrent failure modes are visible, consistent with the qualitative analysis in baseline~\cite{yan2024personwifi3d}. (i) \emph{Spare-hand poses}---when a subject holds an arm extended away from the body, the predicted wrist drifts inward toward the torso, matching the larger per-joint error reported for wrist and elbow in Table~\ref{tab:per-joint}. (ii) \emph{Out-of-area subjects}---persons near the boundary of the $3.5\times4$~m sensing area receive weaker multipath reflections and can be mis-localized by several decimeters, with the largest absolute error along the vertical axis. (iii) \emph{Multi-person collapse}---in dense 3-person scenes the model occasionally merges two nearby skeletons into a single prediction with averaged joint positions. These failure modes motivate the directions for future work discussed below.
@@ -224,13 +235,13 @@ Figure~\ref{fig:qualitative} compares qualitative predictions across 1, 2, and 3
 \section{Discussion}
 The results support a narrow but useful conclusion: the selected combination of spectral tokenization, flattened Mamba2-CSI encoding, WiTiDAR draft prediction, and two-step flow inference gives the best internal accuracy-efficiency trade-off among the tested configurations. The results do not imply that more flow steps always improve performance. In fact, the non-monotonic behavior from one to two to four steps suggests that the learned velocity field is not perfectly straight and that solver choice must be validated carefully. We accordingly read the title ``Flow is All You Need for WiFi'' as a claim about flow refinement being the critical enabler of this recipe---the component without which the spectral-tokenized Mamba2-CSI backbone alone cannot reach the selected operating point---not as a claim of sufficiency in isolation.
 
-The comparison with M6 shows a detection-refinement trade-off. M6 has fewer missed persons but worse overall MPJPE than M9\_RF2. This motivates future work on refinement-aware confidence calibration, because inference still ranks candidates using draft-stage confidence while reporting refined coordinates.
+The comparison with M6 shows a detection-refinement trade-off. M6 has fewer missed persons but worse overall MPJPE than M9\_RF2. Note that the overall MPJPE includes a fixed miss-penalty contribution for each unmatched ground-truth person, whereas Matched MPJPE is averaged only over query--GT pairs that survive Hungarian assignment; M6 trades a lower miss count for higher per-keypoint error on matched persons, which is why its overall metric is worse despite the better matching count. This motivates future work on refinement-aware confidence calibration, because inference still ranks candidates using draft-stage confidence while reporting refined coordinates.
 
 \section{Limitations}
 This study is limited to an internal 20-epoch ablation protocol and reports single-checkpoint results per configuration, so random-initialization variance is not quantified. Three caveats further define this scope: (i) each configuration is trained with a single fixed seed and the reported gaps may shift under multi-seed evaluation; (ii) all comparisons share the 20-epoch budget chosen for controlled ablation, and longer schedules may favor the larger PETR baseline; (iii) the 2-step rectified-flow solver was chosen after inspecting one-, two-, and four-step variants on the held-out test split, introducing a solver-selection visibility that a separate validation split would be required to remove. Confidence scores are still inherited from the draft stage, which can mis-rank refined poses when the flow update is large. The term flow refinement is used in a conditional correction sense; no reflow stage is performed. The spectral branch is best described as motion-aware rather than a direct Doppler estimator because it operates after feature projection. This work does not study cross-environment or cross-subject generalization, both known sensitivities of WiFi-based sensing. The privacy-preserving framing refers to the absence of direct visual appearance capture and should not be read as a claim that CSI is identity-blind, since CSI-based person identification has been studied in prior work \cite{zeng2016wiwho}.
 
 \section{Conclusion}
-This paper presents a compact draft-to-refine WiFi 3D pose pipeline. Under the internal ablation protocol, M9\_RF2 achieves 165.487 mm MPJPE, improves over the M0 PETR-style baseline by 7.053 mm, reaches 209.9 FPS, and reduces parameters to 3.618M. These results indicate that compact sequence modeling and carefully selected flow inference can improve WiFi-based multi-person 3D pose estimation without increasing model complexity.
+This paper presents a compact draft-to-refine WiFi 3D pose pipeline. Under the internal ablation protocol, M9\_RF2 achieves 165.487 mm MPJPE, improves over the M0 PETR-style baseline by 7.067 mm, reaches 209.9 FPS, and reduces parameters to 3.618M. These results indicate that compact sequence modeling and carefully selected flow inference can improve WiFi-based multi-person 3D pose estimation without increasing model complexity.
 
 \section*{Author Contributions}
 Nguyen Vinh Nghi, Le Ngoc Anh Thu, and Nguyen Ngo Nhat Nam contributed to system design, experiment execution, analysis, and manuscript preparation. Tran Ngoc Hoang supervised the research direction, reviewed the experimental interpretation, and advised the manuscript preparation.

@@ -1,21 +1,20 @@
-% PLACEHOLDER — regenerate via:
-%   python scripts/extract_receiver_ablation_table.py --full ... --r1r2 ... --out ...
 \begin{table}[htbp]
 \caption{Per-receiver evaluation of M9\_RF2 on the same test split as
-Table~\ref{tab:main-ablation}. Receivers outside the subset are zero-masked
-at the input of the WiTiDAR pipeline (the model is not retrained). Units: mm.
-\textbf{Placeholder values; regenerate after GPU eval (Tier~2).}}
+Table~\ref{tab:main}. Receivers not in the subset are zero-masked
+at the input of the WiTiDAR pipeline (the model is not retrained).
+Mirrors baseline Table~5 of \cite{yan2024personwifi3d}. Units: mm; lower
+is better.}
 \label{tab:receiver-ablation}
 \centering
-\begin{tabular}{l c c c c}
+\begin{tabular}{l c c c c c c}
 \toprule
-receiver subset & MPJPE & 1P & 2P & 3P \\
+receiver subset & MPJPE & 1P & 2P & 3P & matched & missed \\
 \midrule
-3 receivers (R1{+}R2{+}R3) & 165.5 & 121.8 & 159.3 & 190.2 \\
-R1{+}R2 & TBD & TBD & TBD & TBD \\
-R1{+}R3 & TBD & TBD & TBD & TBD \\
-R2{+}R3 & TBD & TBD & TBD & TBD \\
-R2 only & TBD & TBD & TBD & TBD \\
+    3 receivers (R1{+}R2{+}R3) & 165.5 & 121.8 & 159.3 & 190.2 & 15044 & 72 \\
+    R1{+}R2 & 401.6 & 382.6 & 407.1 & 403.9 & 9567 & 5549 \\
+    R1{+}R3 & 414.1 & 431.2 & 414.7 & 406.2 & 8838 & 6278 \\
+    R2{+}R3 & 433.3 & 417.2 & 433.4 & 440.0 & 7828 & 7288 \\
+    R2 only & 498.0 & 496.3 & 499.6 & 497.0 & 498 & 14618 \\
 \bottomrule
 \end{tabular}
 \end{table}
