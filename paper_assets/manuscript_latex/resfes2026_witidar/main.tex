@@ -171,7 +171,7 @@ M9\_RF2 & Selected & Spectral & Mamba2-CSI & WiTiDAR & 2-step & \textbf{165.487}
 \end{tabular}}
 \end{table*}
 
-M9\_RF2 improves MPJPE by 7.067 mm over M0 and by 2.601 mm over the one-step M9 inference. It also reduces parameters by 72.45\% relative to M0. This overall gain should be interpreted together with matched-only behavior: M9\_RF2 reduces missed persons substantially relative to M0, while matched-only localization is comparable rather than uniformly better. Thus, the main advantage is improved detection coverage and operating efficiency, not a claim that every matched pose is localized more accurately.
+M9\_RF2 improves MPJPE by 7.067 mm over M0 and by 2.601 mm over the one-step M9 inference. It also reduces parameters by 72.45\% relative to M0. This overall gain should be interpreted together with matched-only behavior: M9\_RF2 reduces missed persons from 417 to 72, while matched-only localization is comparable to M0 (163.886 vs. 163.265 mm). Thus, the main advantage over M0 is improved detection coverage and operating efficiency, not a claim that every matched pose is localized more accurately.
 
 \begin{figure}[t]
     \centering
@@ -193,8 +193,8 @@ Table~\ref{tab:flow} separates the draft-only model, no-flow inference, one-step
 ID & Setting & MPJPE & Matched MPJPE & Missed & 1P & 2P & 3P \\
 \midrule
 M6 & Draft Mamba2-CSI & 167.573 & 166.381 & \textbf{54} & 125.532 & 164.528 & 188.363 \\
-M9\_no\_flow & M9 checkpoint, flow disabled & 167.736 & 165.919 & 82 & 122.874 & 163.028 & 191.428 \\
-M9 & One-step flow & 168.088 & 166.409 & 76 & 125.959 & 161.833 & 192.233 \\
+M9\_no\_flow & M9 checkpoint, flow disabled & 167.736 & 165.923 & 82 & 122.874 & 163.028 & 191.428 \\
+M9 & One-step flow & 168.088 & 166.411 & 76 & 125.959 & 161.833 & 192.233 \\
 M9\_RF2 & Two-step flow & \textbf{165.487} & \textbf{163.886} & 72 & \textbf{121.785} & \textbf{159.341} & \textbf{190.179} \\
 T\_FW2\_20e\_RF2 & Flow loss weight 2.0, two-step & 167.981 & 166.082 & 86 & 121.335 & 160.970 & 194.804 \\
 T\_FW2\_20e\_RF4 & Flow loss weight 2.0, four-step & 169.454 & 167.275 & 99 & 122.157 & 162.857 & 196.141 \\
