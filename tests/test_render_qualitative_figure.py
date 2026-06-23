@@ -1,13 +1,20 @@
 import csv
 import importlib.util
+import json
 import shutil
 import unittest
 import uuid
 from pathlib import Path
 
+import numpy as np
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / 'tools' / 'analysis' / 'render_qualitative_figure.py'
+
+
+def _single_assignment(_cost_matrix):
+    return np.array([0]), np.array([0])
 
 
 def _load_module(name, filepath):
@@ -101,6 +108,40 @@ class TestRenderQualitativeFigure(unittest.TestCase):
                 'M3: Draft-to-Refine Rectified Flow with Transformer',
                 'M4: Draft-to-Refine Rectified Flow with Mamba',
             ])
+
+    def test_resolve_full_paper_assets_uses_expected_configs_and_checkpoints(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        assets = [
+            module.resolve_full_paper_model_asset(ROOT, model_id)
+            for model_id in ('M0', 'M7', 'M9_RF2')
+        ]
+
+        self.assertEqual(
+            [asset['config'].name for asset in assets],
+            [
+                'petr_wifi.py',
+                'wi_tidir_wifi_transformer.py',
+                'wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py',
+            ])
+        self.assertEqual(
+            [asset['checkpoint'].parent.name for asset in assets],
+            ['M0', 'M7', 'M9'])
+        self.assertTrue(all(asset['checkpoint'].name == 'latest.pth' for asset in assets))
+
+    def test_match_predictions_rejects_assignment_over_500_mm(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        gt_keypoints = np.zeros((1, 14, 3), dtype=np.float32)
+        pred_keypoints = np.ones((1, 14, 3), dtype=np.float32)
+
+        matches = module._match_predictions(
+            pred_keypoints,
+            gt_keypoints,
+            _single_assignment,
+            np,
+            max_distance_mm=500.0)
+
+        self.assertEqual(matches, [])
 
     def test_prepare_display_predictions_hides_unmatched_by_default(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -322,15 +363,16 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             gt_count=2,
             matched_count=2,
             false_positives=1,
-            matched_error_mm=158.43,
-            poor_match_count=1)
+            false_negatives=0,
+            matched_error_mm=158.43)
 
         self.assertIn('S1121', footer)
         self.assertIn('0507-2-00123', footer)
         self.assertIn('M2/2', footer)
         self.assertIn('FP 1', footer)
-        self.assertIn('P1', footer)
+        self.assertIn('FN 0', footer)
         self.assertIn('E158.4', footer)
+        self.assertNotIn('| P', footer)
 
     def test_validate_dataset_signatures_rejects_mismatch(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -341,23 +383,82 @@ class TestRenderQualitativeFigure(unittest.TestCase):
                 ('M3', ('data/wifipose/test_data_v2', 'test')),
             ])
 
-    def test_panel_grid_position_uses_four_columns_and_three_rows_for_three_samples(self):
+    def test_dataset_signature_includes_ordered_sample_hash(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
 
-        self.assertEqual(module.get_panel_grid_position(0, 'gt'), (0, 0))
-        self.assertEqual(module.get_panel_grid_position(0, 'model_0'), (0, 1))
-        self.assertEqual(module.get_panel_grid_position(0, 'model_1'), (0, 2))
-        self.assertEqual(module.get_panel_grid_position(0, 'model_2'), (0, 3))
+        class TestConfig:
+            dataset_root = 'data/wifipose/test_data'
+            mode = 'test'
 
-        self.assertEqual(module.get_panel_grid_position(1, 'gt'), (1, 0))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_0'), (1, 1))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_1'), (1, 2))
-        self.assertEqual(module.get_panel_grid_position(1, 'model_2'), (1, 3))
+        class Config:
+            class Data:
+                test = TestConfig()
+            data = Data()
 
-        self.assertEqual(module.get_panel_grid_position(2, 'gt'), (2, 0))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_0'), (2, 1))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_1'), (2, 2))
-        self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (2, 3))
+        class Dataset:
+            filename_list = ['S11_06_319', 'S52_40_322']
+
+        signature = module.extract_test_dataset_signature(Config(), Dataset())
+
+        self.assertEqual(signature[0], str((ROOT / 'data/wifipose/test_data').resolve()))
+        self.assertEqual(signature[1], 'test')
+        self.assertEqual(len(signature[2]), 64)
+
+    def test_write_matching_diagnostics_records_each_model_panel(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        output_path = self.work_dir / 'diagnostics.json'
+        rows = [{
+            'sample_index': 231,
+            'img_name': 'S11_06_319',
+            'gt_count': 1,
+            'metrics': {
+                'M0': {
+                    'matched_count': 1,
+                    'false_positives': 2,
+                    'false_negatives': 0,
+                    'matched_error_mm': 171.25,
+                },
+            },
+        }]
+
+        module.write_matching_diagnostics(
+            rows,
+            output_path,
+            score_threshold=0.2,
+            match_threshold_mm=500.0)
+
+        payload = json.loads(output_path.read_text(encoding='utf-8'))
+        self.assertEqual(payload['score_threshold'], 0.2)
+        self.assertEqual(payload['match_threshold_mm'], 500.0)
+        self.assertEqual(payload['panels'][0]['sample_name'], 'S11_06_319')
+        self.assertEqual(payload['panels'][0]['model_id'], 'M0')
+        self.assertEqual(payload['panels'][0]['false_positives'], 2)
+
+    def test_panel_grid_position_uses_five_columns_with_rgb(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        self.assertEqual(module.get_panel_grid_position(0, 'rgb'), (0, 0))
+        self.assertEqual(module.get_panel_grid_position(0, 'gt'), (0, 1))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_0'), (0, 2))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_1'), (0, 3))
+        self.assertEqual(module.get_panel_grid_position(0, 'model_2'), (0, 4))
+
+        self.assertEqual(module.get_panel_grid_position(2, 'rgb'), (2, 0))
+        self.assertEqual(module.get_panel_grid_position(2, 'gt'), (2, 1))
+        self.assertEqual(module.get_panel_grid_position(2, 'model_2'), (2, 4))
+
+    def test_resolve_rgb_frame_path_uses_sample_name_and_requires_file(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        frame_dir = self.work_dir / 'rgb'
+        frame_dir.mkdir()
+        expected = frame_dir / 'S11_06_319.png'
+        expected.write_bytes(b'png')
+
+        self.assertEqual(
+            module.resolve_rgb_frame_path(frame_dir, 'S11_06_319'),
+            expected)
+        with self.assertRaises(FileNotFoundError):
+            module.resolve_rgb_frame_path(frame_dir, 'S52_40_322')
 
     def test_format_panel_title_wraps_long_model_titles(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)

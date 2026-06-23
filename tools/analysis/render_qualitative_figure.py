@@ -1,5 +1,7 @@
 import argparse
 import csv
+import hashlib
+import json
 from pathlib import Path
 
 
@@ -8,12 +10,34 @@ DEFAULT_PAPER_DIR = PROJECT_ROOT / 'work_dirs' / 'paper_M1-5'
 DEFAULT_EXPERIMENT_LOG = DEFAULT_PAPER_DIR / 'logs' / 'experiment_log.csv'
 DEFAULT_OUTPUT_PREFIX = DEFAULT_PAPER_DIR / 'figures' / 'figure4_qualitative'
 DEFAULT_MODELS = ['M0', 'M3', 'M4']
+FULL_PAPER_FIGURE_DIR = (
+    PROJECT_ROOT / 'paper_assets' / 'manuscript_latex' /
+    'resfes2026_witidar' / 'figures')
+DEFAULT_FULL_PAPER_OUTPUT_PREFIX = FULL_PAPER_FIGURE_DIR / 'fig_qualitative_full_paper'
+DEFAULT_FULL_PAPER_RGB_DIR = FULL_PAPER_FIGURE_DIR / 'qualitative_rgb'
+FULL_PAPER_SAMPLE_INDICES = [231, 7218, 4416]
 MODEL_DISPLAY_NAMES = {
     'M0': 'Person-in-WiFi 3D',
     'M1': 'Person-in-WiFi 3D + Spectral Tokens',
     'M2': 'Person-in-WiFi 3D + Mamba',
     'M3': 'Draft-to-Refine Rectified Flow with Transformer',
     'M4': 'Draft-to-Refine Rectified Flow with Mamba',
+    'M7': 'Transformer + Flow',
+    'M9_RF2': 'Mamba2 + Flow (2-step)',
+}
+FULL_PAPER_MODEL_PATHS = {
+    'M0': {
+        'config': 'work_dirs/full_alation_20e/M0/petr_wifi.py',
+        'checkpoint': 'work_dirs/full_alation_20e/M0/latest.pth',
+    },
+    'M7': {
+        'config': 'work_dirs/full_alation_20e/M7/wi_tidir_wifi_transformer.py',
+        'checkpoint': 'work_dirs/full_alation_20e/M7/latest.pth',
+    },
+    'M9_RF2': {
+        'config': 'configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py',
+        'checkpoint': 'work_dirs/full_alation_20e/M9/latest.pth',
+    },
 }
 LIMBS = [
     [0, 1], [1, 2], [2, 5], [3, 0], [4, 2], [5, 7], [6, 3], [7, 3],
@@ -71,6 +95,33 @@ def resolve_model_assets(project_root, paper_dir, model_id, specs, config_overri
     }
 
 
+def resolve_full_paper_model_asset(project_root, model_id):
+    project_root = Path(project_root)
+    if model_id not in FULL_PAPER_MODEL_PATHS:
+        raise KeyError(f'Unsupported full-paper model: {model_id}')
+    paths = FULL_PAPER_MODEL_PATHS[model_id]
+    config = project_root / paths['config']
+    checkpoint = project_root / paths['checkpoint']
+    if not config.exists():
+        raise FileNotFoundError(f'Missing config for {model_id}: {config}')
+    if not checkpoint.exists():
+        raise FileNotFoundError(f'Missing checkpoint for {model_id}: {checkpoint}')
+    return {
+        'model_id': model_id,
+        'config': config,
+        'checkpoint': checkpoint,
+        'display_name': MODEL_DISPLAY_NAMES[model_id],
+        'notes': '',
+    }
+
+
+def resolve_rgb_frame_path(rgb_frame_dir, sample_name):
+    path = Path(rgb_frame_dir) / f'{sample_name}.png'
+    if not path.exists():
+        raise FileNotFoundError(f'Missing RGB frame for {sample_name}: {path}')
+    return path
+
+
 def build_panel_titles(model_ids):
     return ['Ground Truth'] + [
         f'{model_id}: {MODEL_DISPLAY_NAMES.get(model_id, model_id)}'
@@ -78,16 +129,21 @@ def build_panel_titles(model_ids):
     ]
 
 
-def get_panel_grid_position(sample_idx, panel_key):
+def get_panel_grid_position(sample_idx, panel_key, include_rgb=True):
     panel_offsets = {
-        'gt': (0, 0),
-        'model_0': (0, 1),
-        'model_1': (0, 2),
-        'model_2': (0, 3),
+        'rgb': (0, 0),
+        'gt': (0, 1),
+        'model_0': (0, 2),
+        'model_1': (0, 3),
+        'model_2': (0, 4),
     }
     if panel_key not in panel_offsets:
         raise KeyError(f'Unsupported panel key: {panel_key}')
     row_offset, col_idx = panel_offsets[panel_key]
+    if not include_rgb:
+        if panel_key == 'rgb':
+            raise KeyError('RGB panel requested when include_rgb=False.')
+        col_idx -= 1
     return sample_idx + row_offset, col_idx
 
 
@@ -100,11 +156,17 @@ def parse_args():
     parser.add_argument('--num-samples', type=int, default=3)
     parser.add_argument('--min-people', type=int, default=1)
     parser.add_argument('--score-thr', type=float, default=0.2)
-    parser.add_argument('--output-prefix', default=str(DEFAULT_OUTPUT_PREFIX))
+    parser.add_argument('--output-prefix', default=None)
     parser.add_argument('--device', default=None)
     parser.add_argument('--dpi', type=int, default=220)
     parser.add_argument('--show-unmatched', action='store_true')
     parser.add_argument('--match-quality-thr-mm', type=float, default=200.0)
+    parser.add_argument('--match-threshold-mm', type=float, default=500.0)
+    parser.add_argument('--rgb-frame-dir', default=None)
+    parser.add_argument(
+        '--full-paper',
+        action='store_true',
+        help='Render fixed M0/M7/M9_RF2 comparisons for manuscript Figure 8.')
     return parser.parse_args()
 
 
@@ -133,11 +195,22 @@ def _build_visual_dataset(config_path, Config, build_dataset):
     return cfg, dataset
 
 
-def extract_test_dataset_signature(cfg):
+def extract_test_dataset_signature(cfg, dataset=None):
     test_cfg = cfg.data.test
     dataset_root = getattr(test_cfg, 'dataset_root', None)
     mode = getattr(test_cfg, 'mode', None)
-    return (dataset_root, mode)
+    if dataset_root is not None:
+        dataset_root = Path(dataset_root).expanduser()
+        if not dataset_root.is_absolute():
+            dataset_root = PROJECT_ROOT / dataset_root
+        dataset_root = str(dataset_root.resolve())
+    if dataset is None:
+        return (dataset_root, mode)
+    sample_names = getattr(dataset, 'filename_list', None)
+    if sample_names is None:
+        raise ValueError('Dataset does not expose filename_list for signature validation.')
+    digest = hashlib.sha256('\n'.join(map(str, sample_names)).encode('utf-8')).hexdigest()
+    return (dataset_root, mode, digest)
 
 
 def validate_dataset_signatures(signatures):
@@ -178,7 +251,8 @@ def _predict_from_result(result, score_thr):
     return pred_keypoints_all[keep_mask]
 
 
-def _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np):
+def _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np,
+                       max_distance_mm=None):
     matches = []
     if len(pred_keypoints) == 0 or len(gt_keypoints) == 0:
         return matches
@@ -189,6 +263,9 @@ def _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np):
                 np.linalg.norm(gt_keypoints[gt_idx] - pred_keypoints[pred_idx], axis=1))
     gt_indices, pred_indices = linear_sum_assignment(cost_matrix)
     for gt_idx, pred_idx in zip(gt_indices, pred_indices):
+        distance_mm = float(cost_matrix[gt_idx, pred_idx]) * 1000.0
+        if max_distance_mm is not None and distance_mm > max_distance_mm:
+            continue
         matches.append((int(gt_idx), int(pred_idx)))
     return matches
 
@@ -303,6 +380,33 @@ def summarize_prediction_quality(pred_keypoints, gt_keypoints, matches, np):
     }
 
 
+def write_matching_diagnostics(rows, output_path, score_threshold, match_threshold_mm):
+    panels = []
+    for row in rows:
+        for model_id, metrics in row['metrics'].items():
+            panels.append({
+                'sample_index': row['sample_index'],
+                'sample_name': row['img_name'],
+                'ground_truth_count': row['gt_count'],
+                'model_id': model_id,
+                'matched_count': metrics['matched_count'],
+                'false_positives': metrics['false_positives'],
+                'false_negatives': metrics['false_negatives'],
+                'matched_mpjpe_mm': metrics['matched_error_mm'],
+            })
+    payload = {
+        'score_threshold': score_threshold,
+        'match_threshold_mm': match_threshold_mm,
+        'panels': panels,
+    }
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + '\n',
+        encoding='utf-8')
+    return output_path
+
+
 def compute_crowding_score(gt_keypoints, np):
     if len(gt_keypoints) < 2:
         return 0.0
@@ -367,12 +471,13 @@ def select_best_sample_indices(sample_summaries, num_samples):
     return selected[:num_samples]
 
 
-def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives, matched_error_mm,
-                        poor_match_count=0):
+def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives,
+                        matched_error_mm, false_negatives=0):
     error_text = 'n/a' if matched_error_mm is None else f'{matched_error_mm:.1f} mm'
     return (
         f'S{sample_index} | {img_name}\n'
-        f'M{matched_count}/{gt_count} | FP {false_positives} | P{poor_match_count} | E{error_text}'
+        f'M{matched_count}/{gt_count} | FP {false_positives} | FN {false_negatives} | '
+        f'E{error_text}'
     )
 
 
@@ -436,13 +541,18 @@ def prepare_runtime(model_assets, device=None):
     device = _normalize_device(device, torch)
     loaded_cfgs = []
     for asset in model_assets:
-        cfg, _ = _build_visual_dataset(asset['config'], Config, build_dataset)
-        loaded_cfgs.append((asset['model_id'], cfg))
-    validate_dataset_signatures([
-        (model_id, extract_test_dataset_signature(cfg))
-        for model_id, cfg in loaded_cfgs
-    ])
-    dataset = _build_visual_dataset(model_assets[0]['config'], Config, build_dataset)[1]
+        cfg, dataset = _build_visual_dataset(asset['config'], Config, build_dataset)
+        loaded_cfgs.append((asset['model_id'], cfg, dataset))
+    signatures = [
+        (model_id, extract_test_dataset_signature(cfg, dataset))
+        for model_id, cfg, dataset in loaded_cfgs
+    ]
+    validate_dataset_signatures(signatures)
+    print(
+        'Validated shared test dataset: '
+        f'root={signatures[0][1][0]} mode={signatures[0][1][1]} '
+        f'ordered_sample_sha256={signatures[0][1][2]}')
+    dataset = loaded_cfgs[0][2]
     models = {}
     for asset in model_assets:
         model = init_detector(str(asset['config']), str(asset['checkpoint']), device=device)
@@ -460,7 +570,8 @@ def prepare_runtime(model_assets, device=None):
     }
 
 
-def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
+def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2,
+                           match_threshold_mm=500.0):
     np = runtime['np']
     torch = runtime['torch']
     linear_sum_assignment = runtime['linear_sum_assignment']
@@ -484,7 +595,12 @@ def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
         with torch.no_grad():
             result = model.simple_test(img_tensor, img_metas, rescale=False)
         pred_keypoints = _predict_from_result(result, score_thr=score_thr)
-        matches = _match_predictions(pred_keypoints, gt_keypoints, linear_sum_assignment, np)
+        matches = _match_predictions(
+            pred_keypoints,
+            gt_keypoints,
+            linear_sum_assignment,
+            np,
+            max_distance_mm=match_threshold_mm)
         metrics = summarize_prediction_quality(pred_keypoints, gt_keypoints, matches, np)
         summary['models'].append({
             'asset': asset,
@@ -496,7 +612,8 @@ def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2):
 
 
 def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
-                              show_unmatched=False, precomputed_rows=None, match_quality_thr_mm=200.0):
+                              show_unmatched=False, precomputed_rows=None, match_quality_thr_mm=200.0,
+                              match_threshold_mm=500.0, rgb_frame_dir=None):
     runtime = None
     if precomputed_rows is None:
         runtime = prepare_runtime(model_assets, device=device)
@@ -509,16 +626,22 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
     style_config = get_render_style_config()
 
     if precomputed_rows is None:
-        rows = [collect_sample_summary(runtime, model_assets, sample_index, score_thr=score_thr)
+        rows = [collect_sample_summary(
+                    runtime,
+                    model_assets,
+                    sample_index,
+                    score_thr=score_thr,
+                    match_threshold_mm=match_threshold_mm)
                 for sample_index in sample_indices]
     else:
         row_lookup = {row['sample_index']: row for row in precomputed_rows}
         rows = [row_lookup[sample_index] for sample_index in sample_indices if sample_index in row_lookup]
 
     grid_rows = len(rows)
-    grid_cols = len(model_assets) + 1
-    figure_width = 3.25 * grid_cols
-    figure_height = 3.95 * grid_rows
+    include_rgb = rgb_frame_dir is not None
+    grid_cols = len(model_assets) + (2 if include_rgb else 1)
+    figure_width = 3.05 * grid_cols
+    figure_height = 3.55 * grid_rows
     fig = plt.figure(figsize=(figure_width, figure_height))
     titles = build_panel_titles([asset['model_id'] for asset in model_assets])
 
@@ -532,6 +655,7 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             gt_count=len(gt_keypoints),
             matched_count=len(gt_keypoints),
             false_positives=0,
+            false_negatives=0,
             matched_error_mm=None)
         row_display_sets = [gt_keypoints]
         prepared_displays = []
@@ -551,7 +675,30 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             min_range=style_config['bounds_min_range'],
             margin_scale=style_config['bounds_margin_scale'])
 
-        gt_row_idx, gt_col_idx = get_panel_grid_position(row_idx, 'gt')
+        if include_rgb:
+            rgb_row_idx, rgb_col_idx = get_panel_grid_position(
+                row_idx, 'rgb', include_rgb=include_rgb)
+            rgb_subplot_idx = rgb_row_idx * grid_cols + rgb_col_idx + 1
+            rgb_ax = fig.add_subplot(grid_rows, grid_cols, rgb_subplot_idx)
+            rgb_path = resolve_rgb_frame_path(rgb_frame_dir, row['img_name'])
+            rgb_ax.imshow(plt.imread(rgb_path))
+            rgb_title = 'RGB Scene' if row_idx == 0 else ''
+            rgb_ax.set_title(
+                f'{rgb_title}\n{len(gt_keypoints)}-person'.strip(),
+                fontsize=style_config['title_font_size'],
+                pad=style_config['title_pad'])
+            rgb_ax.axis('off')
+            rgb_ax.text(
+                0.02,
+                0.01,
+                row['img_name'],
+                transform=rgb_ax.transAxes,
+                fontsize=style_config['footer_font_size'],
+                color='white',
+                bbox={'facecolor': 'black', 'alpha': 0.65, 'pad': 1.5})
+
+        gt_row_idx, gt_col_idx = get_panel_grid_position(
+            row_idx, 'gt', include_rgb=include_rgb)
         gt_subplot_idx = gt_row_idx * grid_cols + gt_col_idx + 1
         gt_title = format_panel_title(titles[0], sample_index=row['sample_index'], top_row=(row_idx == 0))
         gt_ax = fig.add_subplot(grid_rows, grid_cols, gt_subplot_idx, projection='3d')
@@ -567,7 +714,10 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             model_asset = model_entry['asset']
             metric = row['metrics'][model_asset['model_id']]
 
-            grid_row_idx, grid_col_idx = get_panel_grid_position(row_idx, f'model_{col_idx - 1}')
+            grid_row_idx, grid_col_idx = get_panel_grid_position(
+                row_idx,
+                f'model_{col_idx - 1}',
+                include_rgb=include_rgb)
             subplot_idx = grid_row_idx * grid_cols + grid_col_idx + 1
             title = format_panel_title(
                 titles[col_idx],
@@ -588,38 +738,72 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                     gt_count=len(gt_keypoints),
                     matched_count=metric['matched_count'],
                     false_positives=metric['false_positives'],
-                    matched_error_mm=metric['matched_error_mm'],
-                    poor_match_count=display['poor_match_count']),
+                    false_negatives=metric['false_negatives'],
+                    matched_error_mm=metric['matched_error_mm']),
                 transform=axis.transAxes,
                 fontsize=style_config['footer_font_size'])
 
-    fig.suptitle('Figure 4. Selected challenging multi-person WiFi pose samples.', fontsize=16, y=0.99)
-    fig.subplots_adjust(left=0.02, right=0.995, bottom=0.02, top=0.93, wspace=0.03, hspace=0.12)
+    fig.subplots_adjust(left=0.01, right=0.995, bottom=0.01, top=0.98, wspace=0.02, hspace=0.10)
 
     outputs = []
-    for suffix in ('.png', '.pdf', '.svg'):
+    for suffix in ('.png', '.pdf'):
         output_path = output_prefix.with_suffix(suffix)
         fig.savefig(output_path, dpi=dpi if suffix == '.png' else None, bbox_inches='tight')
         outputs.append(output_path)
     plt.close(fig)
+    diagnostics_path = output_prefix.with_name(
+        f'{output_prefix.name}_diagnostics').with_suffix('.json')
+    outputs.append(write_matching_diagnostics(
+        rows,
+        diagnostics_path,
+        score_threshold=score_thr,
+        match_threshold_mm=match_threshold_mm))
     return outputs
 
 
 def main():
     args = parse_args()
-    specs = load_experiment_specs(args.experiment_log)
-    model_assets = [
-        resolve_model_assets(PROJECT_ROOT, args.paper_dir, model_id, specs)
-        for model_id in args.models
-    ]
-    if args.sample_indices:
+    if args.full_paper:
+        model_assets = [
+            resolve_full_paper_model_asset(PROJECT_ROOT, model_id)
+            for model_id in ('M0', 'M7', 'M9_RF2')
+        ]
+        for asset in model_assets:
+            print(
+                f"{asset['model_id']}: config={asset['config']} "
+                f"checkpoint={asset['checkpoint']}")
+        sample_indices = args.sample_indices or FULL_PAPER_SAMPLE_INDICES
+        output_prefix = args.output_prefix or DEFAULT_FULL_PAPER_OUTPUT_PREFIX
+        rgb_frame_dir = args.rgb_frame_dir or DEFAULT_FULL_PAPER_RGB_DIR
+        show_unmatched = True
+        dpi = max(args.dpi, 300)
+        precomputed_rows = None
+    else:
+        specs = load_experiment_specs(args.experiment_log)
+        model_assets = [
+            resolve_model_assets(PROJECT_ROOT, args.paper_dir, model_id, specs)
+            for model_id in args.models
+        ]
         sample_indices = args.sample_indices
+        output_prefix = args.output_prefix or DEFAULT_OUTPUT_PREFIX
+        rgb_frame_dir = args.rgb_frame_dir
+        show_unmatched = args.show_unmatched
+        dpi = args.dpi
+
+    if args.full_paper:
+        precomputed_rows = None
+    elif sample_indices:
         precomputed_rows = None
     else:
         candidates, _ = collect_candidate_indices(model_assets[0]['config'], args.min_people)
         runtime = prepare_runtime(model_assets, device=args.device)
         summaries = [
-            collect_sample_summary(runtime, model_assets, sample_index, score_thr=args.score_thr)
+            collect_sample_summary(
+                runtime,
+                model_assets,
+                sample_index,
+                score_thr=args.score_thr,
+                match_threshold_mm=args.match_threshold_mm)
             for sample_index in candidates
         ]
         sample_indices = select_best_sample_indices(summaries, args.num_samples)
@@ -631,14 +815,16 @@ def main():
     outputs = render_qualitative_figure(
         model_assets=model_assets,
         sample_indices=sample_indices,
-        output_prefix=args.output_prefix,
+        output_prefix=output_prefix,
         score_thr=args.score_thr,
         device=args.device,
-        dpi=args.dpi,
-        show_unmatched=args.show_unmatched,
+        dpi=dpi,
+        show_unmatched=show_unmatched,
         precomputed_rows=precomputed_rows,
-        match_quality_thr_mm=args.match_quality_thr_mm)
-    print('Figure 4 outputs:')
+        match_quality_thr_mm=args.match_quality_thr_mm,
+        match_threshold_mm=args.match_threshold_mm,
+        rgb_frame_dir=rgb_frame_dir)
+    print('Qualitative figure outputs:')
     for output_path in outputs:
         print(output_path)
 

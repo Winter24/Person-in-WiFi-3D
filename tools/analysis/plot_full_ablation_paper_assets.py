@@ -13,11 +13,10 @@ import json
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
-from reportlab.lib.pagesizes import landscape, letter
 from reportlab.pdfgen import canvas
 
 
-MAIN_IDS = ['M0', 'M1', 'M7', 'M8', 'M9', 'M9_RF2']
+MAIN_IDS = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M9_RF2']
 FLOW_IDS = [
     'M6',
     'M9_no_flow',
@@ -30,6 +29,11 @@ FLOW_IDS = [
 MAIN_META = {
     'M0': ('Original PETR baseline', 'Linear', 'Transformer', 'PETRHead', 'No'),
     'M1': ('Spectral PETR baseline', 'Spectral', 'Transformer', 'PETRHead', 'No'),
+    'M2': ('PETR with Mamba-1', 'Spectral', 'Mamba-1', 'PETRHead', 'No'),
+    'M3': ('PETR with Mamba2-CSI', 'Spectral', 'Mamba2-CSI flattened', 'PETRHead', 'No'),
+    'M4': ('WiTiDAR draft with Transformer', 'Spectral', 'Transformer', 'WiTiDAR', 'No'),
+    'M5': ('WiTiDAR draft with Mamba-1', 'Spectral', 'Mamba-1', 'WiTiDAR', 'No'),
+    'M6': ('WiTiDAR draft with Mamba2-CSI', 'Spectral', 'Mamba2-CSI flattened', 'WiTiDAR', 'No'),
     'M7': ('WiTiDAR with Transformer', 'Spectral', 'Transformer', 'WiTiDAR', '1-step'),
     'M8': ('WiTiDAR with Mamba-1', 'Spectral', 'Mamba-1', 'WiTiDAR', '1-step'),
     'M9': ('Mamba2-CSI WiTiDAR', 'Spectral', 'Mamba2-CSI flattened', 'WiTiDAR', '1-step'),
@@ -328,15 +332,16 @@ def _draw_bar_panel(draw, image, box, title, ylabel, ids, values, decimals=1):
 
 
 def _write_pdf_from_png(png_path, pdf_path):
-    page_width, page_height = landscape(letter)
-    pdf_canvas = canvas.Canvas(str(pdf_path), pagesize=landscape(letter))
-    margin = 24
+    with Image.open(png_path) as image:
+        page_width, page_height = image.size
+
+    pdf_canvas = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
     pdf_canvas.drawImage(
         str(png_path),
-        margin,
-        margin,
-        width=page_width - 2 * margin,
-        height=page_height - 2 * margin,
+        0,
+        0,
+        width=page_width,
+        height=page_height,
         preserveAspectRatio=True,
         anchor='c',
     )

@@ -2,6 +2,10 @@
 
 This folder contains the LaTeX manuscript source, references, tables, and figures for the internal RESFES 2026 WiFi 3D pose paper draft.
 
+Official title:
+
+**Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures**
+
 Main files:
 
 - `main.tex`: source-of-truth manuscript content.
