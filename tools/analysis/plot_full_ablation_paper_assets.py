@@ -12,8 +12,11 @@ import csv
 import json
 from pathlib import Path
 
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from reportlab.pdfgen import canvas
 
 
 MAIN_IDS = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M9_RF2']
@@ -53,6 +56,15 @@ FLOW_META = {
     'M9_RF2': ('M9 20e', '2-step RF'),
     'T_FW2_20e_RF2': ('Flow loss weight 2.0', '2-step RF'),
     'T_FW2_20e_RF4': ('Flow loss weight 2.0', '4-step RF'),
+}
+
+FLOW_DISPLAY_LABELS = {
+    'M6': 'M6 Draft',
+    'M9_no_flow': 'M9 Flow off',
+    'M9': 'M9 1-step',
+    'M9_RF2': 'M9 2-step',
+    'T_FW2_20e_RF2': 'FW2 2-step',
+    'T_FW2_20e_RF4': 'FW2 4-step',
 }
 
 
@@ -99,6 +111,20 @@ def load_eval_json(eval_dir, experiment_id):
         raise FileNotFoundError(f'Missing eval JSON for {experiment_id}: {path}')
     with path.open('r', encoding='utf-8') as file_obj:
         return json.load(file_obj)
+
+
+def build_flow_plot_rows(rows, eval_dir):
+    plot_rows = []
+    for experiment_id in FLOW_IDS:
+        eval_row = load_eval_json(eval_dir, experiment_id)
+        plot_rows.append({
+            'experiment_id': experiment_id,
+            'display_label': FLOW_DISPLAY_LABELS[experiment_id],
+            'mpjpe': float(eval_row['mpjpe']),
+            'missed_persons': int(eval_row['missed_persons']),
+            'selected': experiment_id == 'M9_RF2',
+        })
+    return plot_rows
 
 
 def as_float(row, key):
@@ -332,6 +358,13 @@ def _draw_bar_panel(draw, image, box, title, ylabel, ids, values, decimals=1):
 
 
 def _write_pdf_from_png(png_path, pdf_path):
+    try:
+        from reportlab.pdfgen import canvas
+    except ImportError:
+        with Image.open(png_path) as image:
+            image.convert('RGB').save(pdf_path, 'PDF', resolution=300.0)
+        return
+
     with Image.open(png_path) as image:
         page_width, page_height = image.size
 
@@ -414,37 +447,127 @@ def plot_main_ablation(rows, output_base):
 
 
 def plot_flow_ablation(rows, eval_dir, output_base):
-    ids = FLOW_IDS
-    mpjpe_values = []
-    missed_values = []
-    for experiment_id in ids:
-        eval_row = load_eval_json(eval_dir, experiment_id)
-        mpjpe_values.append(float(eval_row['mpjpe']))
-        missed_values.append(int(eval_row['missed_persons']))
+    plot_rows = build_flow_plot_rows(rows, eval_dir)
+    labels = [row['display_label'] for row in plot_rows]
+    y_positions = np.arange(len(plot_rows))
+    selected_color = '#0072B2'
+    neutral_color = '#6B7C93'
 
-    panels = [
-        {
-            'title': 'Pose accuracy',
-            'ylabel': 'MPJPE (mm)',
-            'ids': ids,
-            'values': mpjpe_values,
-            'decimals': 1,
-        },
-        {
-            'title': 'Detection/matching penalty',
-            'ylabel': 'Missed persons',
-            'ids': ids,
-            'values': missed_values,
-            'decimals': 0,
-        },
-    ]
-    _save_panel_figure(
-        'Supplementary Rectified-flow Ablation',
-        panels,
-        output_base,
-        width=2600,
-        height=1100,
-    )
+    style = {
+        'font.family': 'DejaVu Sans',
+        'font.size': 8.5,
+        'axes.labelsize': 9,
+        'axes.titlesize': 10,
+        'xtick.labelsize': 8,
+        'ytick.labelsize': 8.5,
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42,
+    }
+    with mpl.rc_context(style):
+        fig, axes = plt.subplots(
+            1,
+            2,
+            figsize=(7.2, 3.25),
+            dpi=300,
+            sharey=True,
+            gridspec_kw={'width_ratios': [1.05, 0.95], 'wspace': 0.16},
+        )
+        panels = [
+            {
+                'values': [row['mpjpe'] for row in plot_rows],
+                'xlim': (164.5, 170.0),
+                'xticks': [165, 166, 167, 168, 169, 170],
+                'title': 'Overall MPJPE',
+                'xlabel': 'MPJPE (mm)',
+                'decimals': 3,
+            },
+            {
+                'values': [row['missed_persons'] for row in plot_rows],
+                'xlim': (50, 105),
+                'xticks': [50, 60, 70, 80, 90, 100],
+                'title': 'Unmatched persons',
+                'xlabel': 'Unmatched ground-truth persons (count)',
+                'decimals': 0,
+            },
+        ]
+
+        for panel_index, (ax, panel) in enumerate(zip(axes, panels)):
+            ax.set_axisbelow(True)
+            ax.grid(axis='x', color='#DDE3EA', linewidth=0.7)
+            for y_value in y_positions:
+                ax.axhline(y_value, color='#EEF1F5', linewidth=0.7, zorder=0)
+
+            for row_index, (row, value) in enumerate(zip(plot_rows, panel['values'])):
+                selected = row['selected']
+                color = selected_color if selected else neutral_color
+                ax.hlines(
+                    row_index,
+                    panel['xlim'][0],
+                    value,
+                    color=color,
+                    linewidth=2.2 if selected else 1.35,
+                    zorder=2,
+                )
+                ax.scatter(
+                    value,
+                    row_index,
+                    s=58 if selected else 35,
+                    color=color,
+                    edgecolor='white',
+                    linewidth=0.8,
+                    zorder=3,
+                )
+                value_text = f"{value:.{panel['decimals']}f}"
+                ax.annotate(
+                    value_text,
+                    (value, row_index),
+                    xytext=(5, 0),
+                    textcoords='offset points',
+                    va='center',
+                    ha='left',
+                    fontsize=8,
+                    color=selected_color if selected else '#364152',
+                    fontweight='bold' if selected else 'normal',
+                )
+
+            ax.set_xlim(*panel['xlim'])
+            ax.set_xticks(panel['xticks'])
+            ax.set_title(panel['title'], fontweight='semibold', pad=9)
+            ax.set_xlabel(panel['xlabel'], labelpad=6)
+            ax.tick_params(axis='both', length=0, colors='#364152')
+            for spine in ('top', 'right', 'left'):
+                ax.spines[spine].set_visible(False)
+            ax.spines['bottom'].set_color('#7B8794')
+            ax.spines['bottom'].set_linewidth(0.8)
+            ax.text(
+                -0.10,
+                1.06,
+                f"({chr(ord('a') + panel_index)})",
+                transform=ax.transAxes,
+                fontsize=10,
+                fontweight='bold',
+                va='bottom',
+            )
+
+        axes[0].set_yticks(y_positions)
+        axes[0].set_yticklabels(labels)
+        axes[0].invert_yaxis()
+        for tick_label, row in zip(axes[0].get_yticklabels(), plot_rows):
+            if row['selected']:
+                tick_label.set_color(selected_color)
+                tick_label.set_fontweight('bold')
+
+        fig.subplots_adjust(left=0.19, right=0.97, top=0.86, bottom=0.19)
+        output_base = Path(output_base)
+        output_base.parent.mkdir(parents=True, exist_ok=True)
+        outputs = {
+            'pdf': output_base.with_suffix('.pdf'),
+            'png': output_base.with_suffix('.png'),
+        }
+        fig.savefig(outputs['pdf'], facecolor='white')
+        fig.savefig(outputs['png'], dpi=300, facecolor='white')
+        plt.close(fig)
+    return outputs
 
 
 def main():

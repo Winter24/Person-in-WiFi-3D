@@ -231,7 +231,7 @@ Figures~\ref{fig:main_ablation}--\ref{fig:multi_metric_radar} visualize the full
 \end{figure}
 
 \subsection{Flow Solver Analysis}
-Table~\ref{tab:flow} separates the draft-only model, disabled-flow inference, one-step flow, two-step flow, and retrained flow-loss variants. Two-step Euler inference on the original M9 checkpoint provides the best empirical balance among the tested solvers.
+Table~\ref{tab:flow} separates the draft-only model, disabled-flow inference, one-step flow, two-step flow, and retrained flow-loss variants. Figure~\ref{fig:flow_ablation} visualizes the two principal diagnostics for the same six configurations. The metrics expose a genuine trade-off: M9\_RF2 attains the lowest overall MPJPE, whereas the draft-only M6 configuration produces the fewest unmatched persons. Among the tested M9 checkpoint settings, two-step Euler inference yields both the lowest MPJPE and the fewest unmatched persons.
 
 \begin{table}[H]
 \centering
@@ -255,7 +255,7 @@ T\_FW2\_RF4 & Retrained, four-step & 169.454 & 167.275 & 99 & 120.505 & 161.851 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.90\linewidth]{figures/fig_flow_solver_ablation.pdf}
-    \caption{Flow solver analysis showing MPJPE and unmatched-person count.}
+    \caption{Flow-solver analysis across the six evaluated configurations. Lower values are better in both panels: (a) overall MPJPE and (b) unmatched ground-truth person count. The highlighted point denotes the selected two-step M9 evaluation.}
     \label{fig:flow_ablation}
 \end{figure}
 
