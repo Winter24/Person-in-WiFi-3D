@@ -11,12 +11,20 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import sys
 
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from tools.analysis.model_palette import FLOW_SETTING_STYLES
 
 
 MAIN_IDS = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M9_RF2']
@@ -123,6 +131,7 @@ def build_flow_plot_rows(rows, eval_dir):
             'mpjpe': float(eval_row['mpjpe']),
             'missed_persons': int(eval_row['missed_persons']),
             'selected': experiment_id == 'M9_RF2',
+            'style': FLOW_SETTING_STYLES[experiment_id],
         })
     return plot_rows
 
@@ -450,9 +459,6 @@ def plot_flow_ablation(rows, eval_dir, output_base):
     plot_rows = build_flow_plot_rows(rows, eval_dir)
     labels = [row['display_label'] for row in plot_rows]
     y_positions = np.arange(len(plot_rows))
-    selected_color = '#0072B2'
-    neutral_color = '#6B7C93'
-
     style = {
         'font.family': 'DejaVu Sans',
         'font.size': 8.5,
@@ -499,7 +505,8 @@ def plot_flow_ablation(rows, eval_dir, output_base):
 
             for row_index, (row, value) in enumerate(zip(plot_rows, panel['values'])):
                 selected = row['selected']
-                color = selected_color if selected else neutral_color
+                point_style = row['style']
+                color = point_style['color']
                 ax.hlines(
                     row_index,
                     panel['xlim'][0],
@@ -512,9 +519,10 @@ def plot_flow_ablation(rows, eval_dir, output_base):
                     value,
                     row_index,
                     s=58 if selected else 35,
-                    color=color,
-                    edgecolor='white',
-                    linewidth=0.8,
+                    marker=point_style['marker'],
+                    facecolor='white' if point_style['fillstyle'] == 'none' else color,
+                    edgecolor=color,
+                    linewidth=1.5 if point_style['fillstyle'] == 'none' else 0.8,
                     zorder=3,
                 )
                 value_text = f"{value:.{panel['decimals']}f}"
@@ -526,7 +534,7 @@ def plot_flow_ablation(rows, eval_dir, output_base):
                     va='center',
                     ha='left',
                     fontsize=8,
-                    color=selected_color if selected else '#364152',
+                    color=color if selected else '#364152',
                     fontweight='bold' if selected else 'normal',
                 )
 
@@ -554,7 +562,7 @@ def plot_flow_ablation(rows, eval_dir, output_base):
         axes[0].invert_yaxis()
         for tick_label, row in zip(axes[0].get_yticklabels(), plot_rows):
             if row['selected']:
-                tick_label.set_color(selected_color)
+                tick_label.set_color(row['style']['color'])
                 tick_label.set_fontweight('bold')
 
         fig.subplots_adjust(left=0.19, right=0.97, top=0.86, bottom=0.19)

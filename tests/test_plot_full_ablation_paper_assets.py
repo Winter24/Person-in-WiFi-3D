@@ -66,6 +66,12 @@ class TestFlowSolverFigure(unittest.TestCase):
         self.assertEqual(
             [row['experiment_id'] for row in rows if row['selected']],
             ['M9_RF2'])
+        palette = __import__(
+            'tools.analysis.model_palette',
+            fromlist=['FLOW_SETTING_STYLES'])
+        self.assertEqual(
+            [row['style'] for row in rows],
+            [palette.FLOW_SETTING_STYLES[row['experiment_id']] for row in rows])
 
     def test_plot_flow_ablation_exports_publication_pdf_and_png(self):
         module = load_module()

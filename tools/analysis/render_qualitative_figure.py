@@ -3,9 +3,16 @@ import csv
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from tools.analysis.model_palette import get_model_color
+
+
 DEFAULT_PAPER_DIR = PROJECT_ROOT / 'work_dirs' / 'paper_M1-5'
 DEFAULT_EXPERIMENT_LOG = DEFAULT_PAPER_DIR / 'logs' / 'experiment_log.csv'
 DEFAULT_OUTPUT_PREFIX = DEFAULT_PAPER_DIR / 'figures' / 'figure4_qualitative'
@@ -44,6 +51,7 @@ LIMBS = [
     [8, 4], [9, 5], [10, 6], [11, 7], [12, 9], [13, 11],
 ]
 LABEL_ANCHOR_JOINT_IDX = 13
+QUALITATIVE_ACCENT_MODELS = frozenset({'M0', 'M7', 'M9_RF2'})
 
 
 def load_experiment_specs(csv_path):
@@ -127,6 +135,12 @@ def build_panel_titles(model_ids):
         f'{model_id}: {MODEL_DISPLAY_NAMES.get(model_id, model_id)}'
         for model_id in model_ids
     ]
+
+
+def get_model_title_accent(model_id):
+    if model_id not in QUALITATIVE_ACCENT_MODELS:
+        return None
+    return get_model_color(model_id)
 
 
 def get_panel_grid_position(sample_idx, panel_key, include_rgb=True):
@@ -504,9 +518,17 @@ def get_render_style_config():
     }
 
 
-def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None):
+def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None,
+                   title_accent=None):
     style_config = get_render_style_config()
     ax.set_title(title, fontsize=style_config['title_font_size'], pad=style_config['title_pad'])
+    if title_accent:
+        ax.annotate(
+            '',
+            xy=(0.36, 1.01),
+            xytext=(0.64, 1.01),
+            xycoords='axes fraction',
+            arrowprops={'arrowstyle': '-', 'color': title_accent, 'lw': 3.0})
     for person_idx, person_kpts in enumerate(poses):
         color = colors[person_idx]
         x, y, z = person_kpts[:, 0], person_kpts[:, 1], person_kpts[:, 2]
@@ -728,7 +750,15 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 grid_cols,
                 subplot_idx,
                 projection='3d')
-            _plot_pose_set(axis, display['poses'], display['colors'], display['labels'], title, Line2D, bounds=row_bounds)
+            _plot_pose_set(
+                axis,
+                display['poses'],
+                display['colors'],
+                display['labels'],
+                title,
+                Line2D,
+                bounds=row_bounds,
+                title_accent=get_model_title_accent(model_asset['model_id']))
             axis.text2D(
                 0.02,
                 0.01,

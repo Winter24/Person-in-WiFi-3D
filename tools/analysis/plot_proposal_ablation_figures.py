@@ -2,6 +2,7 @@
 """Generate proposal-aligned ablation figures for the ResFes paper."""
 
 from pathlib import Path
+import sys
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,6 +10,11 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.analysis.model_palette import MODEL_LINESTYLES, MODEL_MARKERS, get_model_color
+
 FIGURE_DIR = ROOT / 'paper_assets' / 'manuscript_latex' / 'resfes2026_witidar' / 'figures'
 
 VARIANTS = [
@@ -19,7 +25,6 @@ VARIANTS = [
         'fps': 45.69,
         'params_m': 13.13,
         'memory_mb': 155.60,
-        'color': '#D55E00',
     },
     {
         'id': 'M1',
@@ -28,7 +33,6 @@ VARIANTS = [
         'fps': 49.36,
         'params_m': 13.20,
         'memory_mb': 155.86,
-        'color': '#8C9AA9',
     },
     {
         'id': 'M2',
@@ -37,7 +41,6 @@ VARIANTS = [
         'fps': 51.48,
         'params_m': 11.97,
         'memory_mb': 151.16,
-        'color': '#A7B6C2',
     },
     {
         'id': 'M3',
@@ -46,7 +49,6 @@ VARIANTS = [
         'fps': 138.79,
         'params_m': 7.06,
         'memory_mb': 38.49,
-        'color': '#4C78A8',
     },
     {
         'id': 'M4',
@@ -55,7 +57,6 @@ VARIANTS = [
         'fps': 159.85,
         'params_m': 5.83,
         'memory_mb': 27.02,
-        'color': '#2A9D8F',
     },
 ]
 
@@ -88,7 +89,7 @@ def save_figure(fig, stem):
 def draw_main_ablation():
     ids = [item['id'] for item in VARIANTS]
     x = np.arange(len(ids))
-    colors = [item['color'] for item in VARIANTS]
+    colors = [get_model_color(model_id) for model_id in ids]
     metrics = [
         ('mpjpe', 'MPJPE (mm)'),
         ('fps', 'FPS'),
@@ -140,7 +141,8 @@ def draw_bubble_chart():
             item['fps'],
             item['mpjpe'],
             s=bubble_area(item['params_m']),
-            color=item['color'],
+            color=get_model_color(item['id']),
+            marker=MODEL_MARKERS[item['id']],
             alpha=0.78 if not is_final else 0.90,
             edgecolor='#111827' if is_final else 'white',
             linewidth=1.2 if is_final else 0.75,
@@ -194,8 +196,9 @@ def draw_bubble_chart():
     ax.yaxis.label.set_color('#374151')
 
     handles = [
-        plt.Line2D([0], [0], marker='s', linestyle='', markersize=7,
-                   markerfacecolor=item['color'], markeredgecolor='none',
+        plt.Line2D([0], [0], marker=MODEL_MARKERS[item['id']], linestyle='',
+                   markersize=7, markerfacecolor=get_model_color(item['id']),
+                   markeredgecolor='none',
                    label=f"{item['id']}: {item['architecture']}")
         for item in VARIANTS
     ]
@@ -261,15 +264,16 @@ def draw_radar_chart():
         line, = ax.plot(
             closed_angles,
             closed_values,
-            color=item['color'],
+            color=get_model_color(item['id']),
+            linestyle=MODEL_LINESTYLES[item['id']],
+            marker=MODEL_MARKERS[item['id']],
             linewidth=2.5 if highlight else 1.25,
-            marker='o',
             markersize=4.8 if highlight else 3.2,
             alpha=0.93 if highlight else 0.42,
             label=f"{item['id']}: {item['architecture']}",
         )
         if highlight:
-            ax.fill(closed_angles, closed_values, color=item['color'], alpha=0.055)
+            ax.fill(closed_angles, closed_values, color=get_model_color(item['id']), alpha=0.055)
         handles.append(line)
 
     ax.text(0.5, 0.5, 'normalized\nscore', transform=ax.transAxes,

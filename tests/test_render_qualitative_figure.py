@@ -109,6 +109,23 @@ class TestRenderQualitativeFigure(unittest.TestCase):
                 'M4: Draft-to-Refine Rectified Flow with Mamba',
             ])
 
+    def test_only_full_paper_model_titles_receive_palette_accents(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        palette = _load_module(
+            'model_palette', ROOT / 'tools' / 'analysis' / 'model_palette.py')
+
+        self.assertEqual(
+            module.get_model_title_accent('M0'), palette.MODEL_COLORS['M0'])
+        self.assertEqual(
+            module.get_model_title_accent('M7'), palette.MODEL_COLORS['M7'])
+        self.assertEqual(
+            module.get_model_title_accent('M9_RF2'), palette.MODEL_COLORS['M9_RF2'])
+        self.assertIsNone(module.get_model_title_accent('M3'))
+        self.assertIsNone(module.get_model_title_accent('Ground Truth'))
+        self.assertEqual(
+            module._panel_colors(3),
+            ['#1f77b4', '#2ca02c', '#ff7f0e'])
+
     def test_resolve_full_paper_assets_uses_expected_configs_and_checkpoints(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
 

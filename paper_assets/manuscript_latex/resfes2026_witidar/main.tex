@@ -6,6 +6,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
+\input{tables/model_palette.tex}
 \usepackage{flushend}
 \usepackage{hyperref}
 \hypersetup{hidelinks}
@@ -166,17 +167,17 @@ Table~\ref{tab:variant-summary} defines the full M0--M9 development path and the
 \toprule
 ID & Input & Encoder & Pose Head & Flow & Role in Study \\
 \midrule
-M0 & Linear & Transformer & PETRHead & No & Original baseline \\
-M1 & Spectral & Transformer & PETRHead & No & Tokenizer ablation \\
-M2 & Spectral & Mamba-1 & PETRHead & No & Encoder ablation \\
-M3 & Spectral & Mamba2-CSI & PETRHead & No & Encoder ablation \\
-M4 & Spectral & Transformer & WiTiDAR draft & No & Draft-head ablation \\
-M5 & Spectral & Mamba-1 & WiTiDAR draft & No & Draft-head ablation \\
-M6 & Spectral & Mamba2-CSI & WiTiDAR draft & No & Compact draft model \\
-M7 & Spectral & Transformer & WiTiDAR & 1-step & Flow model \\
-M8 & Spectral & Mamba-1 & WiTiDAR & 1-step & Flow model \\
-M9 & Spectral & Mamba2-CSI & WiTiDAR & 1-step & Compact flow model \\
-M9\_RF2 & Spectral & Mamba2-CSI & WiTiDAR & 2-step & Selected evaluation \\
+\modelid{modelM0}{M0} & Linear & Transformer & PETRHead & No & Original baseline \\
+\modelid{modelM1}{M1} & Spectral & Transformer & PETRHead & No & Tokenizer ablation \\
+\modelid{modelM2}{M2} & Spectral & Mamba-1 & PETRHead & No & Encoder ablation \\
+\modelid{modelM3}{M3} & Spectral & Mamba2-CSI & PETRHead & No & Encoder ablation \\
+\modelid{modelM4}{M4} & Spectral & Transformer & WiTiDAR draft & No & Draft-head ablation \\
+\modelid{modelM5}{M5} & Spectral & Mamba-1 & WiTiDAR draft & No & Draft-head ablation \\
+\modelid{modelM6}{M6} & Spectral & Mamba2-CSI & WiTiDAR draft & No & Compact draft model \\
+\modelid{modelM7}{M7} & Spectral & Transformer & WiTiDAR & 1-step & Flow model \\
+\modelid{modelM8}{M8} & Spectral & Mamba-1 & WiTiDAR & 1-step & Flow model \\
+\modelid{modelM9}{M9} & Spectral & Mamba2-CSI & WiTiDAR & 1-step & Compact flow model \\
+\modelid{modelM9RF2}{M9\_RF2} & Spectral & Mamba2-CSI & WiTiDAR & 2-step & Selected evaluation \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -190,17 +191,17 @@ M9\_RF2 & Spectral & Mamba2-CSI & WiTiDAR & 2-step & Selected evaluation \\
 \toprule
 ID & MPJPE & 1P & 2P & 3P & FPS & Params (M) & Memory (MB) \\
 \midrule
-M0 & 172.554 & 136.141 & 168.012 & 192.529 & 118.7 & 13.130 & 155.60 \\
-M1 & 169.271 & 132.597 & 163.323 & 190.810 & 83.1 & 13.199 & 155.86 \\
-M2 & 174.961 & 143.475 & 166.642 & 196.772 & 69.4 & 11.967 & 151.16 \\
-M3 & 175.658 & 140.116 & 169.358 & 197.084 & 102.0 & 10.292 & 142.69 \\
-M4 & 169.796 & 126.479 & 167.593 & 190.251 & 180.8 & 5.255 & 31.61 \\
-M5 & 171.055 & 127.258 & 171.979 & 188.481 & 116.8 & 4.023 & 26.80 \\
-M6 & 167.573 & 125.532 & 164.528 & \textbf{188.363} & \textbf{247.7} & \textbf{1.813} & \textbf{18.41} \\
-M7 & 168.342 & 127.129 & 162.775 & 191.390 & 145.8 & 7.059 & 38.49 \\
-M8 & 169.653 & 122.253 & 165.397 & 193.943 & 109.4 & 5.827 & 33.68 \\
-M9 & 168.086 & 125.958 & 161.832 & 192.229 & 206.9 & 3.618 & 25.29 \\
-M9\_RF2 & \textbf{165.487} & \textbf{121.785} & \textbf{159.341} & 190.179 & 209.9 & 3.618 & 25.29 \\
+\modelid{modelM0}{M0} & 172.554 & 136.141 & 168.012 & 192.529 & 118.7 & 13.130 & 155.60 \\
+\modelid{modelM1}{M1} & 169.271 & 132.597 & 163.323 & 190.810 & 83.1 & 13.199 & 155.86 \\
+\modelid{modelM2}{M2} & 174.961 & 143.475 & 166.642 & 196.772 & 69.4 & 11.967 & 151.16 \\
+\modelid{modelM3}{M3} & 175.658 & 140.116 & 169.358 & 197.084 & 102.0 & 10.292 & 142.69 \\
+\modelid{modelM4}{M4} & 169.796 & 126.479 & 167.593 & 190.251 & 180.8 & 5.255 & 31.61 \\
+\modelid{modelM5}{M5} & 171.055 & 127.258 & 171.979 & 188.481 & 116.8 & 4.023 & 26.80 \\
+\modelid{modelM6}{M6} & 167.573 & 125.532 & 164.528 & \textbf{188.363} & \textbf{247.7} & \textbf{1.813} & \textbf{18.41} \\
+\modelid{modelM7}{M7} & 168.342 & 127.129 & 162.775 & 191.390 & 145.8 & 7.059 & 38.49 \\
+\modelid{modelM8}{M8} & 169.653 & 122.253 & 165.397 & 193.943 & 109.4 & 5.827 & 33.68 \\
+\modelid{modelM9}{M9} & 168.086 & 125.958 & 161.832 & 192.229 & 206.9 & 3.618 & 25.29 \\
+\modelid{modelM9RF2}{M9\_RF2} & \textbf{165.487} & \textbf{121.785} & \textbf{159.341} & 190.179 & 209.9 & 3.618 & 25.29 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -242,12 +243,12 @@ Table~\ref{tab:flow} separates the draft-only model, disabled-flow inference, on
 \toprule
 ID & Setting & MPJPE & Matched & Missed & 1P & 2P & 3P \\
 \midrule
-M6 & Draft Mamba2-CSI & 167.573 & 166.381 & \textbf{54} & 125.532 & 164.528 & 188.363 \\
-M9\_no\_flow & Flow disabled & 167.732 & 165.919 & 82 & 122.870 & 163.026 & 191.421 \\
-M9 & One-step flow & 168.086 & 166.409 & 76 & 125.958 & 161.832 & 192.229 \\
-M9\_RF2 & Two-step flow & \textbf{165.487} & \textbf{163.886} & 72 & 121.785 & 159.341 & 190.179 \\
-T\_FW2\_RF2 & Retrained, two-step & 167.981 & 166.082 & 86 & 121.335 & 160.970 & 194.804 \\
-T\_FW2\_RF4 & Retrained, four-step & 169.454 & 167.275 & 99 & 120.505 & 161.851 & 197.854 \\
+\modelid{modelM6}{M6} & Draft Mamba2-CSI & 167.573 & 166.381 & \textbf{54} & 125.532 & 164.528 & 188.363 \\
+\modelid{modelM9}{M9\_no\_flow} & Flow disabled & 167.732 & 165.919 & 82 & 122.870 & 163.026 & 191.421 \\
+\modelid{modelM9}{M9} & One-step flow & 168.086 & 166.409 & 76 & 125.958 & 161.832 & 192.229 \\
+\modelid{modelM9RF2}{M9\_RF2} & Two-step flow & \textbf{165.487} & \textbf{163.886} & 72 & 121.785 & 159.341 & 190.179 \\
+\modelid{supplementalNeutral}{T\_FW2\_RF2} & Retrained, two-step & 167.981 & 166.082 & 86 & 121.335 & 160.970 & 194.804 \\
+\modelid{supplementalNeutral}{T\_FW2\_RF4} & Retrained, four-step & 169.454 & 167.275 & 99 & 120.505 & 161.851 & 197.854 \\
 \bottomrule
 \end{tabular}}
 \end{table}

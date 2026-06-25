@@ -2,6 +2,7 @@
 """Generate the full-paper M0--M9/M9_RF2 ablation figures."""
 
 from pathlib import Path
+import sys
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,20 +10,30 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.analysis.model_palette import (
+    MODEL_LINESTYLES,
+    MODEL_MARKERS,
+    get_model_color,
+)
+
+
 FIGURE_DIR = ROOT / 'paper_assets' / 'manuscript_latex' / 'resfes2026_witidar' / 'figures'
 
 VARIANTS = [
-    ('M0', 172.554, 118.7, 13.130, 155.60, '#D55E00'),
-    ('M1', 169.271, 83.1, 13.199, 155.86, '#8C9AA9'),
-    ('M2', 174.961, 69.4, 11.967, 151.16, '#A7B6C2'),
-    ('M3', 175.658, 102.0, 10.292, 142.69, '#6B8DB5'),
-    ('M4', 169.796, 180.8, 5.255, 31.61, '#E69F00'),
-    ('M5', 171.055, 116.8, 4.023, 26.80, '#F0C04A'),
-    ('M6', 167.573, 247.7, 1.813, 18.41, '#7CB342'),
-    ('M7', 168.342, 145.8, 7.059, 38.49, '#56B4E9'),
-    ('M8', 169.653, 109.4, 5.827, 33.68, '#CC79A7'),
-    ('M9', 168.086, 206.9, 3.618, 25.29, '#0072B2'),
-    ('M9_RF2', 165.487, 209.9, 3.618, 25.29, '#009E73'),
+    ('M0', 172.554, 118.7, 13.130, 155.60),
+    ('M1', 169.271, 83.1, 13.199, 155.86),
+    ('M2', 174.961, 69.4, 11.967, 151.16),
+    ('M3', 175.658, 102.0, 10.292, 142.69),
+    ('M4', 169.796, 180.8, 5.255, 31.61),
+    ('M5', 171.055, 116.8, 4.023, 26.80),
+    ('M6', 167.573, 247.7, 1.813, 18.41),
+    ('M7', 168.342, 145.8, 7.059, 38.49),
+    ('M8', 169.653, 109.4, 5.827, 33.68),
+    ('M9', 168.086, 206.9, 3.618, 25.29),
+    ('M9_RF2', 165.487, 209.9, 3.618, 25.29),
 ]
 
 
@@ -60,7 +71,7 @@ def draw_main_ablation():
         (3, 'Parameters (M)'),
         (4, 'Peak memory (MB)'),
     ]
-    colors = [row[5] for row in VARIANTS]
+    colors = [get_model_color(row[0]) for row in VARIANTS]
     x = np.arange(len(ids))
     fig, axes = plt.subplots(2, 2, figsize=(7.4, 5.1), dpi=300)
     for ax, (index, ylabel) in zip(axes.ravel(), metrics):
@@ -82,13 +93,15 @@ def draw_main_ablation():
 def draw_bubble_chart():
     fig, ax = plt.subplots(figsize=(7.2, 4.0), dpi=300)
     offsets = {
-        'M0': (5, -7), 'M1': (-7, -8), 'M2': (-7, 7), 'M3': (5, 0),
+        'M0': (8, -11), 'M1': (-7, -8), 'M2': (-7, 7), 'M3': (5, 0),
         'M4': (5, -8), 'M5': (5, 5), 'M6': (5, 0), 'M7': (5, 5),
         'M8': (-7, 7), 'M9': (5, 7), 'M9_RF2': (5, -8),
     }
-    for model, mpjpe, fps, params, _, color in VARIANTS:
+    for model, mpjpe, fps, params, _ in VARIANTS:
+        color = get_model_color(model)
         selected = model == 'M9_RF2'
-        ax.scatter(fps, mpjpe, s=55 + params * 34, color=color, alpha=0.82,
+        ax.scatter(fps, mpjpe, s=55 + params * 34, color=color,
+                   marker=MODEL_MARKERS[model], alpha=0.82,
                    edgecolor='#111827' if selected else 'white', linewidth=1.1, zorder=3)
         dx, dy = offsets[model]
         ax.annotate(model, (fps, mpjpe), xytext=(dx, dy), textcoords='offset points',
@@ -101,8 +114,8 @@ def draw_bubble_chart():
     ax.set_xlim(55, 260)
     ax.set_ylim(178, 163.5)
     ax.grid(True, color='#E5E7EB', linewidth=0.75)
-    handles = [plt.Line2D([0], [0], marker='s', linestyle='', markersize=6,
-                          markerfacecolor=row[5], markeredgecolor='none', label=row[0])
+    handles = [plt.Line2D([0], [0], marker=MODEL_MARKERS[row[0]], linestyle='', markersize=6,
+                          markerfacecolor=get_model_color(row[0]), markeredgecolor='none', label=row[0])
                for row in VARIANTS]
     ax.legend(handles=handles, loc='center left', bbox_to_anchor=(1.01, 0.5),
               ncol=1, frameon=False, handlelength=0.7)
@@ -142,10 +155,12 @@ def draw_radar_chart():
     ax.grid(color='#D6DEE8', linewidth=0.8)
     handles = []
     for row in VARIANTS:
-        model, color = row[0], row[5]
+        model = row[0]
+        color = get_model_color(model)
         values = np.r_[scores[model], scores[model][0]]
         highlight = model in {'M0', 'M6', 'M9_RF2'}
-        line, = ax.plot(closed_angles, values, color=color, marker='o',
+        line, = ax.plot(closed_angles, values, color=color,
+                        marker=MODEL_MARKERS[model], linestyle=MODEL_LINESTYLES[model],
                         linewidth=2.4 if highlight else 1.0,
                         markersize=4.5 if highlight else 2.5,
                         alpha=0.92 if highlight else 0.30, label=model)
