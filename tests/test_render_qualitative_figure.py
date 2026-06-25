@@ -344,6 +344,38 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         self.assertEqual(chosen, [101, 202, 303])
 
+    def test_select_best_sample_indices_prefers_target_model_complete_3p_case(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 303,
+                'gt_count': 3,
+                'crowding_score': 3.0,
+                'metrics': {
+                    'M0': {'matched_error_mm': 106.0, 'matched_count': 2, 'false_positives': 1, 'false_negatives': 1},
+                    'M7': {'matched_error_mm': 163.0, 'matched_count': 3, 'false_positives': 4, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 148.0, 'matched_count': 2, 'false_positives': 4, 'false_negatives': 1},
+                },
+            },
+            {
+                'sample_index': 404,
+                'gt_count': 3,
+                'crowding_score': 0.4,
+                'metrics': {
+                    'M0': {'matched_error_mm': 174.0, 'matched_count': 2, 'false_positives': 1, 'false_negatives': 1},
+                    'M7': {'matched_error_mm': 158.0, 'matched_count': 3, 'false_positives': 2, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 121.0, 'matched_count': 3, 'false_positives': 1, 'false_negatives': 0},
+                },
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(
+            summaries,
+            num_samples=1,
+            target_model_id='M9_RF2')
+
+        self.assertEqual(chosen, [404])
+
     def test_select_best_sample_indices_falls_back_when_bucket_missing(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
         summaries = [
@@ -500,6 +532,16 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(config['footer_font_size'], 7.7)
         self.assertEqual(config['bounds_min_range'], 0.12)
         self.assertEqual(config['bounds_margin_scale'], 0.04)
+
+    def test_full_paper_defaults_hide_unmatched_predictions(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        options = module.resolve_render_options(
+            full_paper=True,
+            explicit_show_unmatched=False)
+
+        self.assertFalse(options['show_unmatched'])
+        self.assertEqual(options['dpi'], 300)
 
 
 if __name__ == '__main__':

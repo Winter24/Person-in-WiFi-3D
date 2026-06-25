@@ -436,7 +436,7 @@ def compute_crowding_score(gt_keypoints, np):
     return 1.0 / max(mean_nearest, 1e-6)
 
 
-def score_sample_candidate(summary):
+def score_sample_candidate(summary, target_model_id=None):
     metrics = summary.get('metrics', {})
     gt_count = summary.get('gt_count', 0)
     crowding_score = summary.get('crowding_score', 0.0)
@@ -451,13 +451,34 @@ def score_sample_candidate(summary):
     score += 6.0 * avg_false_positives
     score += 10.0 * avg_false_negatives
     score += 0.05 * error_spread
+    if target_model_id and target_model_id in metrics:
+        target = metrics[target_model_id]
+        target_error = target.get('matched_error_mm')
+        target_matched = target.get('matched_count', 0)
+        target_false_negatives = target.get('false_negatives', max(0, gt_count - target_matched))
+        target_false_positives = target.get('false_positives', 0)
+        baseline_errors = [
+            metric.get('matched_error_mm')
+            for model_id, metric in metrics.items()
+            if model_id != target_model_id and metric.get('matched_error_mm') is not None
+        ]
+        score += 75.0 * target_matched
+        score -= 90.0 * target_false_negatives
+        score -= 8.0 * target_false_positives
+        if target_error is not None:
+            score -= 0.25 * target_error
+            if baseline_errors:
+                score += 0.35 * (sum(baseline_errors) / len(baseline_errors) - target_error)
     return score
 
 
-def select_best_sample_indices(sample_summaries, num_samples):
+def select_best_sample_indices(sample_summaries, num_samples, target_model_id=None):
     ranked = sorted(
         sample_summaries,
-        key=lambda item: (-score_sample_candidate(item), -item.get('gt_count', 0), item.get('sample_index', 0)))
+        key=lambda item: (
+            -score_sample_candidate(item, target_model_id=target_model_id),
+            -item.get('gt_count', 0),
+            item.get('sample_index', 0)))
     selected = []
     selected_indices = set()
 
@@ -483,6 +504,20 @@ def select_best_sample_indices(sample_summaries, num_samples):
         selected_indices.add(sample_index)
 
     return selected[:num_samples]
+
+
+def resolve_render_options(full_paper=False, explicit_show_unmatched=False, dpi=220):
+    if full_paper:
+        return {
+            'show_unmatched': False,
+            'dpi': max(dpi, 300),
+            'target_model_id': 'M9_RF2',
+        }
+    return {
+        'show_unmatched': bool(explicit_show_unmatched),
+        'dpi': dpi,
+        'target_model_id': None,
+    }
 
 
 def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_positives,
@@ -793,6 +828,10 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
 
 def main():
     args = parse_args()
+    render_options = resolve_render_options(
+        full_paper=args.full_paper,
+        explicit_show_unmatched=args.show_unmatched,
+        dpi=args.dpi)
     if args.full_paper:
         model_assets = [
             resolve_full_paper_model_asset(PROJECT_ROOT, model_id)
@@ -805,8 +844,8 @@ def main():
         sample_indices = args.sample_indices or FULL_PAPER_SAMPLE_INDICES
         output_prefix = args.output_prefix or DEFAULT_FULL_PAPER_OUTPUT_PREFIX
         rgb_frame_dir = args.rgb_frame_dir or DEFAULT_FULL_PAPER_RGB_DIR
-        show_unmatched = True
-        dpi = max(args.dpi, 300)
+        show_unmatched = render_options['show_unmatched']
+        dpi = render_options['dpi']
         precomputed_rows = None
     else:
         specs = load_experiment_specs(args.experiment_log)
@@ -817,8 +856,8 @@ def main():
         sample_indices = args.sample_indices
         output_prefix = args.output_prefix or DEFAULT_OUTPUT_PREFIX
         rgb_frame_dir = args.rgb_frame_dir
-        show_unmatched = args.show_unmatched
-        dpi = args.dpi
+        show_unmatched = render_options['show_unmatched']
+        dpi = render_options['dpi']
 
     if args.full_paper:
         precomputed_rows = None
@@ -836,7 +875,10 @@ def main():
                 match_threshold_mm=args.match_threshold_mm)
             for sample_index in candidates
         ]
-        sample_indices = select_best_sample_indices(summaries, args.num_samples)
+        sample_indices = select_best_sample_indices(
+            summaries,
+            args.num_samples,
+            target_model_id=render_options['target_model_id'])
         print('Auto-selected sample indices:', sample_indices)
         precomputed_rows = summaries
     if not sample_indices:
