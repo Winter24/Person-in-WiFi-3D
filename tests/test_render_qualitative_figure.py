@@ -245,6 +245,30 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(bounds['ylim'], (0.0, 3.1))
         self.assertEqual(bounds['zlim'], (4.3, 0.0))
 
+    def test_build_row_bounds_uses_gt_only_when_requested(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        gt_keypoints = [
+            [[0.0, 0.0, 0.0], [0.2, 0.0, 0.0]],
+        ]
+        prepared_displays = [
+            {
+                'matched_poses': [
+                    [[10.0, 10.0, 10.0], [10.2, 10.0, 10.0]],
+                ],
+            },
+        ]
+
+        bounds = module.compute_row_pose_bounds(
+            gt_keypoints,
+            prepared_displays,
+            bounds_mode='gt',
+            min_range=0.2,
+            margin_scale=0.0)
+
+        self.assertEqual(bounds['xlim'], (0.0, 0.2))
+        self.assertEqual(bounds['ylim'], (-0.1, 0.1))
+        self.assertEqual(bounds['zlim'], (0.1, -0.1))
+
     def test_score_sample_candidate_prefers_crowded_and_difficult_samples(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
         crowded = {
@@ -375,6 +399,38 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             target_model_id='M9_RF2')
 
         self.assertEqual(chosen, [404])
+
+    def test_target_model_selection_avoids_showcase_with_missing_baseline_person(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 231,
+                'gt_count': 1,
+                'crowding_score': 0.0,
+                'metrics': {
+                    'M0': {'matched_error_mm': None, 'matched_count': 0, 'false_positives': 1, 'false_negatives': 1},
+                    'M7': {'matched_error_mm': 176.0, 'matched_count': 1, 'false_positives': 3, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 187.0, 'matched_count': 1, 'false_positives': 5, 'false_negatives': 0},
+                },
+            },
+            {
+                'sample_index': 232,
+                'gt_count': 1,
+                'crowding_score': 0.0,
+                'metrics': {
+                    'M0': {'matched_error_mm': 210.0, 'matched_count': 1, 'false_positives': 1, 'false_negatives': 0},
+                    'M7': {'matched_error_mm': 185.0, 'matched_count': 1, 'false_positives': 2, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 130.0, 'matched_count': 1, 'false_positives': 1, 'false_negatives': 0},
+                },
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(
+            summaries,
+            num_samples=1,
+            target_model_id='M9_RF2')
+
+        self.assertEqual(chosen, [232])
 
     def test_select_best_sample_indices_falls_back_when_bucket_missing(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
@@ -542,6 +598,23 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         self.assertFalse(options['show_unmatched'])
         self.assertEqual(options['dpi'], 300)
+        self.assertEqual(options['bounds_mode'], 'gt')
+        self.assertEqual(options['target_model_id'], 'M9_RF2')
+
+    def test_available_video_ids_require_video_and_time_list(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        root = self.work_dir / 'videos'
+        good = root / 'S23_12'
+        missing_video = root / 'S52_40'
+        good.mkdir(parents=True)
+        missing_video.mkdir()
+        (good / 'output.mkv').write_bytes(b'video')
+        (good / 'time_list.txt').write_text('337 337\n', encoding='utf-8')
+        (missing_video / 'time_list.txt').write_text('322 322\n', encoding='utf-8')
+
+        self.assertEqual(
+            module.available_video_ids(root),
+            {'S23_12'})
 
 
 if __name__ == '__main__':

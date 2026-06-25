@@ -44,6 +44,29 @@ class TestExtractQualitativeRgbFrames(unittest.TestCase):
                 ('S23_12_337', 'S23_12', 337),
             ])
 
+    def test_build_frame_specs_from_sample_names_parses_video_and_frame_id(self):
+        module = _load_module('extract_qualitative_rgb_frames', SCRIPT_PATH)
+
+        specs = module.build_frame_specs_from_sample_names([
+            'S11_06_319',
+            'S52_40_322',
+            'S23_12_337',
+        ])
+
+        self.assertEqual(
+            [(spec.sample_name, spec.video_id, spec.frame_id) for spec in specs],
+            [
+                ('S11_06_319', 'S11_06', 319),
+                ('S52_40_322', 'S52_40', 322),
+                ('S23_12_337', 'S23_12', 337),
+            ])
+
+    def test_build_frame_specs_from_sample_names_rejects_unparseable_name(self):
+        module = _load_module('extract_qualitative_rgb_frames', SCRIPT_PATH)
+
+        with self.assertRaises(ValueError):
+            module.build_frame_specs_from_sample_names(['bad_sample_name'])
+
     def test_resolve_exact_frame_index_rejects_missing_id(self):
         module = _load_module('extract_qualitative_rgb_frames', SCRIPT_PATH)
 

@@ -23,6 +23,7 @@ FULL_PAPER_FIGURE_DIR = (
 DEFAULT_FULL_PAPER_OUTPUT_PREFIX = FULL_PAPER_FIGURE_DIR / 'fig_qualitative_full_paper'
 DEFAULT_FULL_PAPER_RGB_DIR = FULL_PAPER_FIGURE_DIR / 'qualitative_rgb'
 FULL_PAPER_SAMPLE_INDICES = [231, 7218, 4416]
+FULL_PAPER_SAMPLE_NAMES = ['S11_06_319', 'S52_40_322', 'S23_12_337']
 MODEL_DISPLAY_NAMES = {
     'M0': 'Person-in-WiFi 3D',
     'M1': 'Person-in-WiFi 3D + Spectral Tokens',
@@ -178,9 +179,22 @@ def parse_args():
     parser.add_argument('--match-threshold-mm', type=float, default=500.0)
     parser.add_argument('--rgb-frame-dir', default=None)
     parser.add_argument(
+        '--source-video-root',
+        default=None,
+        help='Directory containing video folders; used to extract RGB frames for selected samples.')
+    parser.add_argument(
+        '--auto-select-samples',
+        action='store_true',
+        help='Select full-paper samples from available videos using matching diagnostics.')
+    parser.add_argument(
+        '--bounds-mode',
+        choices=['matched', 'gt'],
+        default=None,
+        help='Pose axis bounds policy. Full-paper defaults to gt; other renders default to matched.')
+    parser.add_argument(
         '--full-paper',
         action='store_true',
-        help='Render fixed M0/M7/M9_RF2 comparisons for manuscript Figure 8.')
+        help='Render M0/M7/M9_RF2 comparisons for manuscript Figure 8.')
     return parser.parse_args()
 
 
@@ -238,13 +252,32 @@ def validate_dataset_signatures(signatures):
                 f'{baseline_model}={baseline_signature}')
 
 
-def collect_candidate_indices(config_path, min_people):
+def sample_name_to_video_id(sample_name):
+    return str(sample_name).rsplit('_', 1)[0]
+
+
+def available_video_ids(source_video_root):
+    source_video_root = Path(source_video_root)
+    if not source_video_root.exists():
+        return set()
+    return {
+        path.name
+        for path in source_video_root.iterdir()
+        if path.is_dir() and (path / 'output.mkv').exists() and (path / 'time_list.txt').exists()
+    }
+
+
+def collect_candidate_indices(config_path, min_people, allowed_video_ids=None):
     _, _, _, _, Config, _, _, build_dataset = _lazy_runtime_imports()
     cfg, dataset = _build_visual_dataset(config_path, Config, build_dataset)
     candidates = []
     for index in range(len(dataset)):
         data = dataset[index]
         gt_keypoints = data['gt_keypoints'].data.numpy()
+        if allowed_video_ids is not None:
+            sample_name = data['img_metas'].data['img_name']
+            if sample_name_to_video_id(sample_name) not in allowed_video_ids:
+                continue
         if gt_keypoints.shape[0] >= min_people:
             candidates.append(index)
     return candidates, cfg
@@ -322,6 +355,21 @@ def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
         'ylim': ylim,
         'zlim': (z_high, z_low),
     }
+
+
+def compute_row_pose_bounds(gt_keypoints, prepared_displays, bounds_mode='matched',
+                            min_range=0.35, margin_scale=0.6):
+    if bounds_mode == 'gt':
+        pose_sets = [gt_keypoints]
+    elif bounds_mode == 'matched':
+        pose_sets = [gt_keypoints]
+        pose_sets.extend(display['matched_poses'] for display in prepared_displays)
+    else:
+        raise ValueError(f'Unsupported bounds mode: {bounds_mode}')
+    return compute_shared_pose_bounds(
+        pose_sets,
+        min_range=min_range,
+        margin_scale=margin_scale)
 
 
 def build_match_details(pred_keypoints, gt_keypoints, matches, np):
@@ -421,6 +469,13 @@ def write_matching_diagnostics(rows, output_path, score_threshold, match_thresho
     return output_path
 
 
+def extract_rgb_frames_for_rows(source_video_root, rows, output_dir):
+    from tools.analysis.extract_qualitative_rgb_frames import extract_frames_for_sample_names
+
+    sample_names = [row['img_name'] for row in rows]
+    return extract_frames_for_sample_names(source_video_root, sample_names, output_dir=output_dir)
+
+
 def compute_crowding_score(gt_keypoints, np):
     if len(gt_keypoints) < 2:
         return 0.0
@@ -446,11 +501,6 @@ def score_sample_candidate(summary, target_model_id=None):
     matched_errors = [metric.get('matched_error_mm') for metric in all_metrics if metric.get('matched_error_mm') is not None]
     error_spread = (max(matched_errors) - min(matched_errors)) if len(matched_errors) >= 2 else 0.0
 
-    score = 40.0 * gt_count
-    score += 25.0 * crowding_score
-    score += 6.0 * avg_false_positives
-    score += 10.0 * avg_false_negatives
-    score += 0.05 * error_spread
     if target_model_id and target_model_id in metrics:
         target = metrics[target_model_id]
         target_error = target.get('matched_error_mm')
@@ -462,13 +512,29 @@ def score_sample_candidate(summary, target_model_id=None):
             for model_id, metric in metrics.items()
             if model_id != target_model_id and metric.get('matched_error_mm') is not None
         ]
-        score += 75.0 * target_matched
-        score -= 90.0 * target_false_negatives
-        score -= 8.0 * target_false_positives
+        total_matched = sum(metric.get('matched_count', 0) for metric in all_metrics)
+        total_false_negatives = sum(metric.get('false_negatives', 0) for metric in all_metrics)
+        total_false_positives = sum(metric.get('false_positives', 0) for metric in all_metrics)
+
+        score = 10.0 * gt_count
+        score += 8.0 * crowding_score
+        score += 120.0 * target_matched
+        score += 35.0 * total_matched
+        score -= 180.0 * target_false_negatives
+        score -= 90.0 * total_false_negatives
+        score -= 10.0 * target_false_positives
+        score -= 4.0 * total_false_positives
         if target_error is not None:
-            score -= 0.25 * target_error
+            score -= 0.30 * target_error
             if baseline_errors:
-                score += 0.35 * (sum(baseline_errors) / len(baseline_errors) - target_error)
+                score += 0.45 * (sum(baseline_errors) / len(baseline_errors) - target_error)
+        return score
+
+    score = 40.0 * gt_count
+    score += 25.0 * crowding_score
+    score += 6.0 * avg_false_positives
+    score += 10.0 * avg_false_negatives
+    score += 0.05 * error_spread
     return score
 
 
@@ -506,17 +572,20 @@ def select_best_sample_indices(sample_summaries, num_samples, target_model_id=No
     return selected[:num_samples]
 
 
-def resolve_render_options(full_paper=False, explicit_show_unmatched=False, dpi=220):
+def resolve_render_options(full_paper=False, explicit_show_unmatched=False, dpi=220,
+                           bounds_mode=None):
     if full_paper:
         return {
             'show_unmatched': False,
             'dpi': max(dpi, 300),
             'target_model_id': 'M9_RF2',
+            'bounds_mode': bounds_mode or 'gt',
         }
     return {
         'show_unmatched': bool(explicit_show_unmatched),
         'dpi': dpi,
         'target_model_id': None,
+        'bounds_mode': bounds_mode or 'matched',
     }
 
 
@@ -670,7 +739,7 @@ def collect_sample_summary(runtime, model_assets, sample_index, score_thr=0.2,
 
 def render_qualitative_figure(model_assets, sample_indices, output_prefix, score_thr=0.2, device=None, dpi=220,
                               show_unmatched=False, precomputed_rows=None, match_quality_thr_mm=200.0,
-                              match_threshold_mm=500.0, rgb_frame_dir=None):
+                              match_threshold_mm=500.0, rgb_frame_dir=None, bounds_mode='matched'):
     runtime = None
     if precomputed_rows is None:
         runtime = prepare_runtime(model_assets, device=device)
@@ -714,7 +783,6 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             false_positives=0,
             false_negatives=0,
             matched_error_mm=None)
-        row_display_sets = [gt_keypoints]
         prepared_displays = []
         for model_entry in row['models']:
             metric = row['metrics'][model_entry['asset']['model_id']]
@@ -726,9 +794,10 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
                 show_unmatched=show_unmatched,
                 match_quality_thr_mm=match_quality_thr_mm)
             prepared_displays.append(display)
-            row_display_sets.append(display['matched_poses'])
-        row_bounds = compute_shared_pose_bounds(
-            row_display_sets,
+        row_bounds = compute_row_pose_bounds(
+            gt_keypoints,
+            prepared_displays,
+            bounds_mode=bounds_mode,
             min_range=style_config['bounds_min_range'],
             margin_scale=style_config['bounds_margin_scale'])
 
@@ -831,7 +900,8 @@ def main():
     render_options = resolve_render_options(
         full_paper=args.full_paper,
         explicit_show_unmatched=args.show_unmatched,
-        dpi=args.dpi)
+        dpi=args.dpi,
+        bounds_mode=args.bounds_mode)
     if args.full_paper:
         model_assets = [
             resolve_full_paper_model_asset(PROJECT_ROOT, model_id)
@@ -859,7 +929,34 @@ def main():
         show_unmatched = render_options['show_unmatched']
         dpi = render_options['dpi']
 
-    if args.full_paper:
+    if args.full_paper and args.auto_select_samples:
+        allowed_video_ids = (
+            available_video_ids(args.source_video_root)
+            if args.source_video_root else None)
+        if args.source_video_root and not allowed_video_ids:
+            raise RuntimeError(
+                f'No usable video folders found in source root: {args.source_video_root}')
+        candidates, _ = collect_candidate_indices(
+            model_assets[0]['config'],
+            args.min_people,
+            allowed_video_ids=allowed_video_ids)
+        runtime = prepare_runtime(model_assets, device=args.device)
+        summaries = [
+            collect_sample_summary(
+                runtime,
+                model_assets,
+                sample_index,
+                score_thr=args.score_thr,
+                match_threshold_mm=args.match_threshold_mm)
+            for sample_index in candidates
+        ]
+        sample_indices = select_best_sample_indices(
+            summaries,
+            args.num_samples,
+            target_model_id=render_options['target_model_id'])
+        print('Auto-selected sample indices:', sample_indices)
+        precomputed_rows = summaries
+    elif args.full_paper:
         precomputed_rows = None
     elif sample_indices:
         precomputed_rows = None
@@ -884,6 +981,18 @@ def main():
     if not sample_indices:
         raise RuntimeError('No candidate samples found for qualitative rendering.')
 
+    if args.full_paper and args.source_video_root:
+        if precomputed_rows is not None:
+            row_lookup = {row['sample_index']: row for row in precomputed_rows}
+            rgb_rows = [row_lookup[index] for index in sample_indices if index in row_lookup]
+        elif sample_indices == FULL_PAPER_SAMPLE_INDICES:
+            rgb_rows = [{'img_name': sample_name} for sample_name in FULL_PAPER_SAMPLE_NAMES]
+        else:
+            raise RuntimeError(
+                'Cannot extract RGB frames for custom sample indices without precomputed rows. '
+                'Use --auto-select-samples or pre-extract --rgb-frame-dir manually.')
+        extract_rgb_frames_for_rows(args.source_video_root, rgb_rows, rgb_frame_dir)
+
     outputs = render_qualitative_figure(
         model_assets=model_assets,
         sample_indices=sample_indices,
@@ -895,7 +1004,8 @@ def main():
         precomputed_rows=precomputed_rows,
         match_quality_thr_mm=args.match_quality_thr_mm,
         match_threshold_mm=args.match_threshold_mm,
-        rgb_frame_dir=rgb_frame_dir)
+        rgb_frame_dir=rgb_frame_dir,
+        bounds_mode=render_options['bounds_mode'])
     print('Qualitative figure outputs:')
     for output_path in outputs:
         print(output_path)

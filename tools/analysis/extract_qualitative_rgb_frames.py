@@ -29,6 +29,20 @@ def build_default_frame_specs():
     ]
 
 
+def build_frame_specs_from_sample_names(sample_names):
+    specs = []
+    for sample_name in sample_names:
+        try:
+            video_id, frame_text = str(sample_name).rsplit('_', 1)
+            frame_id = int(frame_text)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f'Cannot parse qualitative sample name: {sample_name}') from exc
+        if not video_id:
+            raise ValueError(f'Cannot parse qualitative sample name: {sample_name}')
+        specs.append(FrameSpec(str(sample_name), video_id, frame_id))
+    return specs
+
+
 def resolve_exact_frame_index(frame_id, time_index_map):
     if frame_id not in time_index_map:
         raise KeyError(f'Frame ID {frame_id} is absent from time_list.txt.')
@@ -71,11 +85,11 @@ def extract_exact_video_frame(video_path, frame_index, output_path):
     return output_path
 
 
-def extract_default_frames(source_video_root, output_dir=DEFAULT_OUTPUT_DIR):
+def extract_frame_specs(source_video_root, specs, output_dir=DEFAULT_OUTPUT_DIR):
     source_video_root = Path(source_video_root)
     output_dir = Path(output_dir)
     outputs = []
-    for spec in build_default_frame_specs():
+    for spec in specs:
         video_dir = source_video_root / spec.video_id
         video_path = video_dir / 'output.mkv'
         time_list_path = video_dir / 'time_list.txt'
@@ -90,6 +104,20 @@ def extract_default_frames(source_video_root, output_dir=DEFAULT_OUTPUT_DIR):
             f'frame_id={spec.frame_id} video_index={video_index} output={output_path}')
         outputs.append(output_path)
     return outputs
+
+
+def extract_default_frames(source_video_root, output_dir=DEFAULT_OUTPUT_DIR):
+    return extract_frame_specs(
+        source_video_root,
+        build_default_frame_specs(),
+        output_dir=output_dir)
+
+
+def extract_frames_for_sample_names(source_video_root, sample_names, output_dir=DEFAULT_OUTPUT_DIR):
+    return extract_frame_specs(
+        source_video_root,
+        build_frame_specs_from_sample_names(sample_names),
+        output_dir=output_dir)
 
 
 def build_arg_parser():

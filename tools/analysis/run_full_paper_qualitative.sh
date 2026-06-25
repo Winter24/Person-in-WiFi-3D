@@ -9,11 +9,10 @@ fi
 
 SOURCE_VIDEO_ROOT="$1"
 
-python tools/analysis/extract_qualitative_rgb_frames.py \
-  --source-video-root "$SOURCE_VIDEO_ROOT"
-
 python tools/analysis/render_qualitative_figure.py \
   --full-paper \
+  --auto-select-samples \
+  --source-video-root "$SOURCE_VIDEO_ROOT" \
   --device cuda:0 \
   --score-thr 0.2 \
   --match-threshold-mm 500 \
