@@ -321,7 +321,8 @@ def _panel_colors(count):
     return ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2'][:count]
 
 
-def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
+def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6,
+                               equal_axes=False):
     points = []
     for poses in pose_sets:
         for pose in poses:
@@ -344,7 +345,8 @@ def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
 
     def _axis_bounds(axis_index):
         center = (min_vals[axis_index] + max_vals[axis_index]) / 2.0
-        half = max(max_vals[axis_index] - min_vals[axis_index], min_range) / 2.0 + margin
+        axis_span = max_span if equal_axes else max_vals[axis_index] - min_vals[axis_index]
+        half = max(axis_span, min_range) / 2.0 + margin
         return (center - half, center + half)
 
     xlim = _axis_bounds(0)
@@ -358,7 +360,7 @@ def compute_shared_pose_bounds(pose_sets, min_range=0.35, margin_scale=0.6):
 
 
 def compute_row_pose_bounds(gt_keypoints, prepared_displays, bounds_mode='matched',
-                            min_range=0.35, margin_scale=0.6):
+                            min_range=0.35, margin_scale=0.6, equal_axes=False):
     if bounds_mode == 'gt':
         pose_sets = [gt_keypoints]
     elif bounds_mode == 'matched':
@@ -369,7 +371,8 @@ def compute_row_pose_bounds(gt_keypoints, prepared_displays, bounds_mode='matche
     return compute_shared_pose_bounds(
         pose_sets,
         min_range=min_range,
-        margin_scale=margin_scale)
+        margin_scale=margin_scale,
+        equal_axes=equal_axes)
 
 
 def build_match_details(pred_keypoints, gt_keypoints, matches, np):
@@ -538,13 +541,43 @@ def score_sample_candidate(summary, target_model_id=None):
     return score
 
 
+def target_sample_quality_rank(summary, target_model_id):
+    metrics = summary.get('metrics', {})
+    gt_count = summary.get('gt_count', 0)
+    target = metrics.get(target_model_id)
+    if not target:
+        return 9
+
+    def _complete(metric):
+        return (
+            metric.get('matched_count', 0) >= gt_count and
+            metric.get('false_negatives', max(0, gt_count - metric.get('matched_count', 0))) == 0)
+
+    target_complete = _complete(target)
+    if not target_complete:
+        return 3
+    if metrics and all(_complete(metric) for metric in metrics.values()):
+        return 0
+    baseline = metrics.get('M0')
+    if baseline is None or _complete(baseline):
+        return 1
+    return 2
+
+
 def select_best_sample_indices(sample_summaries, num_samples, target_model_id=None):
-    ranked = sorted(
-        sample_summaries,
-        key=lambda item: (
+    def _rank_key(item):
+        quality_rank = (
+            target_sample_quality_rank(item, target_model_id)
+            if target_model_id else 0)
+        return (
+            quality_rank,
             -score_sample_candidate(item, target_model_id=target_model_id),
             -item.get('gt_count', 0),
-            item.get('sample_index', 0)))
+            item.get('sample_index', 0))
+
+    ranked = sorted(
+        sample_summaries,
+        key=_rank_key)
     selected = []
     selected_indices = set()
 
@@ -599,7 +632,10 @@ def format_panel_footer(sample_index, img_name, gt_count, matched_count, false_p
     )
 
 
-def format_panel_title(base_title, sample_index=None, top_row=False):
+def format_panel_title(base_title, sample_index=None, top_row=False,
+                       column_header_only=False):
+    if column_header_only and not top_row:
+        return ''
     if top_row:
         if ': ' in base_title:
             prefix, remainder = base_title.split(': ', 1)
@@ -619,14 +655,16 @@ def get_render_style_config():
         'footer_font_size': 7.7,
         'bounds_min_range': 0.12,
         'bounds_margin_scale': 0.04,
+        'equal_axes': True,
     }
 
 
 def _plot_pose_set(ax, poses, colors, labels, title, Line2D, bounds=None,
                    title_accent=None):
     style_config = get_render_style_config()
-    ax.set_title(title, fontsize=style_config['title_font_size'], pad=style_config['title_pad'])
-    if title_accent:
+    if title:
+        ax.set_title(title, fontsize=style_config['title_font_size'], pad=style_config['title_pad'])
+    if title_accent and title:
         ax.annotate(
             '',
             xy=(0.36, 1.01),
@@ -799,7 +837,8 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             prepared_displays,
             bounds_mode=bounds_mode,
             min_range=style_config['bounds_min_range'],
-            margin_scale=style_config['bounds_margin_scale'])
+            margin_scale=style_config['bounds_margin_scale'],
+            equal_axes=style_config['equal_axes'])
 
         if include_rgb:
             rgb_row_idx, rgb_col_idx = get_panel_grid_position(
@@ -826,7 +865,11 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
         gt_row_idx, gt_col_idx = get_panel_grid_position(
             row_idx, 'gt', include_rgb=include_rgb)
         gt_subplot_idx = gt_row_idx * grid_cols + gt_col_idx + 1
-        gt_title = format_panel_title(titles[0], sample_index=row['sample_index'], top_row=(row_idx == 0))
+        gt_title = format_panel_title(
+            titles[0],
+            sample_index=row['sample_index'],
+            top_row=(row_idx == 0),
+            column_header_only=True)
         gt_ax = fig.add_subplot(grid_rows, grid_cols, gt_subplot_idx, projection='3d')
         _plot_pose_set(gt_ax, gt_keypoints, gt_colors, gt_labels, gt_title, Line2D, bounds=row_bounds)
         gt_ax.text2D(
@@ -848,7 +891,8 @@ def render_qualitative_figure(model_assets, sample_indices, output_prefix, score
             title = format_panel_title(
                 titles[col_idx],
                 sample_index=row['sample_index'],
-                top_row=(row_idx == 0))
+                top_row=(row_idx == 0),
+                column_header_only=True)
             axis = fig.add_subplot(
                 grid_rows,
                 grid_cols,

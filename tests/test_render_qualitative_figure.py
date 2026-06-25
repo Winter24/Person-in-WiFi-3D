@@ -269,6 +269,26 @@ class TestRenderQualitativeFigure(unittest.TestCase):
         self.assertEqual(bounds['ylim'], (-0.1, 0.1))
         self.assertEqual(bounds['zlim'], (0.1, -0.1))
 
+    def test_row_bounds_can_preserve_equal_axis_scale(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        gt_keypoints = [
+            [[-1.0, 0.0, 0.0], [1.0, 0.1, 0.2]],
+        ]
+
+        bounds = module.compute_row_pose_bounds(
+            gt_keypoints,
+            prepared_displays=[],
+            bounds_mode='gt',
+            min_range=0.2,
+            margin_scale=0.0,
+            equal_axes=True)
+
+        x_span = bounds['xlim'][1] - bounds['xlim'][0]
+        y_span = bounds['ylim'][1] - bounds['ylim'][0]
+        z_span = bounds['zlim'][0] - bounds['zlim'][1]
+        self.assertAlmostEqual(x_span, y_span)
+        self.assertAlmostEqual(x_span, z_span)
+
     def test_score_sample_candidate_prefers_crowded_and_difficult_samples(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
         crowded = {
@@ -432,6 +452,70 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         self.assertEqual(chosen, [232])
 
+    def test_target_model_selection_prefers_complete_display_models(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 309,
+                'gt_count': 2,
+                'crowding_score': 40.0,
+                'metrics': {
+                    'M0': {'matched_error_mm': 489.0, 'matched_count': 1, 'false_positives': 1, 'false_negatives': 1},
+                    'M7': {'matched_error_mm': 345.0, 'matched_count': 2, 'false_positives': 2, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 173.0, 'matched_count': 2, 'false_positives': 3, 'false_negatives': 0},
+                },
+            },
+            {
+                'sample_index': 310,
+                'gt_count': 2,
+                'crowding_score': 0.2,
+                'metrics': {
+                    'M0': {'matched_error_mm': 240.0, 'matched_count': 2, 'false_positives': 1, 'false_negatives': 0},
+                    'M7': {'matched_error_mm': 210.0, 'matched_count': 2, 'false_positives': 1, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 155.0, 'matched_count': 2, 'false_positives': 1, 'false_negatives': 0},
+                },
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(
+            summaries,
+            num_samples=1,
+            target_model_id='M9_RF2')
+
+        self.assertEqual(chosen, [310])
+
+    def test_target_model_selection_rejects_incomplete_target_when_complete_exists(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+        summaries = [
+            {
+                'sample_index': 348,
+                'gt_count': 3,
+                'crowding_score': 80.0,
+                'metrics': {
+                    'M0': {'matched_error_mm': 227.0, 'matched_count': 3, 'false_positives': 0, 'false_negatives': 0},
+                    'M7': {'matched_error_mm': 124.0, 'matched_count': 3, 'false_positives': 5, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 130.0, 'matched_count': 2, 'false_positives': 2, 'false_negatives': 1},
+                },
+            },
+            {
+                'sample_index': 349,
+                'gt_count': 3,
+                'crowding_score': 0.3,
+                'metrics': {
+                    'M0': {'matched_error_mm': 260.0, 'matched_count': 3, 'false_positives': 1, 'false_negatives': 0},
+                    'M7': {'matched_error_mm': 180.0, 'matched_count': 3, 'false_positives': 2, 'false_negatives': 0},
+                    'M9_RF2': {'matched_error_mm': 145.0, 'matched_count': 3, 'false_positives': 1, 'false_negatives': 0},
+                },
+            },
+        ]
+
+        chosen = module.select_best_sample_indices(
+            summaries,
+            num_samples=1,
+            target_model_id='M9_RF2')
+
+        self.assertEqual(chosen, [349])
+
     def test_select_best_sample_indices_falls_back_when_bucket_missing(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
         summaries = [
@@ -578,6 +662,16 @@ class TestRenderQualitativeFigure(unittest.TestCase):
 
         lower = module.format_panel_title('M3: Draft-to-Refine Rectified Flow with Transformer', sample_index=1121)
         self.assertEqual(lower, 'M3\nS1121')
+
+    def test_format_panel_title_can_hide_lower_row_headers(self):
+        module = _load_module('render_qualitative_figure', SCRIPT_PATH)
+
+        self.assertEqual(
+            module.format_panel_title(
+                'M9_RF2: Mamba2 + Flow (2-step)',
+                sample_index=4427,
+                column_header_only=True),
+            '')
 
     def test_render_style_config_prefers_larger_text_and_tighter_zoom(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
