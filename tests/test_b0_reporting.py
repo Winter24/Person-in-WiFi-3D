@@ -49,6 +49,15 @@ def _import_wifi_pose():
         )
 
 
+def _import_torch():
+    """Return torch or skip evaluator tests when the local runtime lacks it."""
+    try:
+        import torch
+        return torch
+    except ImportError as exc:
+        raise unittest.SkipTest(f"torch not importable: {exc}")
+
+
 # ===========================================================================
 # 1. Evaluation breakdown tests
 # ===========================================================================
@@ -76,7 +85,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
     @staticmethod
     def _make_fake_gt(n_persons, n_joints=14):
         """Return a tensor-like ndarray simulating gt_keypoints."""
-        import torch
+        torch = _import_torch()
         return torch.randn(n_persons, n_joints, 3).float() * 0.01
 
     def _make_ds(self, WifiPoseDataset):
@@ -94,7 +103,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
         Returns fixed-value metrics so counts/finiteness assertions are stable
         regardless of random input magnitudes or scipy availability.
         """
-        import torch
+        torch = _import_torch()
         n = min(gt_kpts.shape[0], pred_kpts.shape[0])
         matched_gt = gt_kpts[:n]
         matched_pred = pred_kpts[:n]
@@ -109,11 +118,12 @@ class TestEvaluateBreakdown(unittest.TestCase):
             (per_dim[..., 2].mean() * 1000).cpu().numpy(),
         ]
         per_joint = per_joint_error_3d.mean(dim=0).cpu().numpy() * 1000
-        return metrics, per_joint, matched_pred, matched_gt
+        per_joint_mpjdle = per_dim.mean(dim=0).cpu().numpy() * 1000
+        return metrics, per_joint, per_joint_mpjdle, matched_pred, matched_gt
 
     def test_result_dict_has_all_breakdown_keys(self):
         """evaluate() must return mpjpe, mpjpe_Xp, count_Xp, matched_Xp for X in 1,2,3."""
-        import torch
+        _import_torch()
         WifiPoseDataset, _ = _import_wifi_pose()
 
         person_counts = [1, 2, 3]
@@ -159,7 +169,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
 
     def test_missing_bucket_returns_nan(self):
         """If a bucket has zero GT frames, its mpjpe_Xp should be NaN and count_Xp == 0."""
-        import torch
+        _import_torch()
         WifiPoseDataset, _ = _import_wifi_pose()
 
         # Only 2-person frames
@@ -237,7 +247,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
     def test_outlier_match_is_rejected_and_reported_as_miss_and_false_positive(self):
         """A far prediction should not be accepted as a true matched person."""
         WifiPoseDataset, _ = _import_wifi_pose()
-        import torch
+        torch = _import_torch()
 
         results = [
             (
@@ -264,7 +274,7 @@ class TestEvaluateBreakdown(unittest.TestCase):
 
     def test_metrics_out_json_export(self):
         """--metrics-out should create a valid JSON with full schema."""
-        import torch
+        _import_torch()
         WifiPoseDataset, _ = _import_wifi_pose()
 
         results = [self._make_fake_results(2)]
@@ -289,6 +299,38 @@ class TestEvaluateBreakdown(unittest.TestCase):
                          'matched_1p', 'matched_2p', 'matched_3p',
                          'per_joint_mpjpe', 'bone_length_error']:
                 self.assertIn(key, data, f"JSON missing key: {key}")
+
+    def test_per_sample_metrics_out_jsonl_export(self):
+        """evaluate() should export paired-analysis-ready per-sample JSONL."""
+        torch = _import_torch()
+        WifiPoseDataset, _ = _import_wifi_pose()
+
+        gt = torch.zeros(1, 14, 3).float()
+        results = [
+            (
+                [np.array([[0, 0, 1, 1, 0.7]], dtype=np.float32)],
+                [np.zeros((1, 14, 3), dtype=np.float32)],
+            )
+        ]
+        gt_frames = [{'gt_keypoints': gt, 'img_name': 'sample_0'}]
+
+        ds = self._make_ds(WifiPoseDataset)
+        ds.get_item_single_frame = lambda i: gt_frames[i]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, 'per_sample.jsonl')
+            ds.evaluate(results, per_sample_metrics_out=out_path)
+
+            self.assertTrue(os.path.isfile(out_path))
+            with open(out_path, 'r', encoding='utf-8') as file_obj:
+                rows = [json.loads(line) for line in file_obj if line.strip()]
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['sample_id'], 'sample_0')
+        self.assertEqual(rows[0]['scene_cardinality'], 1)
+        self.assertEqual(rows[0]['matched_persons'], 1)
+        self.assertEqual(rows[0]['missed_persons'], 0)
+        self.assertEqual(rows[0]['kept_confidences'], [0.7])
 
 
 # ===========================================================================

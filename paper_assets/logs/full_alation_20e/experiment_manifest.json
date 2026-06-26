@@ -1,0 +1,582 @@
+{
+  "created_at": "2026-06-26T05:38:27.934631+00:00",
+  "experiments": [
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M0/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M0/petr_wifi.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M0",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 118.7242,
+        "latency_ms": 8.4229,
+        "mpjpe": 172.54014531807093,
+        "mpjpe_1p": 136.14133127511977,
+        "mpjpe_2p": 167.9710963431315,
+        "mpjpe_3p": 192.53739247605307,
+        "mpjped": 86.2643648777162,
+        "mpjpeh": 83.64206662295388,
+        "mpjpev": 103.61893056826354,
+        "params_m": 13.1302,
+        "peak_memory_allocated_mb": 155.6
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M1/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M1/petr_wifi.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M1",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 83.0632,
+        "latency_ms": 12.039,
+        "mpjpe": 169.2712984314732,
+        "mpjpe_1p": 132.59698588407417,
+        "mpjpe_2p": 163.3227787473094,
+        "mpjpe_3p": 190.8097511410365,
+        "mpjped": 86.15221502604892,
+        "mpjpeh": 79.29703997417428,
+        "mpjpev": 99.06165174527533,
+        "params_m": 13.1987,
+        "peak_memory_allocated_mb": 155.86
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M2/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M2/petr_wifi_mamba.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M2",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 69.3932,
+        "latency_ms": 14.4106,
+        "mpjpe": 174.96070112327823,
+        "mpjpe_1p": 143.47454919984705,
+        "mpjpe_2p": 166.64162109125797,
+        "mpjpe_3p": 196.77165382011336,
+        "mpjped": 82.72988734374005,
+        "mpjpeh": 90.19162137134897,
+        "mpjpev": 96.44666219211881,
+        "params_m": 11.9669,
+        "peak_memory_allocated_mb": 151.16
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M3/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M3/petr_wifi_mamba2_crossscan_pos_attn.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M3",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 102.0072,
+        "latency_ms": 9.8032,
+        "mpjpe": 175.65776763703022,
+        "mpjpe_1p": 140.11632578112963,
+        "mpjpe_2p": 169.3579096183106,
+        "mpjpe_3p": 197.08387352839108,
+        "mpjped": 86.31928538935435,
+        "mpjpeh": 85.55447800224438,
+        "mpjpev": 99.37298327723833,
+        "params_m": 10.2921,
+        "peak_memory_allocated_mb": 142.69
+      },
+      "provenance_status": "complete",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": []
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M4/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M4/wi_tidir_wifi_draft_transformer.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M4",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 180.8484,
+        "latency_ms": 5.5295,
+        "mpjpe": 169.7957107300921,
+        "mpjpe_1p": 126.4793874064989,
+        "mpjpe_2p": 167.59300039281797,
+        "mpjpe_3p": 190.25057466105181,
+        "mpjped": 72.45077479402991,
+        "mpjpeh": 79.85770817984661,
+        "mpjpev": 96.24479925761813,
+        "params_m": 5.2547,
+        "peak_memory_allocated_mb": 31.61
+      },
+      "provenance_status": "complete",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": []
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M5/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M5/wi_tidir_wifi_draft_mamba1.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M5",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 116.7619,
+        "latency_ms": 8.5644,
+        "mpjpe": 171.05519655906008,
+        "mpjpe_1p": 127.25756577715244,
+        "mpjpe_2p": 171.97902735873083,
+        "mpjpe_3p": 188.48098667098964,
+        "mpjped": 72.55508071526424,
+        "mpjpeh": 76.52611273329988,
+        "mpjpev": 99.02263164766316,
+        "params_m": 4.0228,
+        "peak_memory_allocated_mb": 26.8
+      },
+      "provenance_status": "complete",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": []
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M6/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M6/wi_tidir_wifi_draft_mamba2_csi.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M6",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 247.6738,
+        "latency_ms": 4.0376,
+        "mpjpe": 167.57296270035852,
+        "mpjpe_1p": 125.53217217429885,
+        "mpjpe_2p": 164.5280509252644,
+        "mpjpe_3p": 188.36288196101896,
+        "mpjped": 71.05762772520373,
+        "mpjpeh": 76.8571646013535,
+        "mpjpev": 96.92542957931512,
+        "params_m": 1.8134,
+        "peak_memory_allocated_mb": 18.41
+      },
+      "provenance_status": "complete",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": []
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M7/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M7/wi_tidir_wifi_transformer.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M7",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 145.7829,
+        "latency_ms": 6.8595,
+        "mpjpe": 168.3416024072046,
+        "mpjpe_1p": 127.12904223377909,
+        "mpjpe_2p": 162.77484586730074,
+        "mpjpe_3p": 191.39009092628703,
+        "mpjped": 74.89514260173443,
+        "mpjpeh": 77.94370745527394,
+        "mpjpev": 94.89804570590987,
+        "params_m": 7.0587,
+        "peak_memory_allocated_mb": 38.49
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M8/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M8/wi_tidir_wifi.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M8",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 109.3661,
+        "latency_ms": 9.1436,
+        "mpjpe": 169.65264982116005,
+        "mpjpe_1p": 122.25287903581399,
+        "mpjpe_2p": 165.3972228957181,
+        "mpjpe_3p": 193.94255016392526,
+        "mpjped": 74.78146803035216,
+        "mpjpeh": 77.10534729453488,
+        "mpjpev": 97.9259566369275,
+        "params_m": 5.8268,
+        "peak_memory_allocated_mb": 33.68
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M9/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "work_dirs/full_alation_20e/M9/wi_tidir_wifi_mamba2_flattened.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M9",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 206.9299,
+        "latency_ms": 4.8326,
+        "mpjpe": 168.0858819410895,
+        "mpjpe_1p": 125.95762584565318,
+        "mpjpe_2p": 161.83181976613088,
+        "mpjpe_3p": 192.22894234240965,
+        "mpjped": 72.2111930879975,
+        "mpjpeh": 76.05727566029856,
+        "mpjpev": 97.97480952509436,
+        "params_m": 3.6175,
+        "peak_memory_allocated_mb": 25.29
+      },
+      "provenance_status": "complete",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": []
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/M9/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "M9_RF2",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 209.8967,
+        "latency_ms": 4.7642,
+        "mpjpe": 165.48699087249946,
+        "mpjpe_1p": 121.78462420077814,
+        "mpjpe_2p": 159.3413222584892,
+        "mpjpe_3p": 190.17863935466247,
+        "mpjped": 69.09584743568398,
+        "mpjpeh": 74.76722186524643,
+        "mpjpev": 97.3463839316816,
+        "params_m": 3.6175,
+        "peak_memory_allocated_mb": 25.29
+      },
+      "provenance_status": "inference_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": 0.1,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": null,
+        "samples_per_gpu": 32,
+        "seed": null,
+        "weight_decay": 0.0001
+      },
+      "warnings": [
+        "launch log not found for this inference config; training provenance inherited from shared checkpoint"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/T_FW2_20e/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "T_FW2_20e_RF2",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 210.984,
+        "latency_ms": 4.7397,
+        "mpjpe": 167.98144937274506,
+        "mpjpe_1p": 121.3351085291108,
+        "mpjpe_2p": 160.9696195401139,
+        "mpjpe_3p": 194.80370996927758,
+        "mpjped": 69.97979822837667,
+        "mpjpeh": 75.94997008530102,
+        "mpjpev": 100.01255978765738,
+        "params_m": 3.6175,
+        "peak_memory_allocated_mb": 25.29
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    },
+    {
+      "benchmark_protocol": "single-GPU inference benchmark",
+      "checkpoint": "work_dirs/full_alation_20e/T_FW2_20e/latest.pth",
+      "commit": "7c3dfd2cfb25d057f571a19e04adb08e89e59ccd",
+      "config": "configs/wifi/wi_tidir_wifi_mamba2_flattened_eval_rf_4step.py",
+      "dataset": {
+        "ordered_sample_sha256": "0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2",
+        "split": "test"
+      },
+      "evaluator": "WifiPoseDataset.evaluate",
+      "experiment_id": "T_FW2_20e_RF4",
+      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "metrics": {
+        "count_1p": 2586,
+        "count_2p": 3184,
+        "count_3p": 2054,
+        "flops_g": null,
+        "fps": 177.4219,
+        "latency_ms": 5.6363,
+        "mpjpe": 169.45443382538258,
+        "mpjpe_1p": 120.50459789842574,
+        "mpjpe_2p": 161.85134949456508,
+        "mpjpe_3p": 197.85442031122423,
+        "mpjped": 70.23677289252497,
+        "mpjpeh": 76.38649565333189,
+        "mpjpev": 101.6796092170671,
+        "params_m": 3.6175,
+        "peak_memory_allocated_mb": 25.29
+      },
+      "provenance_status": "metrics_only",
+      "training": {
+        "config": null,
+        "deterministic": null,
+        "grad_clip_max_norm": null,
+        "lr": null,
+        "max_epochs": null,
+        "optimizer": null,
+        "samples_per_gpu": null,
+        "seed": null,
+        "weight_decay": null
+      },
+      "warnings": [
+        "launch log not found; training fields are unknown"
+      ]
+    }
+  ],
+  "source_experiment_log": "paper_assets\\logs\\full_alation_20e\\experiment_log.csv",
+  "source_launch_log_dir": "paper_assets\\logs\\full_alation_20e\\launch_logs"
+}

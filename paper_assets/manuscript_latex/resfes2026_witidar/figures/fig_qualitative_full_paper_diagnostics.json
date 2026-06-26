@@ -1,0 +1,96 @@
+{
+  "score_threshold": 0.2,
+  "match_threshold_mm": 500.0,
+  "panels": [
+    {
+      "sample_index": 9,
+      "sample_name": "S11_01_317",
+      "ground_truth_count": 1,
+      "model_id": "M0",
+      "matched_count": 1,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 207.80599117279053
+    },
+    {
+      "sample_index": 9,
+      "sample_name": "S11_01_317",
+      "ground_truth_count": 1,
+      "model_id": "M7",
+      "matched_count": 1,
+      "false_positives": 3,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 102.32634842395782
+    },
+    {
+      "sample_index": 9,
+      "sample_name": "S11_01_317",
+      "ground_truth_count": 1,
+      "model_id": "M9_RF2",
+      "matched_count": 1,
+      "false_positives": 5,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 80.93728125095367
+    },
+    {
+      "sample_index": 7200,
+      "sample_name": "S52_40_304",
+      "ground_truth_count": 2,
+      "model_id": "M0",
+      "matched_count": 2,
+      "false_positives": 1,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 380.4621547460556
+    },
+    {
+      "sample_index": 7200,
+      "sample_name": "S52_40_304",
+      "ground_truth_count": 2,
+      "model_id": "M7",
+      "matched_count": 2,
+      "false_positives": 4,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 192.82744824886322
+    },
+    {
+      "sample_index": 7200,
+      "sample_name": "S52_40_304",
+      "ground_truth_count": 2,
+      "model_id": "M9_RF2",
+      "matched_count": 2,
+      "false_positives": 3,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 251.10666453838348
+    },
+    {
+      "sample_index": 4427,
+      "sample_name": "S23_12_348",
+      "ground_truth_count": 3,
+      "model_id": "M0",
+      "matched_count": 3,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 227.35392053922018
+    },
+    {
+      "sample_index": 4427,
+      "sample_name": "S23_12_348",
+      "ground_truth_count": 3,
+      "model_id": "M7",
+      "matched_count": 3,
+      "false_positives": 5,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 123.5969935854276
+    },
+    {
+      "sample_index": 4427,
+      "sample_name": "S23_12_348",
+      "ground_truth_count": 3,
+      "model_id": "M9_RF2",
+      "matched_count": 3,
+      "false_positives": 3,
+      "false_negatives": 0,
+      "matched_mpjpe_mm": 125.44001887242
+    }
+  ]
+}

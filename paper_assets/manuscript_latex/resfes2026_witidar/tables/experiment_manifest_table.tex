@@ -1,0 +1,19 @@
+\begin{tabular}{llllll}
+\toprule
+Model & Config & Checkpoint & Batch & WD & Status \\
+\midrule
+M0 & M0/petr\_wifi.py & M0/latest.pth & n/a & n/a & metrics\_only \\
+M1 & M1/petr\_wifi.py & M1/latest.pth & n/a & n/a & metrics\_only \\
+M2 & M2/petr\_wifi\_mamba.py & M2/latest.pth & n/a & n/a & metrics\_only \\
+M3 & M3/petr\_wifi\_mamba2\_crossscan\_pos\_attn.py & M3/latest.pth & 32 & 0.0001 & complete \\
+M4 & M4/wi\_tidir\_wifi\_draft\_transformer.py & M4/latest.pth & 32 & 0.0001 & complete \\
+M5 & M5/wi\_tidir\_wifi\_draft\_mamba1.py & M5/latest.pth & 32 & 0.0001 & complete \\
+M6 & M6/wi\_tidir\_wifi\_draft\_mamba2\_csi.py & M6/latest.pth & 32 & 0.0001 & complete \\
+M7 & M7/wi\_tidir\_wifi\_transformer.py & M7/latest.pth & n/a & n/a & metrics\_only \\
+M8 & M8/wi\_tidir\_wifi.py & M8/latest.pth & n/a & n/a & metrics\_only \\
+M9 & M9/wi\_tidir\_wifi\_mamba2\_flattened.py & M9/latest.pth & 32 & 0.0001 & complete \\
+M9\_RF2 & wi\_tidir\_wifi\_mamba2\_flattened\_eval\_rf\_2step.py & M9/latest.pth & 32 & 0.0001 & inference\_only \\
+T\_FW2\_20e\_RF2 & wi\_tidir\_wifi\_mamba2\_flattened\_eval\_rf\_2step.py & T\_FW2\_20e/latest.pth & n/a & n/a & metrics\_only \\
+T\_FW2\_20e\_RF4 & wi\_tidir\_wifi\_mamba2\_flattened\_eval\_rf\_4step.py & T\_FW2\_20e/latest.pth & n/a & n/a & metrics\_only \\
+\bottomrule
+\end{tabular}

@@ -10,6 +10,7 @@ import scipy.fft as fft
 from .builder import DATASETS
 from mmdet.datasets.pipelines import Compose
 import h5py
+from tools.analysis.per_sample_pose_metrics import build_sample_record, write_jsonl
 try:
     from scipy.optimize import linear_sum_assignment
 except ImportError:
@@ -314,6 +315,7 @@ class WifiPoseDataset(dataset):
                 iou_thrs=None,
                 metric_items=None,
                 metrics_out=None,
+                per_sample_metrics_out=None,
                 miss_penalty_mm=500.0,
                 match_threshold_mm=500.0):
         """Evaluate pose predictions with GT-person-weighted MPJPE.
@@ -345,6 +347,7 @@ class WifiPoseDataset(dataset):
         bucket_matched_frames = {1: 0, 2: 0, 3: 0}
         bucket_missed_persons = {1: 0, 2: 0, 3: 0}
         bucket_false_positive_persons = {1: 0, 2: 0, 3: 0}
+        per_sample_records = []
 
         try:
             bone_stats_path = os.path.join(
@@ -389,16 +392,16 @@ class WifiPoseDataset(dataset):
                 bucket_gt_persons[n_gt_persons] += n_gt_persons
 
             det_bboxes, det_keypoints = results[i]
-            kpt_pred = det_keypoints[0] if len(det_keypoints) else np.zeros(
+            kpt_pred_np = det_keypoints[0] if len(det_keypoints) else np.zeros(
                 (0, gt_keypoints.shape[1], gt_keypoints.shape[2]),
                 dtype=np.float32)
-            n_pred_persons = int(kpt_pred.shape[0])
+            n_pred_persons = int(kpt_pred_np.shape[0])
             total_predicted_persons += n_pred_persons
 
             matched_results = None
             if n_pred_persons > 0:
                 kpt_pred = torch.tensor(
-                    kpt_pred, dtype=gt_keypoints.dtype,
+                    kpt_pred_np, dtype=gt_keypoints.dtype,
                     device=gt_keypoints.device)
                 matched_results = self.calc_mpjpe_and_match(
                     gt_keypoints, kpt_pred,
@@ -445,6 +448,17 @@ class WifiPoseDataset(dataset):
                 total_false_positive_persons += false_positive_count
                 if n_gt_persons in bucket_false_positive_persons:
                     bucket_false_positive_persons[n_gt_persons] += false_positive_count
+
+            if per_sample_metrics_out:
+                per_sample_records.append(build_sample_record(
+                    sample_index=i,
+                    sample_id=info['img_name'],
+                    gt_keypoints=gt_keypoints.detach().cpu().numpy(),
+                    pred_keypoints=kpt_pred_np,
+                    confidences=self._extract_prediction_confidences(
+                        det_bboxes, n_pred_persons),
+                    match_threshold_mm=match_threshold_mm,
+                    miss_penalty_mm=miss_penalty_mm))
 
         if total_gt_persons == 0:
             print("No ground-truth samples were available for evaluation.")
@@ -569,9 +583,21 @@ class WifiPoseDataset(dataset):
                 json.dump(export, f, indent=2, default=_json_serializer)
             print(f"\nMetrics exported to: {metrics_out}")
 
+        if per_sample_metrics_out:
+            write_jsonl(per_sample_records, per_sample_metrics_out)
+            print(f"\nPer-sample metrics exported to: {per_sample_metrics_out}")
+
         return result_dict
 
-    # THÊM 2 HÀM HELPER NÀY VÀO BÊN TRONG CLASS WifiPoseDataset
+    @staticmethod
+    def _extract_prediction_confidences(det_bboxes, n_pred_persons):
+        if n_pred_persons <= 0 or not det_bboxes:
+            return []
+        bboxes = np.asarray(det_bboxes[0])
+        if bboxes.ndim != 2 or bboxes.shape[0] == 0 or bboxes.shape[1] < 5:
+            return []
+        return [float(value) for value in bboxes[:n_pred_persons, 4]]
+
     def calc_bone_length_error(self, pred_kpts, gt_lengths_mean):
         """Tính sai số L1 trung bình của chiều dài xương."""
         if pred_kpts.numel() == 0:
