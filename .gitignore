@@ -5,11 +5,39 @@
 /opera.egg-info
 /work_dirs/
 **/.bash_history
-/.claude"
+/.claude/
 **/__pycache__
+*.py[cod]
+.pytest_cache/
 /opera.egg-info
 /colab_nb
 /docs/paper
 /Template
 /docs/superpowers
 /S52_40
+
+# Local automation / scratch state
+/.superpowers/
+/tmp/
+
+# LaTeX build artifacts for the ResFes manuscript.
+/paper_assets/manuscript_latex/resfes2026_witidar/*.aux
+/paper_assets/manuscript_latex/resfes2026_witidar/*.bbl
+/paper_assets/manuscript_latex/resfes2026_witidar/*.blg
+/paper_assets/manuscript_latex/resfes2026_witidar/*.fdb_latexmk
+/paper_assets/manuscript_latex/resfes2026_witidar/*.fls
+/paper_assets/manuscript_latex/resfes2026_witidar/*.log
+/paper_assets/manuscript_latex/resfes2026_witidar/*.out
+/paper_assets/manuscript_latex/resfes2026_witidar/*.synctex.gz
+/paper_assets/manuscript_latex/resfes2026_witidar/$job.*
+/paper_assets/manuscript_latex/resfes2026_witidar/main_verify*.pdf
+/paper_assets/manuscript_latex/resfes2026_witidar/main_commit_*.pdf
+
+# Manuscript scratch exports that are not submission artifacts.
+/paper_assets/manuscript_latex/*.zip
+/paper_assets/manuscript_latex/resfes2026_witidar/*.zip
+/paper_assets/manuscript_latex/resfes2026_witidar/ars_review_rev2_*.md
+/paper_assets/manuscript_latex/resfes2026_witidar/response_to_reviewers_rev2.md
+/paper_assets/manuscript_latex/resfes2026_witidar/revision_tracking_rev2.md
+/paper_assets/manuscript_latex/resfes2026_witidar/figures/qualitative_rgb/
+/paper_assets/manuscript_latex/resfes2026_witidar/figures/fig_selected_qualitative_samples.png
