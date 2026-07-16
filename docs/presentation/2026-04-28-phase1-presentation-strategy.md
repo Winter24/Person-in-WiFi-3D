@@ -8,7 +8,7 @@ This document finalizes the Phase 1 outputs for the ResFes presentation based on
 
 Recommended subtitle:
 
-**From One-Shot Regression to Draft-to-Refine Rectified Flow**
+**From Direct Regression to Two-Step Pose Flow Refinement**
 
 Use the full title on the opening slide and the subtitle on the same slide or on Slide 5, where the key idea is introduced.
 

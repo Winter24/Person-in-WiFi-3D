@@ -226,11 +226,10 @@ Workshop tier sau revision: có thể Accept. Conference tier (CVPR/MobiCom): c�
 - Report final MPJPE trên test set chỉ với step count đã chọn.
 - Nếu RF2 vẫn thắng → claim đứng vững. Nếu không → cập nhật M9_RFk.
 
-**3. Title revision [R0, R4]**
-- Thay "Flow is All You Need" bằng wording phản ánh chính xác claim. Đề xuất:
-  - *"Spectral Tokens + Mamba2 + Two-Step Flow: An Efficient Recipe for WiFi 3D Pose"*
-  - *"Draft-then-Refine WiFi 3D Pose Estimation with Compact Mamba2 Encoder and Rectified Flow"*
-- Hoặc nếu muốn giữ ngắn: *"Compact and Refined: A Draft-to-Refine Pipeline for WiFi 3D Pose"*.
+**3. Title decision [R0, R4]**
+- Official paper title:
+  - *"Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures"*
+- Keep the manuscript framing bounded to the internal ablation setting so the title reads as a project claim about the selected draft-to-refine recipe, not as a broad SOTA claim.
 
 **4. Implementation details subsection [R1, R2]**
 Thêm vào §IV-A:

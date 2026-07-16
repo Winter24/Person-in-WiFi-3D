@@ -190,7 +190,7 @@ Ghi chú:
 
 | Slide | Tình trạng hiện tại | Sửa gì | Theo 5 nguyên tắc của thầy Hoàng | Priority |
 |---|---|---|---|---|
-| 1 | Title slide ổn | Giữ. Có thể thêm subtitle nhỏ `Draft-to-Refine 3D Pose from WiFi` | Chốt thesis ngay từ đầu | P2 |
+| 1 | Title slide ổn | Giữ full title `Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures`; nếu cần subtitle nhỏ, dùng `Two-step pose flow refinement from WiFi CSI` | Chốt thesis ngay từ đầu | P2 |
 | 2 | Agenda rõ | Thêm 1 dòng nhỏ hoặc speaker line: `3 contributions: spectral representation, efficient sequence modeling, flow refinement` | Cho BGK “map để chấm” sớm | P1 |
 | 3 | Divider ổn | Giữ | Nhịp section rõ | Keep |
 | 4 | Motivation tốt nhưng còn tổng quát | Thêm 1 pain point thật hơn: bedroom, rehab, elderly care, private indoor sensing | Tăng urgency, đánh vào bài toán thật | P1 |

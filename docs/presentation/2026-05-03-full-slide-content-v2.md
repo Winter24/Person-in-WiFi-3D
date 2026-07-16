@@ -60,12 +60,11 @@ Tổng số slide đề xuất:
 
 **Title**
 
-> Flow is All You Need for WiFi  
-> Rectifying 3D Human Poses without Complex Architectures
+> Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures
 
 **Subtitle**
 
-> From Direct Regression to Draft-to-Refine Pose Correction
+> From Direct Regression to Two-Step Pose Flow Refinement
 
 **Footer**
 

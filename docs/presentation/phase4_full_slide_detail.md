@@ -58,7 +58,7 @@ Current slide count:
 
 Title:
 
-> Flow is All You Need for WiFi
+> Flow is All You Need for WiFi: Rectifying 3D Human Poses without Complex Architectures
 
 Role:
 
