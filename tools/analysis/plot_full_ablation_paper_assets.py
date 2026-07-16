@@ -24,6 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from tools.analysis.model_labels import display_label, flow_setting_label
 from tools.analysis.model_palette import FLOW_SETTING_STYLES
 
 
@@ -33,48 +34,41 @@ FLOW_IDS = [
     'M9_no_flow',
     'M9',
     'M9_RF2',
+]
+
+FLOW_CONTROL_IDS = [
     'T_FW2_20e_RF2',
     'T_FW2_20e_RF4',
 ]
 
 MAIN_META = {
-    'M0': ('Original PETR baseline', 'Linear', 'Transformer', 'PETRHead', 'No'),
-    'M1': ('Spectral PETR baseline', 'Spectral', 'Transformer', 'PETRHead', 'No'),
-    'M2': ('PETR with Mamba-1', 'Spectral', 'Mamba-1', 'PETRHead', 'No'),
-    'M3': ('PETR with Mamba2-CSI', 'Spectral', 'Mamba2-CSI flattened', 'PETRHead', 'No'),
-    'M4': ('WiTiDAR draft with Transformer', 'Spectral', 'Transformer', 'WiTiDAR', 'No'),
-    'M5': ('WiTiDAR draft with Mamba-1', 'Spectral', 'Mamba-1', 'WiTiDAR', 'No'),
-    'M6': ('WiTiDAR draft with Mamba2-CSI', 'Spectral', 'Mamba2-CSI flattened', 'WiTiDAR', 'No'),
-    'M7': ('WiTiDAR with Transformer', 'Spectral', 'Transformer', 'WiTiDAR', '1-step'),
-    'M8': ('WiTiDAR with Mamba-1', 'Spectral', 'Mamba-1', 'WiTiDAR', '1-step'),
-    'M9': ('Mamba2-CSI WiTiDAR', 'Spectral', 'Mamba2-CSI flattened', 'WiTiDAR', '1-step'),
+    'M0': (display_label('M0'), 'Linear', 'Transformer', 'PETR query decoder', 'None'),
+    'M1': (display_label('M1'), 'Spectral', 'Transformer', 'PETR query decoder', 'None'),
+    'M2': (display_label('M2'), 'Spectral', 'Mamba', 'PETR query decoder', 'None'),
+    'M3': (display_label('M3'), 'Spectral', 'Flattened Mamba-2', 'PETR query decoder', 'None'),
+    'M4': (display_label('M4'), 'Spectral', 'Transformer', 'Lightweight query-pose', 'None'),
+    'M5': (display_label('M5'), 'Spectral', 'Mamba', 'Lightweight query-pose', 'None'),
+    'M6': (display_label('M6'), 'Spectral', 'Flattened Mamba-2', 'Lightweight query-pose', 'None'),
+    'M7': (display_label('M7'), 'Spectral', 'Transformer', 'Lightweight query-pose', '1 step'),
+    'M8': (display_label('M8'), 'Spectral', 'Mamba', 'Lightweight query-pose', '1 step'),
+    'M9': (display_label('M9'), 'Spectral', 'Flattened Mamba-2', 'Lightweight query-pose', '1 step'),
     'M9_RF2': (
-        'Proposed final model',
+        display_label('M9_RF2'),
         'Spectral',
-        'Mamba2-CSI flattened',
-        'WiTiDAR',
-        '2-step',
+        'Flattened Mamba-2',
+        'Lightweight query-pose',
+        '2 steps',
     ),
 }
 
 FLOW_META = {
-    'M6': ('Draft Mamba2-CSI', 'No flow'),
-    'M9_no_flow': ('M9 20e', 'Flow disabled'),
-    'M9': ('M9 20e', '1-step RF'),
-    'M9_RF2': ('M9 20e', '2-step RF'),
-    'T_FW2_20e_RF2': ('Flow loss weight 2.0', '2-step RF'),
-    'T_FW2_20e_RF4': ('Flow loss weight 2.0', '4-step RF'),
+    'M6': (flow_setting_label('M6'), 'No refinement'),
+    'M9_no_flow': (flow_setting_label('M9_no_flow'), 'Refinement bypassed'),
+    'M9': (flow_setting_label('M9'), '1 step'),
+    'M9_RF2': (flow_setting_label('M9_RF2'), '2 steps'),
+    'T_FW2_20e_RF2': (flow_setting_label('T_FW2_20e_RF2'), '2 steps'),
+    'T_FW2_20e_RF4': (flow_setting_label('T_FW2_20e_RF4'), '4 steps'),
 }
-
-FLOW_DISPLAY_LABELS = {
-    'M6': 'M6 Draft',
-    'M9_no_flow': 'M9 Flow off',
-    'M9': 'M9 1-step',
-    'M9_RF2': 'M9 2-step',
-    'T_FW2_20e_RF2': 'FW2 2-step',
-    'T_FW2_20e_RF4': 'FW2 4-step',
-}
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -99,6 +93,12 @@ def parse_args():
         '--table-dir',
         default='paper_assets/tables/full_alation_20e',
         help='Output directory for Markdown tables.')
+    parser.add_argument(
+        '--figures',
+        nargs='+',
+        choices=['main', 'flow'],
+        default=['main', 'flow'],
+        help='Figures to regenerate. Use "flow" to avoid replacing the main figure.')
     return parser.parse_args()
 
 
@@ -127,7 +127,7 @@ def build_flow_plot_rows(rows, eval_dir):
         eval_row = load_eval_json(eval_dir, experiment_id)
         plot_rows.append({
             'experiment_id': experiment_id,
-            'display_label': FLOW_DISPLAY_LABELS[experiment_id],
+            'display_label': flow_setting_label(experiment_id),
             'mpjpe': float(eval_row['mpjpe']),
             'missed_persons': int(eval_row['missed_persons']),
             'selected': experiment_id == 'M9_RF2',
@@ -156,7 +156,7 @@ def format_fps(value):
 
 
 def build_rows(experiment_rows, eval_dir):
-    required_ids = sorted((set(MAIN_IDS) | set(FLOW_IDS)) - {'M9_no_flow'})
+    required_ids = sorted((set(MAIN_IDS) | set(FLOW_IDS) | set(FLOW_CONTROL_IDS)) - {'M9_no_flow'})
     missing = [experiment_id for experiment_id in required_ids if experiment_id not in experiment_rows]
     if missing:
         raise KeyError(f'Missing required experiment IDs in experiment log: {missing}')
@@ -473,7 +473,7 @@ def plot_flow_ablation(rows, eval_dir, output_base):
         fig, axes = plt.subplots(
             1,
             2,
-            figsize=(7.2, 3.25),
+            figsize=(7.2, 3.35),
             dpi=300,
             sharey=True,
             gridspec_kw={'width_ratios': [1.05, 0.95], 'wspace': 0.16},
@@ -565,7 +565,7 @@ def plot_flow_ablation(rows, eval_dir, output_base):
                 tick_label.set_color(row['style']['color'])
                 tick_label.set_fontweight('bold')
 
-        fig.subplots_adjust(left=0.19, right=0.97, top=0.86, bottom=0.19)
+        fig.subplots_adjust(left=0.32, right=0.97, top=0.86, bottom=0.19)
         output_base = Path(output_base)
         output_base.parent.mkdir(parents=True, exist_ok=True)
         outputs = {
@@ -601,8 +601,10 @@ def main():
 
     write_main_table(rows, table_dir / 'main_ablation_table.md')
     write_flow_table(rows, eval_dir, table_dir / 'supplementary_flow_table.md')
-    plot_main_ablation(rows, out_dir / 'fig_main_ablation_mpjpe_latency_params')
-    plot_flow_ablation(rows, eval_dir, out_dir / 'fig_flow_solver_ablation')
+    if 'main' in args.figures:
+        plot_main_ablation(rows, out_dir / 'fig_main_ablation_mpjpe_latency_params')
+    if 'flow' in args.figures:
+        plot_flow_ablation(rows, eval_dir, out_dir / 'fig_flow_solver_ablation')
 
     print(f'Wrote tables to {table_dir}')
     print(f'Wrote figures to {out_dir}')

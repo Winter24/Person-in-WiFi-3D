@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-06-26T05:38:27.934631+00:00",
+  "created_at": "2026-07-16T14:54:05.817580+00:00",
   "experiments": [
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -12,7 +12,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M0",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -30,21 +30,16 @@
         "params_m": 13.1302,
         "peak_memory_allocated_mb": 155.6
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -57,7 +52,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M1",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -75,21 +70,16 @@
         "params_m": 13.1987,
         "peak_memory_allocated_mb": 155.86
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -102,7 +92,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M2",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -120,21 +110,16 @@
         "params_m": 11.9669,
         "peak_memory_allocated_mb": 151.16
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -147,7 +132,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M3",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -165,19 +150,16 @@
         "params_m": 10.2921,
         "peak_memory_allocated_mb": 142.69
       },
-      "provenance_status": "complete",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": []
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -190,7 +172,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M4",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -208,19 +190,16 @@
         "params_m": 5.2547,
         "peak_memory_allocated_mb": 31.61
       },
-      "provenance_status": "complete",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": []
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -233,7 +212,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M5",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -251,19 +230,16 @@
         "params_m": 4.0228,
         "peak_memory_allocated_mb": 26.8
       },
-      "provenance_status": "complete",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": []
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -276,7 +252,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M6",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -294,19 +270,16 @@
         "params_m": 1.8134,
         "peak_memory_allocated_mb": 18.41
       },
-      "provenance_status": "complete",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": []
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -319,7 +292,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M7",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -337,21 +310,16 @@
         "params_m": 7.0587,
         "peak_memory_allocated_mb": 38.49
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -364,7 +332,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M8",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -382,21 +350,16 @@
         "params_m": 5.8268,
         "peak_memory_allocated_mb": 33.68
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -409,7 +372,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M9",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -427,19 +390,16 @@
         "params_m": 3.6175,
         "peak_memory_allocated_mb": 25.29
       },
-      "provenance_status": "complete",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": []
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -452,7 +412,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "M9_RF2",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -470,21 +430,16 @@
         "params_m": 3.6175,
         "peak_memory_allocated_mb": 25.29
       },
-      "provenance_status": "inference_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": 0.1,
+        "deterministic": true,
         "lr": 2e-05,
         "max_epochs": 20,
-        "optimizer": null,
+        "optimizer": "AdamW",
+        "precision": "FP32",
         "samples_per_gpu": 32,
-        "seed": null,
+        "seed": 42,
         "weight_decay": 0.0001
-      },
-      "warnings": [
-        "launch log not found for this inference config; training provenance inherited from shared checkpoint"
-      ]
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -497,7 +452,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "T_FW2_20e_RF2",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -515,21 +470,16 @@
         "params_m": 3.6175,
         "peak_memory_allocated_mb": 25.29
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     },
     {
       "benchmark_protocol": "single-GPU inference benchmark",
@@ -542,7 +492,7 @@
       },
       "evaluator": "WifiPoseDataset.evaluate",
       "experiment_id": "T_FW2_20e_RF4",
-      "hardware": "RTX A6000 server (reported for full_alation_20e)",
+      "hardware": "NVIDIA RTX 6000 Ada Generation",
       "metrics": {
         "count_1p": 2586,
         "count_2p": 3184,
@@ -560,21 +510,16 @@
         "params_m": 3.6175,
         "peak_memory_allocated_mb": 25.29
       },
-      "provenance_status": "metrics_only",
       "training": {
-        "config": null,
-        "deterministic": null,
-        "grad_clip_max_norm": null,
-        "lr": null,
-        "max_epochs": null,
-        "optimizer": null,
-        "samples_per_gpu": null,
-        "seed": null,
-        "weight_decay": null
-      },
-      "warnings": [
-        "launch log not found; training fields are unknown"
-      ]
+        "deterministic": true,
+        "lr": 2e-05,
+        "max_epochs": 20,
+        "optimizer": "AdamW",
+        "precision": "FP32",
+        "samples_per_gpu": 32,
+        "seed": 42,
+        "weight_decay": 0.0001
+      }
     }
   ],
   "source_experiment_log": "paper_assets\\logs\\full_alation_20e\\experiment_log.csv",

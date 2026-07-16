@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -50,19 +51,17 @@ class TestFlowSolverFigure(unittest.TestCase):
         self.assertEqual(
             [(row['display_label'], row['experiment_id']) for row in rows],
             [
-                ('M6 Draft', 'M6'),
-                ('M9 Flow off', 'M9_no_flow'),
-                ('M9 1-step', 'M9'),
-                ('M9 2-step', 'M9_RF2'),
-                ('FW2 2-step', 'T_FW2_20e_RF2'),
-                ('FW2 4-step', 'T_FW2_20e_RF4'),
+                ('Mamba-2 Draft', 'M6'),
+                ('Mamba-2 Flow (refinement bypassed)', 'M9_no_flow'),
+                ('Mamba-2 Flow (1 step)', 'M9'),
+                ('Mamba-2 Flow (2 steps)', 'M9_RF2'),
             ])
         self.assertEqual(
             [row['mpjpe'] for row in rows],
-            [167.573, 167.732, 168.086, 165.487, 167.981, 169.454])
+            [167.573, 167.732, 168.086, 165.487])
         self.assertEqual(
             [row['missed_persons'] for row in rows],
-            [54, 82, 76, 72, 86, 99])
+            [54, 82, 76, 72])
         self.assertEqual(
             [row['experiment_id'] for row in rows if row['selected']],
             ['M9_RF2'])
@@ -72,6 +71,16 @@ class TestFlowSolverFigure(unittest.TestCase):
         self.assertEqual(
             [row['style'] for row in rows],
             [palette.FLOW_SETTING_STYLES[row['experiment_id']] for row in rows])
+
+    def test_cli_supports_regenerating_only_flow_figure(self):
+        module = load_module()
+        original_argv = sys.argv
+        try:
+            sys.argv = ['plot_full_ablation_paper_assets.py', '--figures', 'flow']
+            args = module.parse_args()
+        finally:
+            sys.argv = original_argv
+        self.assertEqual(args.figures, ['flow'])
 
     def test_plot_flow_ablation_exports_publication_pdf_and_png(self):
         module = load_module()

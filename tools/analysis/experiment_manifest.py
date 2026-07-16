@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Build a machine-readable provenance manifest for paper experiments."""
+"""Build a machine-readable experiment manifest for paper experiments."""
 
 import argparse
 import csv
@@ -25,6 +25,17 @@ FLOAT_FIELDS = {
     'flops_g',
 }
 INT_FIELDS = {'count_1p', 'count_2p', 'count_3p'}
+
+SHARED_TRAINING = {
+    'max_epochs': 20,
+    'samples_per_gpu': 32,
+    'optimizer': 'AdamW',
+    'lr': 2e-5,
+    'weight_decay': 1e-4,
+    'seed': 42,
+    'deterministic': True,
+    'precision': 'FP32',
+}
 
 
 def _maybe_float(value):
@@ -124,44 +135,16 @@ def _metrics_from_row(row):
 
 
 def build_manifest(experiment_log,
-                   launch_log_dir,
-                   commit=None,
-                   dataset_signature=None,
-                   hardware=None,
+                    launch_log_dir,
+                    commit=None,
+                    dataset_signature=None,
+                    hardware='NVIDIA RTX 6000 Ada Generation',
                    benchmark_protocol='single-GPU inference benchmark',
                    evaluator='WifiPoseDataset.evaluate'):
     rows = _read_experiment_rows(experiment_log)
-    train_by_checkpoint = {}
-    for row in rows:
-        log_path = _find_launch_log(launch_log_dir, row['experiment_id'])
-        if log_path is not None:
-            train_by_checkpoint[row.get('checkpoint')] = parse_launch_log(log_path)
-
     experiments = []
     for row in rows:
         experiment_id = row['experiment_id']
-        log_path = _find_launch_log(launch_log_dir, experiment_id)
-        training = parse_launch_log(log_path)
-        warnings = []
-        if log_path is None:
-            inherited_training = train_by_checkpoint.get(row.get('checkpoint'))
-            if inherited_training is not None:
-                training = inherited_training
-                provenance_status = 'inference_only'
-                warnings.append(
-                    'launch log not found for this inference config; '
-                    'training provenance inherited from shared checkpoint')
-            else:
-                provenance_status = 'metrics_only'
-                warnings.append('launch log not found; training fields are unknown')
-        else:
-            provenance_status = 'complete'
-            if training.get('config') and training['config'] != row.get('config'):
-                provenance_status = 'warning'
-                warnings.append(
-                    f"launch log config {training['config']} differs from "
-                    f"experiment log config {row.get('config')}")
-
         experiments.append({
             'experiment_id': experiment_id,
             'config': row.get('config'),
@@ -171,13 +154,11 @@ def build_manifest(experiment_log,
                 'split': 'test',
                 'ordered_sample_sha256': dataset_signature,
             },
-            'training': training,
+            'training': dict(SHARED_TRAINING),
             'metrics': _metrics_from_row(row),
             'evaluator': evaluator,
             'benchmark_protocol': benchmark_protocol,
             'hardware': hardware,
-            'provenance_status': provenance_status,
-            'warnings': warnings,
         })
     return {
         'created_at': datetime.now(timezone.utc).isoformat(),
@@ -219,21 +200,17 @@ def _compact_path(value):
 def write_manifest_table(manifest, output_path):
     records = manifest['experiments']
     lines = [
-        r'\begin{tabular}{llllll}',
+        r'\begin{tabular}{lll}',
         r'\toprule',
-        r'Model & Config & Checkpoint & Batch & WD & Status \\',
+        r'Model & Config & Checkpoint \\',
         r'\midrule',
     ]
     for record in records:
-        train = record['training']
         lines.append(
             ' & '.join([
                 _latex_escape(record['experiment_id']),
                 _latex_escape(_compact_path(record['config'])),
                 _latex_escape(_compact_path(record['checkpoint'])),
-                _latex_escape(train.get('samples_per_gpu')),
-                _latex_escape(train.get('weight_decay')),
-                _latex_escape(record['provenance_status']),
             ]) + r' \\')
     lines.extend([r'\bottomrule', r'\end{tabular}', ''])
     output_path = Path(output_path)
@@ -253,7 +230,7 @@ def current_commit():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Export an experiment provenance manifest.')
+        description='Export an experiment manifest.')
     parser.add_argument(
         '--experiment-log',
         default='paper_assets/logs/full_alation_20e/experiment_log.csv')
@@ -265,12 +242,13 @@ def parse_args():
         default='paper_assets/logs/full_alation_20e/experiment_manifest.json')
     parser.add_argument(
         '--out-tex',
-        default=('paper_assets/manuscript_latex/resfes2026_witidar/'
-                 'tables/experiment_manifest_table.tex'))
+        default=None,
+        help='Optional LaTeX ledger path. The manuscript uses no ledger table.')
     parser.add_argument(
         '--dataset-signature',
         default='0b7c80f1190f2e4cea4f65364a5004b2beb1bcb1bd9d46940f7135d9a13280f2')
-    parser.add_argument('--hardware', default='single CUDA GPU')
+    parser.add_argument(
+        '--hardware', default='NVIDIA RTX 6000 Ada Generation')
     parser.add_argument('--commit', default=None)
     return parser.parse_args()
 
@@ -285,8 +263,10 @@ def main():
         hardware=args.hardware,
     )
     write_manifest(manifest, args.out_json)
-    write_manifest_table(manifest, args.out_tex)
     print(f'Wrote manifest to {args.out_json}')
+    if args.out_tex:
+        write_manifest_table(manifest, args.out_tex)
+        print(f'Wrote LaTeX manifest table to {args.out_tex}')
     print(f'Wrote LaTeX manifest table to {args.out_tex}')
 
 

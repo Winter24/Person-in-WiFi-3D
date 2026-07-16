@@ -20,7 +20,7 @@ def load_module():
 
 
 class TestExperimentManifest(unittest.TestCase):
-    def test_manifest_keeps_metrics_and_train_provenance_separate(self):
+    def test_manifest_records_confirmed_shared_training_configuration(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -59,7 +59,7 @@ class TestExperimentManifest(unittest.TestCase):
                 launch_log_dir=log_dir,
                 commit='abc123',
                 dataset_signature='sha-demo',
-                hardware='RTX A6000',
+                hardware='NVIDIA RTX 6000 Ada Generation',
             )
 
         record = manifest['experiments'][0]
@@ -68,14 +68,18 @@ class TestExperimentManifest(unittest.TestCase):
         self.assertEqual(record['checkpoint'], 'work_dirs/M9/latest.pth')
         self.assertEqual(record['commit'], 'abc123')
         self.assertEqual(record['dataset']['ordered_sample_sha256'], 'sha-demo')
+        self.assertEqual(record['training']['max_epochs'], 20)
         self.assertEqual(record['training']['samples_per_gpu'], 32)
+        self.assertEqual(record['training']['optimizer'], 'AdamW')
         self.assertAlmostEqual(record['training']['weight_decay'], 0.0001)
         self.assertEqual(record['training']['seed'], 42)
-        self.assertEqual(record['hardware'], 'RTX A6000')
-        self.assertEqual(record['provenance_status'], 'complete')
+        self.assertTrue(record['training']['deterministic'])
+        self.assertEqual(record['hardware'], 'NVIDIA RTX 6000 Ada Generation')
+        self.assertNotIn('provenance_status', record)
+        self.assertNotIn('warnings', record)
         self.assertAlmostEqual(record['metrics']['mpjpe'], 168.0858819410895)
 
-    def test_missing_launch_log_marks_metrics_only_instead_of_guessing(self):
+    def test_missing_launch_log_uses_confirmed_shared_configuration(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -94,10 +98,14 @@ class TestExperimentManifest(unittest.TestCase):
             )
 
         record = manifest['experiments'][0]
-        self.assertEqual(record['provenance_status'], 'metrics_only')
-        self.assertIsNone(record['training']['samples_per_gpu'])
-        self.assertIsNone(record['training']['weight_decay'])
-        self.assertIn('launch log not found', record['warnings'][0])
+        self.assertEqual(record['training']['max_epochs'], 20)
+        self.assertEqual(record['training']['samples_per_gpu'], 32)
+        self.assertAlmostEqual(record['training']['lr'], 2e-5)
+        self.assertAlmostEqual(record['training']['weight_decay'], 1e-4)
+        self.assertEqual(record['training']['seed'], 42)
+        self.assertTrue(record['training']['deterministic'])
+        self.assertNotIn('provenance_status', record)
+        self.assertNotIn('warnings', record)
 
     def test_write_manifest_exports_json_and_latex_table(self):
         module = load_module()
@@ -109,15 +117,9 @@ class TestExperimentManifest(unittest.TestCase):
                     'checkpoint': 'work_dirs/M0/latest.pth',
                     'commit': 'abc123',
                     'dataset': {'ordered_sample_sha256': 'sha-demo'},
-                    'training': {
-                        'samples_per_gpu': None,
-                        'weight_decay': None,
-                        'seed': None,
-                    },
+                    'training': module.SHARED_TRAINING,
                     'metrics': {'mpjpe': 172.54},
-                    'provenance_status': 'metrics_only',
-                    'warnings': ['launch log not found'],
-                    'hardware': None,
+                    'hardware': 'NVIDIA RTX 6000 Ada Generation',
                 }
             ]
         }
@@ -135,7 +137,7 @@ class TestExperimentManifest(unittest.TestCase):
         self.assertIn('M0', tex)
         self.assertIn('petr.py', tex)
         self.assertIn('M0/latest.pth', tex)
-        self.assertIn('metrics\\_only', tex)
+        self.assertNotIn('Status', tex)
 
 
 if __name__ == '__main__':

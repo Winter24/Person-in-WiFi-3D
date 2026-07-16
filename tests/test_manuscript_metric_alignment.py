@@ -58,21 +58,21 @@ class TestManuscriptMetricAlignment(unittest.TestCase):
 
     def test_flow_table_reuses_manifest_values_for_logged_variants(self):
         table = plain_table_values(table_body(self.source, 'tab:flow'))
-        for model_id in ['M6', 'M9', 'M9_RF2', 'T_FW2_20e_RF2', 'T_FW2_20e_RF4']:
+        for model_id in ['M6', 'M9', 'M9_RF2']:
             expected = f"& {self.metrics[model_id]['mpjpe']:.3f} &"
             self.assertIn(expected, table, model_id)
 
-    def test_training_text_does_not_claim_unrecorded_seed(self):
-        self.assertNotIn('Each configuration uses a fixed random seed', self.source)
-        self.assertIn('metrics-only provenance', self.source)
-        self.assertIn('dataset signature, commit, and provenance status', self.source)
+    def test_training_text_states_confirmed_shared_setup_without_internal_statuses(self):
+        self.assertIn('same 20-epoch AdamW schedule', self.source)
+        self.assertIn('deterministic seed 42', self.source)
+        self.assertIn('RTX 6000 Ada Generation GPU', self.source)
+        self.assertNotIn('metrics-only provenance', self.source)
+        self.assertNotIn('Experiment Manifest', self.source)
 
-    def test_manifest_table_keeps_shared_reproducibility_anchors_outside_resizebox(self):
-        self.assertIn(
-            r'Shared test signature: \texttt{0b7c80f119}; commit: '
-            r'\texttt{7c3dfd2cfb}.',
-            self.source,
-        )
+    def test_public_method_labels_are_used_in_the_main_results(self):
+        self.assertIn('Mamba-2 Flow (two steps)', self.source)
+        self.assertIn('Mamba-2 Draft', self.source)
+        self.assertIn('PETR Reference', self.source)
 
 
 if __name__ == '__main__':

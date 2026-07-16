@@ -7,6 +7,7 @@ import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,12 +19,13 @@ from tools.analysis.model_palette import (
     MODEL_MARKERS,
     get_model_color,
 )
+from tools.analysis.model_labels import display_label, short_label
 
 
 FIGURE_DIR = ROOT / 'paper_assets' / 'manuscript_latex' / 'resfes2026_witidar' / 'figures'
 
 VARIANTS = [
-    ('M0', 172.554, 118.7, 13.130, 155.60),
+    ('M0', 172.540, 118.7, 13.130, 155.60),
     ('M1', 169.271, 83.1, 13.199, 155.86),
     ('M2', 174.961, 69.4, 11.967, 151.16),
     ('M3', 175.658, 102.0, 10.292, 142.69),
@@ -36,15 +38,22 @@ VARIANTS = [
     ('M9_RF2', 165.487, 209.9, 3.618, 25.29),
 ]
 
+ANCHOR_MODELS = frozenset({'M0', 'M6', 'M9_RF2'})
+
+
+def public_short_labels():
+    """Return dense-figure labels in the same order as ``VARIANTS``."""
+    return [short_label(row[0]) for row in VARIANTS]
+
 
 def configure_matplotlib():
     mpl.rcParams.update({
         'font.family': 'DejaVu Sans',
-        'font.size': 9,
-        'axes.labelsize': 9.5,
-        'xtick.labelsize': 8,
-        'ytick.labelsize': 8,
-        'legend.fontsize': 7.6,
+        'font.size': 10,
+        'axes.labelsize': 10.5,
+        'xtick.labelsize': 8.8,
+        'ytick.labelsize': 8.8,
+        'legend.fontsize': 8,
         'pdf.fonttype': 42,
         'ps.fonttype': 42,
         'axes.spines.top': False,
@@ -65,6 +74,7 @@ def save(fig, stem):
 
 def draw_main_ablation():
     ids = [row[0] for row in VARIANTS]
+    labels = public_short_labels()
     metrics = [
         (1, 'MPJPE (mm)'),
         (2, 'FPS'),
@@ -73,20 +83,36 @@ def draw_main_ablation():
     ]
     colors = [get_model_color(row[0]) for row in VARIANTS]
     x = np.arange(len(ids))
-    fig, axes = plt.subplots(2, 2, figsize=(7.4, 5.1), dpi=300)
+    fig, axes = plt.subplots(2, 2, figsize=(7.4, 6.5), dpi=300)
     for ax, (index, ylabel) in zip(axes.ravel(), metrics):
         values = [row[index] for row in VARIANTS]
         bars = ax.bar(x, values, color=colors, width=0.67, edgecolor='white', linewidth=0.6)
         ax.set_xticks(x)
-        ax.set_xticklabels(ids, rotation=35, ha='right', fontweight='bold')
+        ax.set_xticklabels([])
         ax.set_ylabel(ylabel)
         ax.grid(axis='y', color='#E5E7EB', linewidth=0.75)
         ax.set_ylim(0, max(values) * 1.18)
         for model, bar, value in zip(ids, bars, values):
-            if model in {'M0', 'M6', 'M9_RF2'}:
+            if model in ANCHOR_MODELS:
                 ax.annotate(f'{value:.1f}', (bar.get_x() + bar.get_width() / 2, value),
-                            xytext=(0, 2), textcoords='offset points', ha='center', fontsize=6.8)
-    fig.tight_layout()
+                            xytext=(0, 3), textcoords='offset points', ha='center', fontsize=8.2,
+                            fontweight='bold')
+    legend_handles = [Patch(facecolor=color, edgecolor='none') for color in colors]
+    fig.legend(
+        handles=legend_handles,
+        labels=labels,
+        loc='lower left',
+        bbox_to_anchor=(0.035, 0.01, 0.93, 0.12),
+        mode='expand',
+        ncol=4,
+        frameon=False,
+        fontsize=7.1,
+        handlelength=1.05,
+        handletextpad=0.4,
+        columnspacing=0.9,
+        labelspacing=0.7,
+    )
+    fig.tight_layout(rect=(0, 0.14, 1, 1), pad=1.1, h_pad=1.3)
     return save(fig, 'fig_main_ablation_mpjpe_latency_params')
 
 
@@ -104,9 +130,10 @@ def draw_bubble_chart():
                    marker=MODEL_MARKERS[model], alpha=0.82,
                    edgecolor='#111827' if selected else 'white', linewidth=1.1, zorder=3)
         dx, dy = offsets[model]
-        ax.annotate(model, (fps, mpjpe), xytext=(dx, dy), textcoords='offset points',
+        label = display_label(model) if model in ANCHOR_MODELS else model
+        ax.annotate(label, (fps, mpjpe), xytext=(dx, dy), textcoords='offset points',
                     ha='right' if dx < 0 else 'left', va='center', fontsize=7.5,
-                    fontweight='bold' if model in {'M0', 'M6', 'M9_RF2'} else 'normal')
+                    fontweight='bold' if model in ANCHOR_MODELS else 'normal')
     ax.annotate('', xy=(209.9, 165.487), xytext=(118.7, 172.554),
                 arrowprops={'arrowstyle': '->', 'color': '#6B7280', 'lw': 1.2})
     ax.set_xlabel('Inference speed (FPS)')
@@ -114,12 +141,9 @@ def draw_bubble_chart():
     ax.set_xlim(55, 260)
     ax.set_ylim(178, 163.5)
     ax.grid(True, color='#E5E7EB', linewidth=0.75)
-    handles = [plt.Line2D([0], [0], marker=MODEL_MARKERS[row[0]], linestyle='', markersize=6,
-                          markerfacecolor=get_model_color(row[0]), markeredgecolor='none', label=row[0])
-               for row in VARIANTS]
-    ax.legend(handles=handles, loc='center left', bbox_to_anchor=(1.01, 0.5),
-              ncol=1, frameon=False, handlelength=0.7)
-    fig.tight_layout(rect=(0, 0, 0.88, 1))
+    ax.text(0.01, 0.02, 'Other points are identified by experiment ID in Table II.',
+            transform=ax.transAxes, fontsize=7.2, color='#475569')
+    fig.tight_layout()
     return save(fig, 'fig_accuracy_efficiency_bubble')
 
 
@@ -158,7 +182,7 @@ def draw_radar_chart():
         model = row[0]
         color = get_model_color(model)
         values = np.r_[scores[model], scores[model][0]]
-        highlight = model in {'M0', 'M6', 'M9_RF2'}
+        highlight = model in ANCHOR_MODELS
         line, = ax.plot(closed_angles, values, color=color,
                         marker=MODEL_MARKERS[model], linestyle=MODEL_LINESTYLES[model],
                         linewidth=2.4 if highlight else 1.0,

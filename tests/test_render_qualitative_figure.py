@@ -104,9 +104,9 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             titles,
             [
                 'Ground Truth',
-                'M0: Person-in-WiFi 3D',
-                'M3: Draft-to-Refine Rectified Flow with Transformer',
-                'M4: Draft-to-Refine Rectified Flow with Mamba',
+                'M0: PETR Reference',
+                'M3: Mamba-2 PETR',
+                'M4: Transformer Draft',
             ])
 
     def test_only_full_paper_model_titles_receive_palette_accents(self):
@@ -126,25 +126,24 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             module._panel_colors(3),
             ['#1f77b4', '#2ca02c', '#ff7f0e'])
 
-    def test_resolve_full_paper_assets_uses_expected_configs_and_checkpoints(self):
+    def test_full_paper_asset_metadata_keeps_stable_experiment_references(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)
 
-        assets = [
-            module.resolve_full_paper_model_asset(ROOT, model_id)
-            for model_id in ('M0', 'M7', 'M9_RF2')
-        ]
-
         self.assertEqual(
-            [asset['config'].name for asset in assets],
+            [module.FULL_PAPER_MODEL_PATHS[model_id]['config'].split('/')[-1]
+             for model_id in ('M0', 'M7', 'M9_RF2')],
             [
                 'petr_wifi.py',
                 'wi_tidir_wifi_transformer.py',
                 'wi_tidir_wifi_mamba2_flattened_eval_rf_2step.py',
             ])
         self.assertEqual(
-            [asset['checkpoint'].parent.name for asset in assets],
+            [module.FULL_PAPER_MODEL_PATHS[model_id]['checkpoint'].split('/')[-2]
+             for model_id in ('M0', 'M7', 'M9_RF2')],
             ['M0', 'M7', 'M9'])
-        self.assertTrue(all(asset['checkpoint'].name == 'latest.pth' for asset in assets))
+        self.assertTrue(all(
+            module.FULL_PAPER_MODEL_PATHS[model_id]['checkpoint'].endswith('latest.pth')
+            for model_id in ('M0', 'M7', 'M9_RF2')))
 
     def test_match_predictions_rejects_assignment_over_500_mm(self):
         module = _load_module('render_qualitative_figure', SCRIPT_PATH)

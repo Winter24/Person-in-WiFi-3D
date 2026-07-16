@@ -11,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from tools.analysis.model_palette import get_model_color
+from tools.analysis.model_labels import PUBLIC_MODEL_LABELS
 
 
 DEFAULT_PAPER_DIR = PROJECT_ROOT / 'work_dirs' / 'paper_M1-5'
@@ -24,15 +25,7 @@ DEFAULT_FULL_PAPER_OUTPUT_PREFIX = FULL_PAPER_FIGURE_DIR / 'fig_qualitative_full
 DEFAULT_FULL_PAPER_RGB_DIR = FULL_PAPER_FIGURE_DIR / 'qualitative_rgb'
 FULL_PAPER_SAMPLE_INDICES = [231, 7218, 4416]
 FULL_PAPER_SAMPLE_NAMES = ['S11_06_319', 'S52_40_322', 'S23_12_337']
-MODEL_DISPLAY_NAMES = {
-    'M0': 'Person-in-WiFi 3D',
-    'M1': 'Person-in-WiFi 3D + Spectral Tokens',
-    'M2': 'Person-in-WiFi 3D + Mamba',
-    'M3': 'Draft-to-Refine Rectified Flow with Transformer',
-    'M4': 'Draft-to-Refine Rectified Flow with Mamba',
-    'M7': 'Transformer + Flow',
-    'M9_RF2': 'Mamba2 + Flow (2-step)',
-}
+MODEL_DISPLAY_NAMES = dict(PUBLIC_MODEL_LABELS)
 FULL_PAPER_MODEL_PATHS = {
     'M0': {
         'config': 'work_dirs/full_alation_20e/M0/petr_wifi.py',
