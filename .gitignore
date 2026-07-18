@@ -18,6 +18,7 @@
 
 # Local automation / scratch state
 /.superpowers/
+/.worktrees/
 /tmp/
 
 # LaTeX build artifacts for the ResFes manuscript.
