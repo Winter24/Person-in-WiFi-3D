@@ -5,7 +5,7 @@ module centralizes the functional names shown in the manuscript and figures.
 """
 
 PUBLIC_MODEL_LABELS = {
-    'M0': 'PETR Reference',
+    'M0': 'Transformer-PETR Control',
     'M1': 'Spectral PETR',
     'M2': 'Mamba PETR',
     'M3': 'Mamba-2 PETR',
@@ -19,7 +19,7 @@ PUBLIC_MODEL_LABELS = {
 }
 
 SHORT_MODEL_LABELS = {
-    'M0': 'PETR\nRef.',
+    'M0': 'Trans.-PETR\nControl',
     'M1': 'Spec.\nPETR',
     'M2': 'Mamba\nPETR',
     'M3': 'Mamba-2\nPETR',

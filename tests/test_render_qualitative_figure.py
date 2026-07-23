@@ -104,7 +104,7 @@ class TestRenderQualitativeFigure(unittest.TestCase):
             titles,
             [
                 'Ground Truth',
-                'M0: PETR Reference',
+                'M0: Transformer-PETR Control',
                 'M3: Mamba-2 PETR',
                 'M4: Transformer Draft',
             ])

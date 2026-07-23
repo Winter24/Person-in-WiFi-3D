@@ -9,7 +9,8 @@ class TestModelLabels(unittest.TestCase):
             short_label,
         )
 
-        self.assertEqual(display_label('M0'), 'PETR Reference')
+        self.assertEqual(display_label('M0'), 'Transformer-PETR Control')
+        self.assertEqual(short_label('M0'), 'Trans.-PETR\nControl')
         self.assertEqual(display_label('M9_RF2'), 'Mamba-2 Flow (2 steps)')
         self.assertEqual(short_label('M9_RF2'), 'Mamba-2\nFlow 2')
         self.assertNotIn('WiTiDAR', PUBLIC_MODEL_LABELS['M6'])

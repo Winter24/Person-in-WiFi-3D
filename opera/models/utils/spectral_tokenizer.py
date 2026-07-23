@@ -1,19 +1,27 @@
 import torch
 import torch.nn as nn
-import torch.fft
 from mmdet.models.builder import BACKBONES as MMDET_BACKBONES
 
 from ..builder import BACKBONES as OPERA_BACKBONES
 
 
+TOKENIZER_MODES = (
+    'linear',
+    'linear_ln',
+    'temporal_residual',
+    'spectral_gate_residual',
+    'spectral',
+)
+
+
 @MMDET_BACKBONES.register_module()
 @OPERA_BACKBONES.register_module()
 class WifiInputAdapter(nn.Module):
-    """Doppler-Guided Wi-Fi Input Adapter.
-    
-    Tận dụng biến đổi FFT để trích xuất Hồ sơ chuyển động (Doppler Profile).
-    Dùng hồ sơ này để tạo ra Attention Mask (Gating) loại bỏ nhiễu tĩnh (Multipath),
-    mà KHÔNG làm thay đổi cấu trúc pha (Phase) không gian của tín hiệu gốc.
+    """Spectrally conditioned temporal residual tokenizer.
+
+    ``spectral`` preserves the established checkpoint structure while the
+    other modes isolate normalization, temporal convolution, and spectral
+    gating for controlled component ablations.
     """
 
     def __init__(self,
@@ -24,8 +32,9 @@ class WifiInputAdapter(nn.Module):
                  seq_len=20,
                  kernel_size=5):
         super().__init__()
-        if mode not in ('linear', 'spectral'):
-            raise ValueError(f"Unsupported mode: {mode}")
+        if mode not in TOKENIZER_MODES:
+            raise ValueError(
+                f'Unsupported mode: {mode}. Expected one of {TOKENIZER_MODES}.')
 
         self.in_channels = in_channels
         self.embed_dims = embed_dims
@@ -34,26 +43,32 @@ class WifiInputAdapter(nn.Module):
         self.seq_len = seq_len
         self.head = nn.Linear(in_channels, embed_dims)
 
-        if self.mode == 'spectral':
-            # Depthwise Conv1d: Làm mượt tín hiệu thời gian mà KHÔNG trộn lẫn các kênh
+        self.uses_temporal_branch = mode in ('temporal_residual', 'spectral')
+        self.uses_spectral_gate = mode in ('spectral_gate_residual', 'spectral')
+        self.uses_residual_correction = mode in (
+            'temporal_residual', 'spectral_gate_residual', 'spectral')
+
+        if self.uses_temporal_branch:
             self.time_conv = nn.Conv1d(
                 in_channels=embed_dims,
                 out_channels=embed_dims,
                 kernel_size=kernel_size,
                 padding=kernel_size // 2,
-                groups=embed_dims) # Depthwise
+                groups=embed_dims)
             self.time_act = nn.GELU()
 
-            # Mạng sinh Gate từ Doppler Profile (11 bins của RFFT từ 20 timesteps)
+        if self.uses_spectral_gate:
             fft_bins = self.seq_len // 2 + 1
             self.freq_gate = nn.Sequential(
                 nn.Linear(fft_bins, fft_bins * 2),
                 nn.GELU(),
-                nn.Linear(fft_bins * 2, self.seq_len) # Trả về 20 trọng số cho 20 timestep
+                nn.Linear(fft_bins * 2, self.seq_len),
             )
 
-            # Lớp trộn kênh cuối cùng trước khi cộng vào gốc
+        if self.uses_residual_correction:
             self.channel_proj = nn.Linear(embed_dims, embed_dims)
+
+        if mode != 'linear':
             self.norm = nn.LayerNorm(embed_dims)
 
         self._init_weights()
@@ -63,93 +78,95 @@ class WifiInputAdapter(nn.Module):
         return self.head
 
     def _init_weights(self):
-        if self.mode != 'spectral':
-            return
+        if self.uses_temporal_branch:
+            nn.init.kaiming_normal_(
+                self.time_conv.weight, mode='fan_out', nonlinearity='relu')
+            if self.time_conv.bias is not None:
+                nn.init.constant_(self.time_conv.bias, 0)
 
-        nn.init.kaiming_normal_(self.time_conv.weight, mode='fan_out', nonlinearity='relu')
-        if self.time_conv.bias is not None:
-            nn.init.constant_(self.time_conv.bias, 0)
+        if self.uses_spectral_gate:
+            nn.init.xavier_uniform_(self.freq_gate[0].weight)
+            nn.init.constant_(self.freq_gate[0].bias, 0)
+            nn.init.xavier_uniform_(self.freq_gate[2].weight)
+            nn.init.constant_(self.freq_gate[2].bias, 0)
 
-        nn.init.xavier_uniform_(self.freq_gate[0].weight)
-        nn.init.constant_(self.freq_gate[0].bias, 0)
-        nn.init.xavier_uniform_(self.freq_gate[2].weight)
-        nn.init.constant_(self.freq_gate[2].bias, 0)
+        if self.uses_residual_correction:
+            nn.init.constant_(self.channel_proj.weight, 0.0)
+            nn.init.constant_(self.channel_proj.bias, 0.0)
 
-        # 🚀 ZERO-INIT: Bắt buộc lớp chiếu cuối cùng bằng 0 để xuất phát từ Baseline
-        nn.init.constant_(self.channel_proj.weight, 0.0)
-        nn.init.constant_(self.channel_proj.bias, 0.0)
+    def _validate_grouped_length(self, length):
+        expected = self.num_spatial * self.seq_len
+        if length != expected:
+            raise ValueError(
+                f'Grouped tokenizer modes require L = num_spatial * seq_len '
+                f'= {self.num_spatial} * {self.seq_len} = {expected}, got {length}.')
 
     def forward(self, x, return_debug=False):
-        # x shape: (B, 180, C)
-        B, L, C = x.shape
-        
-        # Đặc trưng gốc bảo toàn 100% pha Không gian (Spatial Phase / AoA)
+        batch_size, length, _ = x.shape
         x_linear = self.head(x)
 
         if self.mode == 'linear':
             if return_debug:
-                debug = {
-                    'x_lin': x_linear,
-                    'x_token': x_linear
+                return x_linear, {
+                    'x_linear': x_linear,
+                    'x_token': x_linear,
                 }
-                return x_linear, debug
             return x_linear
 
-        # Định hình lại: (B * 9, 20, Embed_Dims)
-        x_grid = x_linear.view(B * self.num_spatial, self.seq_len, self.embed_dims)
+        if self.mode == 'linear_ln':
+            x_token = self.norm(x_linear)
+            if return_debug:
+                return x_token, {
+                    'x_linear': x_linear,
+                    'x_token': x_token,
+                }
+            return x_token
 
-        # 1. TEMPORAL SMOOTHING
-        # (B*9, Embed_Dims, 20)
-        x_time = x_grid.permute(0, 2, 1).contiguous()
-        x_time = self.time_act(self.time_conv(x_time))
-        x_time_tokens = x_time.permute(0, 2, 1).contiguous()
+        self._validate_grouped_length(length)
+        x_grid = x_linear.view(
+            batch_size * self.num_spatial, self.seq_len, self.embed_dims)
 
-        # 2. DOPPLER MOTION PROFILE (FFT)
-        # Thực hiện RFFT dọc theo chiều thời gian (dim=1) của x_grid
-        # Kết quả: (B*9, 11, Embed_Dims)
-        x_fft = torch.fft.rfft(x_grid, dim=1, norm='ortho')
-        
-        # Lấy biên độ (Magnitude) -> Chính là cường độ chuyển động
-        x_fft_mag = torch.abs(x_fft)
-        
-        # Gộp dọc theo kênh để lấy Hồ sơ chuyển động tổng quát cho từng ăng-ten
-        doppler_profile = x_fft_mag.mean(dim=-1) # -> (B*9, 11)
+        if self.uses_temporal_branch:
+            temporal_channels = x_grid.permute(0, 2, 1).contiguous()
+            temporal_channels = self.time_act(self.time_conv(temporal_channels))
+            residual_branch = temporal_channels.permute(0, 2, 1).contiguous()
+        else:
+            temporal_channels = None
+            residual_branch = x_grid
 
-        # 3. FREQUENCY GATING (Doppler-Guided Attention)
-        # Đưa Doppler Profile qua MLP để sinh ra trọng số cho 20 timestep
-        time_gate = self.freq_gate(doppler_profile) # -> (B*9, 20)
-        time_gate = torch.sigmoid(time_gate)
-        time_gate_broadcast = time_gate.unsqueeze(1) # -> (B*9, 1, 20)
+        x_fft_magnitude = None
+        spectral_descriptor = None
+        temporal_gate = None
+        if self.uses_spectral_gate:
+            x_fft = torch.fft.rfft(x_grid, dim=1, norm='ortho')
+            x_fft_magnitude = torch.abs(x_fft)
+            spectral_descriptor = x_fft_magnitude.mean(dim=-1)
+            temporal_gate = torch.sigmoid(self.freq_gate(spectral_descriptor))
+            residual_branch = residual_branch * temporal_gate.unsqueeze(-1)
 
-        # 4. MODULATION & FUSION
-        # Nhân đặc trưng thời gian với Gating Mask (Lọc nhiễu tĩnh)
-        x_enhanced = x_time * time_gate_broadcast
-        
-        # Đưa về lại (B*9, 20, Embed_Dims)
-        x_enhanced = x_enhanced.permute(0, 2, 1).contiguous()
-        x_enhanced_grid = x_enhanced
-        
-        # Trộn kênh (Channel Mixing)
-        x_enhanced = self.channel_proj(x_enhanced)
-        
-        # Trả về shape gốc (B, 180, Embed_Dims)
-        x_enhanced = x_enhanced.view(B, L, self.embed_dims)
-
-        # Residual Connection
-        x_token = self.norm(x_linear + x_enhanced)
+        residual_correction_grid = self.channel_proj(residual_branch)
+        residual_correction = residual_correction_grid.view(
+            batch_size, length, self.embed_dims)
+        x_token = self.norm(x_linear + residual_correction)
 
         if return_debug:
             debug = {
-                'x_lin': x_linear,
+                'x_linear': x_linear,
                 'x_grid': x_grid,
-                'x_time': x_time_tokens,
-                'x_fft_mag': x_fft_mag,
-                'doppler_profile': doppler_profile,
-                'gate': time_gate,
-                'x_enhanced_grid': x_enhanced_grid,
-                'x_enhanced': x_enhanced,
-                'x_token': x_token
+                'residual_branch': residual_branch,
+                'residual_correction_grid': residual_correction_grid,
+                'residual_correction': residual_correction,
+                'x_token': x_token,
             }
+            if temporal_channels is not None:
+                debug['temporal_features'] = temporal_channels.permute(
+                    0, 2, 1).contiguous()
+            if spectral_descriptor is not None:
+                debug.update({
+                    'x_fft_magnitude': x_fft_magnitude,
+                    'spectral_descriptor': spectral_descriptor,
+                    'temporal_gate': temporal_gate,
+                })
             return x_token, debug
 
         return x_token
@@ -158,7 +175,16 @@ class WifiInputAdapter(nn.Module):
 @MMDET_BACKBONES.register_module()
 @OPERA_BACKBONES.register_module()
 class SpectralTokenizer(WifiInputAdapter):
-    def __init__(self, in_channels, embed_dims, seq_len=20, num_spatial=9, kernel_size=5):
+    def __init__(self,
+                 in_channels,
+                 embed_dims,
+                 seq_len=20,
+                 num_spatial=9,
+                 kernel_size=5):
         super().__init__(
-            in_channels=in_channels, embed_dims=embed_dims, mode='spectral',
-            num_spatial=num_spatial, seq_len=seq_len, kernel_size=kernel_size)
+            in_channels=in_channels,
+            embed_dims=embed_dims,
+            mode='spectral',
+            num_spatial=num_spatial,
+            seq_len=seq_len,
+            kernel_size=kernel_size)

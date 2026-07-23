@@ -12,25 +12,27 @@ import csv
 import json
 import math
 from pathlib import Path
+import sys
 from xml.sax.saxutils import escape
 
-DISPLAY_NAMES = {
-    'M0': 'M0',
-    'M1': 'M1',
-    'M2': 'M2',
-    'M3': 'M3',
-    'M4': 'M4',
-}
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.analysis.model_labels import display_label
 
 DEFAULT_ALIAS_PATH = Path(__file__).with_name('experiment_id_aliases.json')
 
 PAPER_TITLE = (
-    'FlowPose-WiFi Improves the WiFi Pose Accuracy-Efficiency Frontier'
+    'WiFi Pose Accuracy--Efficiency Trade-off'
 )
 
 
 def get_display_name(experiment_id):
-    return DISPLAY_NAMES.get(experiment_id, experiment_id)
+    try:
+        return display_label(experiment_id)
+    except KeyError:
+        return experiment_id
 
 
 def load_experiment_aliases(alias_path=None):

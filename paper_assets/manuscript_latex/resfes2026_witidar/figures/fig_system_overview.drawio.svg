@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2350" height="1280" viewBox="0 0 2350 1280">
+  <defs>
+    <style>
+      @page { size: 2350px 1280px; margin: 0; }
+      text { font-family: Arial, Helvetica, sans-serif; fill: #222; }
+      .heading { font-size: 34px; font-weight: 700; text-anchor: middle; }
+      .body { font-size: 27px; text-anchor: middle; }
+      .body24 { font-size: 24px; text-anchor: middle; }
+      .small { font-size: 21px; text-anchor: middle; }
+      .bold { font-weight: 700; }
+      .panel { stroke-width: 2; }
+      .box { fill: #fff; stroke: #444; stroke-width: 1.5; }
+      .edge { fill: none; stroke: #333; stroke-width: 2.5; marker-end: url(#arrow); }
+      .edge-blue { fill: none; stroke: #0072B2; stroke-width: 2.5; marker-end: url(#arrowBlue); }
+      .edge-pink { fill: none; stroke: #9B4F7A; stroke-width: 2.5; marker-end: url(#arrowPink); }
+      .skip { fill: none; stroke: #666; stroke-width: 1.75; stroke-dasharray: 8 6; marker-end: url(#arrowGray); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#333"/></marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#0072B2"/></marker>
+    <marker id="arrowPink" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#9B4F7A"/></marker>
+    <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#666"/></marker>
+  </defs>
+  <rect width="2350" height="1280" fill="#fff"/>
+
+  <!-- Headings -->
+  <text class="heading" x="130" y="58" style="font-size:28px"><tspan x="130">Preprocessed</tspan><tspan x="130" dy="34">CSI</tspan></text>
+  <text class="heading" x="497" y="78">Spectral Tokenizer</text>
+  <text class="heading" x="987" y="66"><tspan x="987">Flattened Mamba-2</tspan><tspan x="987" dy="38">sequence encoder</tspan></text>
+  <text class="heading" x="1445" y="78">Lightweight query-pose head</text>
+  <text class="heading" x="2030" y="58"><tspan x="2030">Conditional two-step</tspan><tspan x="2030" dy="38">flow refinement</tspan></text>
+
+  <!-- Panels -->
+  <rect class="panel" x="30" y="121.5" width="200" height="1127.5" rx="28" fill="#FFF8F2" stroke="#D55E00"/>
+  <rect class="panel" x="290" y="121.5" width="460" height="1127.5" rx="28" fill="#fff" stroke="#E69F00"/>
+  <rect class="panel" x="810" y="121.5" width="340" height="1127.5" rx="28" fill="#fff" stroke="#009E73"/>
+  <rect class="panel" x="1210" y="121.5" width="470" height="1127.5" rx="28" fill="#F5FAFD" stroke="#0072B2"/>
+  <rect class="panel" x="1740" y="121.5" width="580" height="1127.5" rx="28" fill="#FFF8FC" stroke="#CC79A7"/>
+
+  <!-- CSI stack -->
+  <polygon points="78,373 146,373 132,538 64,538" fill="#FBE5D6" stroke="#D55E00" stroke-width="1.5"/>
+  <polygon points="88,368 156,368 142,533 74,533" fill="#FBE5D6" stroke="#D55E00" stroke-width="1.5"/>
+  <polygon points="98,363 166,363 152,528 84,528" fill="#FBE5D6" stroke="#D55E00" stroke-width="1.5"/>
+  <polygon points="108,358 176,358 162,523 94,523" fill="#FBE5D6" stroke="#D55E00" stroke-width="1.5"/>
+  <polygon points="118,353 186,353 172,518 104,518" fill="#FBE5D6" stroke="#D55E00" stroke-width="1.5"/>
+  <text class="body24" x="130" y="790">B × 3 × 3 × 20 × 60</text>
+  <text class="body24" x="130" y="880"><tspan x="130">9 spatial groups</tspan><tspan x="130" dy="31">× 20 time steps</tspan></text>
+
+  <!-- Tokenizer nodes -->
+  <rect class="box" x="397" y="139" width="200" height="92.5" rx="14"/>
+  <text class="body" x="497" y="175"><tspan x="497">Linear projection</tspan><tspan x="497" dy="32">60 → 256</tspan></text>
+  <rect class="box" x="327" y="267.75" width="155" height="132.5" rx="14"/>
+  <text class="body24" x="404.5" y="305"><tspan x="404.5">Depthwise temporal</tspan><tspan x="404.5" dy="30">Conv1D</tspan><tspan x="404.5" dy="30">k = 5</tspan></text>
+  <rect class="box" x="512" y="269.5" width="155" height="65" rx="13"/>
+  <text class="small" x="589.5" y="294"><tspan x="589.5">20-point RFFT</tspan><tspan x="589.5" dy="25">11-bin magnitude</tspan></text>
+  <rect class="box" x="527" y="369" width="125" height="99.5" rx="14"/>
+  <text class="small" x="589.5" y="398"><tspan x="589.5">Mean over</tspan><tspan x="589.5" dy="25">256 channels</tspan></text>
+  <rect class="box" x="356" y="496.75" width="97" height="54.5" rx="12"/>
+  <text class="body" x="404.5" y="532">GELU</text>
+  <rect class="box" x="488" y="498.75" width="203" height="97.5" rx="14"/>
+  <text class="body24" x="589.5" y="535"><tspan x="589.5">Gate MLP</tspan><tspan x="589.5" dy="31">11 → 22 → 20</tspan></text>
+  <text class="body24" x="347" y="606">Z̃</text>
+  <rect class="box" x="532" y="636.5" width="115" height="42" rx="11"/>
+  <text class="body24" x="589.5" y="665">Sigmoid</text>
+  <text class="small" x="475" y="702">gₛ ∈ ℝ²⁰</text>
+  <rect class="box" x="383" y="719" width="228" height="82.5" rx="14"/>
+  <text class="body" x="497" y="770">gₛ ⊙ Z̃ₛ</text>
+  <rect class="box" x="409.5" y="826.9" width="175" height="106.8" rx="14"/>
+  <text class="body24" x="497" y="866"><tspan x="497">Channel projection</tspan><tspan x="497" dy="31">W<tspan baseline-shift="sub" font-size="17">c</tspan></tspan></text>
+  <circle cx="497" cy="979" r="22.5" fill="#FFF0C7" stroke="#E69F00" stroke-width="2"/>
+  <text class="body bold" x="497" y="988">+</text>
+  <rect class="box" x="409.5" y="1033.5" width="175" height="42" rx="11"/>
+  <text class="body24" x="497" y="1062">LayerNorm</text>
+  <rect x="336.75" y="1099" width="320.5" height="109.5" rx="16" fill="#FFF0C7" stroke="#E69F00" stroke-width="1.5"/>
+  <text class="body24 bold" x="497" y="1163">Z<tspan baseline-shift="sub" font-size="17">spec</tspan> ∈ ℝ<tspan baseline-shift="super" font-size="16">9×20×256</tspan></text>
+
+  <!-- Tokenizer edges -->
+  <path class="edge" d="M230 185 L394 185"/>
+  <text class="small bold" x="260" y="173">X</text>
+  <path class="edge" d="M455 231.5 L404.5 264"/>
+  <path class="edge" d="M539 231.5 L589.5 266"/>
+  <path class="edge" d="M404.5 400.25 L404.5 493"/>
+  <path class="edge" d="M589.5 334.5 L589.5 366"/>
+  <path class="edge" d="M589.5 468.5 L589.5 495"/>
+  <path class="edge" d="M589.5 596.25 L589.5 633"/>
+  <path class="edge" d="M404.5 551.25 L404.5 690 L497 690 L497 716"/>
+  <path class="edge" d="M589.5 678.5 L589.5 690 L520 690 L520 716"/>
+  <path class="edge" d="M497 801.5 L497 823"/>
+  <path class="edge" d="M497 933.7 L497 953"/>
+  <path class="skip" d="M597 185 L720 185 L720 979 L522 979"/>
+  <path class="edge" d="M497 1001.5 L497 1030"/>
+  <path class="edge" d="M497 1075.5 L497 1096"/>
+
+  <!-- Encoder nodes -->
+  <rect class="box" x="840" y="160" width="270" height="77.5" rx="14"/>
+  <text class="body24" x="975" y="190"><tspan x="975">Spatial-major input</tspan><tspan x="975" dy="31">9 × 20 = 180 tokens</tspan></text>
+  <text class="body24" x="975" y="292">H⁰ ∈ ℝ¹⁸⁰ˣ²⁵⁶</text>
+  <rect class="box" x="880" y="330" width="190" height="40" rx="11"/>
+  <text class="body24" x="975" y="358">LayerNorm</text>
+  <rect class="box" x="880" y="429.5" width="190" height="40" rx="11"/>
+  <text class="body24" x="975" y="458">π<tspan baseline-shift="sub" font-size="17">time</tspan></text>
+  <rect class="box" x="839.5" y="520" width="270.5" height="208.5" rx="22"/>
+  <text class="body24" x="975" y="565">
+    <tspan class="bold" x="975">Mamba-2 block × 3</tspan>
+    <tspan x="975" dy="45">d<tspan baseline-shift="sub" font-size="17">state</tspan> = 64; d<tspan baseline-shift="sub" font-size="17">conv</tspan> = 4</tspan>
+    <tspan x="975" dy="34">expand = 2</tspan>
+    <tspan x="975" dy="34">head dimension = 64</tspan>
+  </text>
+  <rect class="box" x="880" y="772.5" width="190" height="40" rx="11"/>
+  <text class="body24" x="975" y="800">π<tspan baseline-shift="sub" font-size="17">time</tspan><tspan baseline-shift="super" font-size="16">−1</tspan></text>
+  <rect class="box" x="879.75" y="866.5" width="190" height="40" rx="11"/>
+  <text class="body24" x="975" y="894">Dropout 0.1</text>
+  <circle cx="975" cy="969.2" r="22.5" fill="#D9F2E8" stroke="#009E73" stroke-width="2"/>
+  <text class="body bold" x="975" y="978">+</text>
+  <rect class="box" x="880" y="1040" width="190" height="72.5" rx="14"/>
+  <text class="body24" x="975" y="1085">Final LayerNorm</text>
+  <rect x="865" y="1154.5" width="220" height="40" rx="11" fill="#D9F2E8" stroke="#009E73" stroke-width="1.5"/>
+  <text class="body24 bold" x="975" y="1182">H ∈ ℝ¹⁸⁰ˣ²⁵⁶</text>
+
+  <!-- Encoder edges -->
+  <path class="edge" d="M657.25 1154 L780 1154 L780 199 L837 199"/>
+  <text class="small bold" x="785" y="182">180 tokens</text>
+  <path class="edge" d="M975 237.5 L975 327"/>
+  <path class="edge" d="M975 370 L975 426"/>
+  <path class="edge" d="M975 469.5 L975 517"/>
+  <path class="edge" d="M975 728.5 L975 769"/>
+  <path class="edge" d="M975 812.5 L975 863"/>
+  <path class="edge" d="M975 906.5 L975 943"/>
+  <path class="skip" d="M840 199 L825 199 L825 969 L949 969"/>
+  <path class="edge" d="M975 991.7 L975 1037"/>
+  <path class="edge" d="M975 1112.5 L975 1151"/>
+
+  <!-- Compact query-pose head -->
+  <rect x="1270" y="170" width="330" height="90" rx="15" fill="#D9ECF7" stroke="#0072B2" stroke-width="1.75"/>
+  <text class="body" x="1435" y="207"><tspan class="bold" x="1435">Learned pose queries</tspan><tspan x="1435" dy="34">Q ∈ ℝ¹⁰⁰ˣ²⁵⁶</tspan></text>
+  <rect x="1260" y="330" width="350" height="110" rx="16" fill="#fff" stroke="#0072B2" stroke-width="1.75"/>
+  <text class="body24" x="1435" y="370"><tspan class="bold" x="1435">8-head cross-attention</tspan><tspan x="1435" dy="33">queries Q attend to memory H</tspan></text>
+  <rect x="1245" y="500" width="380" height="105" rx="16" fill="#fff" stroke="#0072B2" stroke-width="1.75"/>
+  <text class="body24" x="1435" y="535"><tspan x="1435">qᵢ★ = LN(qᵢˡᵉᵃʳⁿᵉᵈ +</tspan><tspan x="1435" dy="34">Attn(qᵢˡᵉᵃʳⁿᵉᵈ,H,H)) ∈ ℝ²⁵⁶</tspan></text>
+  <rect x="1235" y="665" width="400" height="310" rx="20" fill="#EAF4FA" stroke="#0072B2" stroke-width="1.75"/>
+  <text class="body bold" x="1435" y="707">Parallel query outputs</text>
+  <rect x="1260" y="730" width="350" height="64" rx="13" fill="#fff" stroke="#005A8D" stroke-width="1.5"/>
+  <text class="body24" x="1435" y="755"><tspan class="bold" x="1435">Person score</tspan><tspan x="1435" dy="27">sᵢ = σ(Linear(qᵢ★))</tspan></text>
+  <rect x="1260" y="820" width="350" height="64" rx="13" fill="#fff" stroke="#005A8D" stroke-width="1.5"/>
+  <text class="body24" x="1435" y="845"><tspan class="bold" x="1435">Draft pose MLP</tspan><tspan class="small" x="1435" dy="27">256 → 256 → 256 → 42; p̂ᵢᵈʳᵃᶠᵗ ∈ ℝ⁴²</tspan></text>
+  <rect x="1260" y="910" width="350" height="64" rx="13" fill="#fff" stroke="#005A8D" stroke-width="1.5"/>
+  <text class="body24" x="1435" y="935"><tspan class="bold" x="1435">Flow condition (identity)</tspan><tspan x="1435" dy="27">cᵢ = qᵢ★ ∈ ℝ²⁵⁶</tspan></text>
+  <rect x="1260" y="1055" width="350" height="105" rx="16" fill="#D9ECF7" stroke="#0072B2" stroke-width="1.75"/>
+  <text class="body24" x="1435" y="1090"><tspan class="bold" x="1435">Score ranking; retain K = 100</tspan><tspan class="bold" x="1435" dy="40">(sᵢ, x₀ = p̂ᵢᵈʳᵃᶠᵗ, cᵢ)</tspan></text>
+
+  <!-- Query-head edges -->
+  <path class="edge" d="M1085 1174.5 L1180 1174.5 L1180 385 L1257 385"/>
+  <text class="small bold" x="1190" y="372">H</text>
+  <path class="edge-blue" d="M1435 260 L1435 327"/>
+  <path class="edge-blue" d="M1435 440 L1435 497"/>
+  <path class="edge-blue" d="M1435 605 L1435 662"/>
+  <path class="edge-blue" d="M1435 975 L1435 1052"/>
+
+  <!-- Compact flow -->
+  <rect x="1820" y="170" width="420" height="100" rx="16" fill="#F6DDEB" stroke="#CC79A7" stroke-width="1.75"/>
+  <text class="body24" x="2030" y="207"><tspan class="bold" x="2030">Per-query flow input</tspan><tspan x="2030" dy="36">x₀ = p̂ᵢᵈʳᵃᶠᵗ ∈ ℝ⁴²,  cᵢ ∈ ℝ²⁵⁶</tspan></text>
+  <rect x="1800" y="350" width="460" height="190" rx="20" fill="#fff" stroke="#9B4F7A" stroke-width="1.75"/>
+  <text class="body24" x="2030" y="390">
+    <tspan class="bold" x="2030">Shared conditional VelocityMLP</tspan>
+    <tspan class="bold" x="2030" dy="35">vθ(xₜ, t, cᵢ)</tspan>
+    <tspan x="2030" dy="37">42-D pose + 256-D condition + 64-D time</tspan>
+    <tspan x="2030" dy="34">362 → 512 → 3 residual MLP blocks → 42</tspan>
+  </text>
+  <rect x="1850" y="557" width="360" height="58" rx="11" fill="#F6DDEB" stroke="#CC79A7" stroke-width="1.25"/>
+  <text class="small" x="2030" y="579"><tspan x="2030">shared weights · two calls</tspan><tspan x="2030" dy="23">independent per ranked query</tspan></text>
+  <rect x="1790" y="650" width="480" height="115" rx="16" fill="#fff" stroke="#9B4F7A" stroke-width="1.75"/>
+  <text class="body24" x="2030" y="690"><tspan class="bold" x="2030">Two-step Euler update</tspan><tspan x="2030" dy="40">xₖ₊₁ = xₖ + 0.5 vθ(xₖ, k/2, cᵢ),  k ∈ {0,1}</tspan></text>
+  <circle cx="1860" cy="880" r="50" fill="#fff" stroke="#9B4F7A" stroke-width="2"/>
+  <text class="body" x="1860" y="875"><tspan class="bold" x="1860">x₀</tspan><tspan class="small" x="1860" dy="28">draft</tspan></text>
+  <circle cx="2030" cy="880" r="50" fill="#fff" stroke="#9B4F7A" stroke-width="2"/>
+  <text class="body" x="2030" y="875"><tspan class="bold" x="2030">x₀.₅</tspan><tspan class="small" x="2030" dy="28">intermediate</tspan></text>
+  <circle cx="2200" cy="880" r="50" fill="#F6DDEB" stroke="#9B4F7A" stroke-width="2"/>
+  <text class="body" x="2200" y="875"><tspan class="bold" x="2200">x₁</tspan><tspan class="small" x="2200" dy="28">refined</tspan></text>
+  <rect x="1810" y="1040" width="440" height="135" rx="18" fill="#F6DDEB" stroke="#CC79A7" stroke-width="1.75"/>
+  <text class="body24" x="2030" y="1077">
+    <tspan class="bold" x="2030">Score-ranked refined 3-D poses</tspan>
+    <tspan class="bold" x="2030" dy="37">(sᵢ, p̂ᵢʳᵉᶠ = x₁ ∈ ℝ⁴²)</tspan>
+    <tspan class="small" x="2030" dy="31">sᵢ is retained for output ranking</tspan>
+  </text>
+
+  <!-- Flow edges -->
+  <path class="edge" d="M1610 1107.5 L1710 1107.5 L1710 220 L1817 220"/>
+  <rect x="1682" y="204" width="57" height="28" rx="5" fill="#fff"/>
+  <text class="small bold" x="1710" y="226">(x₀,cᵢ)</text>
+  <path class="edge-pink" d="M2030 270 L2030 347"/>
+  <path class="edge-pink" d="M2030 540 L2030 647"/>
+  <path class="skip" d="M1820 220 L1770 220 L1770 800 L1860 800 L1860 827"/>
+  <path class="edge-pink" d="M1910 880 L1977 880"/>
+  <rect x="1918" y="842" width="52" height="30" rx="5" fill="#fff"/>
+  <text class="small bold" x="1944" y="864">t=0</text>
+  <path class="edge-pink" d="M2080 880 L2147 880"/>
+  <rect x="2084" y="842" width="60" height="30" rx="5" fill="#fff"/>
+  <text class="small bold" x="2114" y="864">t=0.5</text>
+  <path class="edge-pink" d="M2200 930 L2200 985 L2030 985 L2030 1037"/>
+</svg>

@@ -18,7 +18,7 @@ if PROJECT_ROOT not in sys.path:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Export spectral-adapter debug panels from M1-M4 style WiFi backbones.')
+        description='Export computational traces from a trained spectral tokenizer.')
     parser.add_argument('config', help='Path to model config file.')
     parser.add_argument(
         '--checkpoint',
@@ -57,9 +57,9 @@ def parse_args():
         help='Feature dimension index, or "auto" to select the most dynamic channel.')
     parser.add_argument(
         '--token-source',
-        choices=['x_token', 'x_enhanced_grid'],
-        default='x_enhanced_grid',
-        help='Source tensor for the final token-map heatmap. x_enhanced_grid is more slide-friendly.')
+        choices=['x_token', 'residual_correction_grid'],
+        default='residual_correction_grid',
+        help='Source tensor for the final activation heatmap.')
     parser.add_argument(
         '--topk-features',
         type=int,
@@ -137,15 +137,15 @@ def choose_spatial_index(debug, num_spatial, requested):
             raise ValueError(f'spatial-index must be in [0, {num_spatial - 1}].')
         return index
 
-    doppler = debug['doppler_profile']
-    batch_size = doppler.shape[0] // num_spatial
-    doppler = doppler.view(batch_size, num_spatial, -1)
-    motion_energy = doppler[0].sum(dim=-1)
-    return int(torch.argmax(motion_energy).item())
+    descriptor = debug['spectral_descriptor']
+    batch_size = descriptor.shape[0] // num_spatial
+    descriptor = descriptor.view(batch_size, num_spatial, -1)
+    descriptor_energy = descriptor[0].sum(dim=-1)
+    return int(torch.argmax(descriptor_energy).item())
 
 
 def choose_feature_index(debug, num_spatial, seq_len, requested, spatial_index):
-    x_time = debug['x_time']
+    x_time = debug['temporal_features']
     batch_size = x_time.shape[0] // num_spatial
     x_time = x_time.view(batch_size, num_spatial, seq_len, -1)[0, spatial_index]
 
@@ -166,9 +166,20 @@ def choose_topk_features(token_tensor, topk_features):
     return order[:topk]
 
 
-def make_output_path(output_dir, prefix, name):
-    filename = f'{prefix}_{name}.png' if prefix else f'{name}.png'
+def make_output_base(output_dir, prefix, name):
+    filename = f'{prefix}_{name}' if prefix else name
     return os.path.join(output_dir, filename)
+
+
+def save_figure(fig, output_base, dpi):
+    paths = {
+        'png': f'{output_base}.png',
+        'pdf': f'{output_base}.pdf',
+    }
+    fig.savefig(paths['png'], dpi=dpi, bbox_inches='tight')
+    fig.savefig(paths['pdf'], bbox_inches='tight')
+    plt.close(fig)
+    return paths
 
 
 def robust_limits(array, lower_q=1, upper_q=99):
@@ -183,7 +194,7 @@ def robust_limits(array, lower_q=1, upper_q=99):
     return lower, upper
 
 
-def save_line_plot(values, title, xlabel, ylabel, output_path, dpi, color):
+def save_line_plot(values, title, xlabel, ylabel, output_base, dpi, color):
     fig, ax = plt.subplots(figsize=(4.4, 2.8))
     ax.plot(np.arange(len(values)), values, linewidth=2.0, color=color)
     ax.set_title(title, fontsize=11)
@@ -191,11 +202,10 @@ def save_line_plot(values, title, xlabel, ylabel, output_path, dpi, color):
     ax.set_ylabel(ylabel)
     ax.grid(alpha=0.25)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
-    plt.close(fig)
+    return save_figure(fig, output_base, dpi)
 
 
-def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap,
+def save_heatmap(image, title, xlabel, ylabel, output_base, dpi, cmap,
                  vmin=None, vmax=None, highlight_row=None):
     if vmin is None or vmax is None:
         vmin, vmax = robust_limits(image)
@@ -214,11 +224,10 @@ def save_heatmap(image, title, xlabel, ylabel, output_path, dpi, cmap,
     ax.set_ylabel(ylabel)
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
-    plt.close(fig)
+    return save_figure(fig, output_base, dpi)
 
 
-def save_gate_trajectories(gate_image, selected_index, output_path, dpi):
+def save_gate_trajectories(gate_image, selected_index, output_base, dpi):
     fig, ax = plt.subplots(figsize=(4.8, 3.0))
     x = np.arange(gate_image.shape[1])
     for idx in range(gate_image.shape[0]):
@@ -238,31 +247,32 @@ def save_gate_trajectories(gate_image, selected_index, output_path, dpi):
     ax.grid(alpha=0.2)
     ax.legend(loc='upper right')
     fig.tight_layout()
-    fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
-    plt.close(fig)
+    return save_figure(fig, output_base, dpi)
 
 
-def save_slide_triptych(doppler_image,
+def save_diagnostic_triptych(descriptor_image,
                         gate_image,
-                        token_image,
+                        correction_image,
                         sample_name,
                         spatial_index,
-                        output_path,
+                        output_base,
                         dpi):
-    doppler_vmin, doppler_vmax = robust_limits(doppler_image, lower_q=2, upper_q=99)
-    token_vmin, token_vmax = robust_limits(token_image, lower_q=2, upper_q=98)
+    descriptor_vmin, descriptor_vmax = robust_limits(
+        descriptor_image, lower_q=2, upper_q=99)
+    correction_vmin, correction_vmax = robust_limits(
+        correction_image, lower_q=2, upper_q=98)
 
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 3.9))
 
     im0 = axes[0].imshow(
-        doppler_image,
+        descriptor_image,
         aspect='auto',
         origin='lower',
         cmap='magma',
-        vmin=doppler_vmin,
-        vmax=doppler_vmax)
+        vmin=descriptor_vmin,
+        vmax=descriptor_vmax)
     axes[0].axhline(spatial_index, color='white', linestyle='--', linewidth=1.0, alpha=0.9)
-    axes[0].set_title('Doppler magnitude profile', fontsize=12)
+    axes[0].set_title('Projected-feature spectral descriptor', fontsize=12)
     axes[0].set_xlabel('Frequency bin')
     axes[0].set_ylabel('Spatial link')
     fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
@@ -275,27 +285,28 @@ def save_slide_triptych(doppler_image,
         vmin=0.0,
         vmax=1.0)
     axes[1].axhline(spatial_index, color='white', linestyle='--', linewidth=1.0, alpha=0.9)
-    axes[1].set_title('Doppler-guided temporal gate', fontsize=12)
+    axes[1].set_title('Learned per-link temporal gate', fontsize=12)
     axes[1].set_xlabel('Timestep')
     axes[1].set_ylabel('Spatial link')
     fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
 
     im2 = axes[2].imshow(
-        token_image,
+        correction_image,
         aspect='auto',
         origin='lower',
         cmap='viridis',
-        vmin=token_vmin,
-        vmax=token_vmax)
-    axes[2].set_title('Motion-aware token map', fontsize=12)
+        vmin=correction_vmin,
+        vmax=correction_vmax)
+    axes[2].set_title('Residual correction activation', fontsize=12)
     axes[2].set_xlabel('Timestep')
     axes[2].set_ylabel('Top dynamic feature channels')
     fig.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
 
-    fig.suptitle(f'Spectral adapter debug | sample={sample_name} | spatial link={spatial_index}', fontsize=13)
+    fig.suptitle(
+        f'Spectral tokenizer trace | sample={sample_name} | spatial link={spatial_index}',
+        fontsize=13)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=dpi, bbox_inches='tight')
-    plt.close(fig)
+    return save_figure(fig, output_base, dpi)
 
 
 def main():
@@ -310,7 +321,7 @@ def main():
 
     if getattr(backbone, 'mode', None) != 'spectral':
         raise RuntimeError(
-            'This script expects a spectral M1-M4 style adapter. '
+            'This script expects a backbone using spectral tokenizer mode. '
             f'Current backbone mode is {getattr(backbone, "mode", None)!r}.')
 
     sample, dataset_root, dataset_mode = load_sample(
@@ -326,98 +337,103 @@ def main():
     feature_index = choose_feature_index(
         debug, backbone.num_spatial, backbone.seq_len, args.feature_index, spatial_index)
 
-    x_time = debug['x_time'].view(
+    x_time = debug['temporal_features'].view(
         img.shape[0], backbone.num_spatial, backbone.seq_len, backbone.embed_dims)
-    x_fft_mag = debug['x_fft_mag'].view(
+    x_fft_magnitude = debug['x_fft_magnitude'].view(
         img.shape[0],
         backbone.num_spatial,
         backbone.seq_len // 2 + 1,
         backbone.embed_dims)
-    doppler_profile = debug['doppler_profile'].view(
+    spectral_descriptor = debug['spectral_descriptor'].view(
         img.shape[0], backbone.num_spatial, backbone.seq_len // 2 + 1)
-    gate = debug['gate'].view(
+    gate = debug['temporal_gate'].view(
         img.shape[0], backbone.num_spatial, backbone.seq_len)
 
     if args.token_source == 'x_token':
         token_map = debug['x_token'].view(
             img.shape[0], backbone.num_spatial, backbone.seq_len, backbone.embed_dims)
     else:
-        token_map = debug['x_enhanced_grid'].view(
+        token_map = debug['residual_correction_grid'].view(
             img.shape[0], backbone.num_spatial, backbone.seq_len, backbone.embed_dims)
 
     time_values = tensor_to_numpy(x_time[0, spatial_index, :, feature_index])
-    freq_values = tensor_to_numpy(x_fft_mag[0, spatial_index, :, feature_index])
-    doppler_image = tensor_to_numpy(doppler_profile[0])
+    freq_values = tensor_to_numpy(
+        x_fft_magnitude[0, spatial_index, :, feature_index])
+    descriptor_image = tensor_to_numpy(spectral_descriptor[0])
     gate_image = tensor_to_numpy(gate[0])
 
     token_block = tensor_to_numpy(token_map[0, spatial_index])
     top_feature_indices = choose_topk_features(token_block, args.topk_features)
     token_image = token_block[:, top_feature_indices].transpose(1, 0)
 
-    time_path = make_output_path(output_dir, args.prefix, 'time_domain_signal')
-    freq_path = make_output_path(output_dir, args.prefix, 'frequency_spectrum')
-    doppler_path = make_output_path(output_dir, args.prefix, 'doppler_profile')
-    gate_path = make_output_path(output_dir, args.prefix, 'temporal_gate')
-    gate_curve_path = make_output_path(output_dir, args.prefix, 'temporal_gate_trajectories')
-    token_path = make_output_path(output_dir, args.prefix, 'motion_aware_token_map')
-    triptych_path = make_output_path(output_dir, args.prefix, 'spectral_slide_triptych')
+    time_base = make_output_base(output_dir, args.prefix, 'projected_temporal_feature')
+    freq_base = make_output_base(output_dir, args.prefix, 'projected_feature_spectrum')
+    descriptor_base = make_output_base(
+        output_dir, args.prefix, 'projected_feature_spectral_descriptor')
+    gate_base = make_output_base(output_dir, args.prefix, 'per_link_temporal_gate')
+    gate_curve_base = make_output_base(
+        output_dir, args.prefix, 'per_link_temporal_gate_trajectories')
+    correction_base = make_output_base(
+        output_dir, args.prefix, 'residual_correction_activation')
+    triptych_base = make_output_base(
+        output_dir, args.prefix, 'spectral_tokenizer_trace')
 
-    save_line_plot(
+    time_paths = save_line_plot(
         time_values,
-        title='Time-domain signal',
+        title='Projected temporal feature',
         xlabel='Timestep',
         ylabel='Activation',
-        output_path=time_path,
+        output_base=time_base,
         dpi=args.dpi,
         color='#1278c8')
-    save_line_plot(
+    frequency_paths = save_line_plot(
         freq_values,
-        title='Frequency spectrum |RFFT|',
+        title='Projected-feature spectrum |RFFT|',
         xlabel='Frequency bin',
         ylabel='Magnitude',
-        output_path=freq_path,
+        output_base=freq_base,
         dpi=args.dpi,
         color='#ef6c00')
-    save_heatmap(
-        doppler_image,
-        title='Doppler magnitude profile',
+    descriptor_paths = save_heatmap(
+        descriptor_image,
+        title='Projected-feature spectral descriptor',
         xlabel='Frequency bin',
         ylabel='Spatial link',
-        output_path=doppler_path,
+        output_base=descriptor_base,
         dpi=args.dpi,
         cmap='magma',
         highlight_row=spatial_index)
-    save_heatmap(
+    gate_paths = save_heatmap(
         gate_image,
-        title='Doppler-guided temporal gate',
+        title='Learned per-link temporal gate',
         xlabel='Timestep',
         ylabel='Spatial link',
-        output_path=gate_path,
+        output_base=gate_base,
         dpi=args.dpi,
         cmap='plasma',
         vmin=0.0,
         vmax=1.0,
         highlight_row=spatial_index)
-    save_gate_trajectories(
+    gate_curve_paths = save_gate_trajectories(
         gate_image,
         selected_index=spatial_index,
-        output_path=gate_curve_path,
+        output_base=gate_curve_base,
         dpi=args.dpi)
-    save_heatmap(
+    correction_paths = save_heatmap(
         token_image,
-        title='Motion-aware token map',
+        title='Residual correction activation',
         xlabel='Timestep',
         ylabel='Top dynamic feature channels',
-        output_path=token_path,
+        output_base=correction_base,
         dpi=args.dpi,
         cmap='viridis')
-    save_slide_triptych(
-        doppler_image,
+    triptych_paths = save_diagnostic_triptych(
+        descriptor_image,
         gate_image,
         token_image,
         sample_name=sample_name,
         spatial_index=spatial_index,
-        output_path=triptych_path,
+        output_base=triptych_base,
         dpi=args.dpi)
 
     metadata = {
@@ -434,13 +450,13 @@ def main():
         'token_source': args.token_source,
         'top_feature_indices': top_feature_indices.tolist(),
         'artifacts': {
-            'time_domain_signal': time_path,
-            'frequency_spectrum': freq_path,
-            'doppler_profile': doppler_path,
-            'temporal_gate': gate_path,
-            'temporal_gate_trajectories': gate_curve_path,
-            'motion_aware_token_map': token_path,
-            'spectral_slide_triptych': triptych_path,
+            'projected_temporal_feature': time_paths,
+            'projected_feature_spectrum': frequency_paths,
+            'projected_feature_spectral_descriptor': descriptor_paths,
+            'per_link_temporal_gate': gate_paths,
+            'per_link_temporal_gate_trajectories': gate_curve_paths,
+            'residual_correction_activation': correction_paths,
+            'spectral_tokenizer_trace': triptych_paths,
         },
         'tensor_shapes': {
             key: list(value.shape)

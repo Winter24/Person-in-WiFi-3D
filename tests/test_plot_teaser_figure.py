@@ -1,6 +1,7 @@
 import csv
 import importlib.util
 import importlib
+import json
 import shutil
 import unittest
 import uuid
@@ -37,6 +38,11 @@ class TestPlotTeaserFigure(unittest.TestCase):
             writer.writerows(rows)
         return csv_path
 
+    def _write_aliases(self, aliases):
+        alias_path = self.work_dir / 'aliases.json'
+        alias_path.write_text(json.dumps(aliases), encoding='utf-8')
+        return alias_path
+
     def test_script_exists(self):
         self.assertTrue(
             SCRIPT_PATH.exists(),
@@ -53,8 +59,8 @@ class TestPlotTeaserFigure(unittest.TestCase):
         rows = module.load_experiment_rows(csv_path)
 
         self.assertEqual([row['experiment_id'] for row in rows], ['M0', 'M5'])
-        self.assertEqual(rows[0]['display_name'], 'M0 (Baseline)')
-        self.assertEqual(rows[1]['display_name'], 'M5 (Ours)')
+        self.assertEqual(rows[0]['display_name'], 'Transformer-PETR Control')
+        self.assertEqual(rows[1]['display_name'], 'Mamba Draft')
         self.assertIsInstance(rows[0]['mpjpe'], float)
         self.assertIsInstance(rows[0]['fps'], float)
         self.assertIsInstance(rows[0]['params_m'], float)
@@ -70,17 +76,21 @@ class TestPlotTeaserFigure(unittest.TestCase):
             {'experiment_id': 'B5', 'mpjpe': '164.89', 'fps': '154.4', 'params_m': '5.11'},
         ])
 
+        alias_path = self._write_aliases({
+            'B0': 'M0', 'B1': 'M1', 'B2': 'M2',
+            'A3': 'M3', 'B4': 'M4', 'B5': 'M5',
+        })
         rows = module.load_experiment_rows(
             csv_path,
             runs=['M0', 'M1', 'M2', 'M3', 'M4', 'M5'],
-            alias_path=module.DEFAULT_ALIAS_PATH)
+            alias_path=alias_path)
 
         self.assertEqual(
             [row['experiment_id'] for row in rows],
             ['M0', 'M1', 'M2', 'M3', 'M4', 'M5'])
         self.assertEqual(rows[0]['source_experiment_id'], 'B0')
         self.assertEqual(rows[3]['source_experiment_id'], 'A3')
-        self.assertEqual(rows[5]['display_name'], 'M5 (Ours)')
+        self.assertEqual(rows[5]['display_name'], 'Mamba Draft')
 
     def test_bubble_size_scale_preserves_parameter_order(self):
         module = _load_module('plot_teaser_figure', SCRIPT_PATH)
@@ -109,11 +119,11 @@ class TestPlotTeaserFigure(unittest.TestCase):
             self.skipTest('matplotlib is not available in this environment')
         module = _load_module('plot_teaser_figure', SCRIPT_PATH)
         rows = [
-            {'experiment_id': 'M0', 'display_name': 'M0 (Baseline)', 'mpjpe': 169.34, 'fps': 12.3, 'params_m': 13.13},
+            {'experiment_id': 'M0', 'display_name': 'Transformer-PETR Control', 'mpjpe': 169.34, 'fps': 12.3, 'params_m': 13.13},
             {'experiment_id': 'M1', 'display_name': 'M1', 'mpjpe': 180.32, 'fps': 28.0, 'params_m': 13.36},
             {'experiment_id': 'M2', 'display_name': 'M2', 'mpjpe': 170.86, 'fps': 65.0, 'params_m': 11.25},
             {'experiment_id': 'M4', 'display_name': 'M4', 'mpjpe': 166.51, 'fps': 121.0, 'params_m': 5.11},
-            {'experiment_id': 'M5', 'display_name': 'M5 (Ours)', 'mpjpe': 164.89, 'fps': 156.4, 'params_m': 5.11},
+            {'experiment_id': 'M5', 'display_name': 'Mamba Draft', 'mpjpe': 164.89, 'fps': 156.4, 'params_m': 5.11},
         ]
 
         output_prefix = self.work_dir / 'figure1_teaser'
@@ -126,7 +136,7 @@ class TestPlotTeaserFigure(unittest.TestCase):
         self.assertNotIn('Better', ax.texts[-1].get_text() if ax.texts else '')
         all_text = ' '.join(text.get_text() for text in ax.texts)
         self.assertNotIn('Better', all_text)
-        self.assertIn('M5 (Ours)', all_text)
+        self.assertIn('Mamba Draft', all_text)
         fig.clf()
 
 

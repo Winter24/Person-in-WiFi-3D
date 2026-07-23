@@ -72,7 +72,7 @@ class TestManuscriptMetricAlignment(unittest.TestCase):
     def test_public_method_labels_are_used_in_the_main_results(self):
         self.assertIn('Mamba-2 Flow (two steps)', self.source)
         self.assertIn('Mamba-2 Draft', self.source)
-        self.assertIn('PETR Reference', self.source)
+        self.assertIn('Transformer-PETR Control', self.source)
 
 
 if __name__ == '__main__':

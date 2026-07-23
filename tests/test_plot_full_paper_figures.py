@@ -20,7 +20,7 @@ class TestFullPaperFigureLabels(unittest.TestCase):
     def test_dense_figure_uses_functional_short_labels(self):
         module = load_module()
 
-        self.assertEqual(module.public_short_labels()[0], 'PETR\nRef.')
+        self.assertEqual(module.public_short_labels()[0], 'Trans.-PETR\nControl')
         self.assertEqual(module.public_short_labels()[-1], 'Mamba-2\nFlow 2')
 
 

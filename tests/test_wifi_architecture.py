@@ -257,7 +257,7 @@ class WifiArchitectureTests(unittest.TestCase):
             plan)
         self.assertNotIn("| A1 |", plan)
 
-    def test_wifi_input_adapter_supports_linear_and_spectral_modes(self):
+    def test_wifi_input_adapter_supports_component_ablation_modes(self):
         source = _read("opera/models/utils/spectral_tokenizer.py")
 
         self.assertIn("BACKBONES", source)
@@ -273,14 +273,22 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("num_spatial=9", source)
         self.assertIn("seq_len=20", source)
         self.assertIn("x_linear = self.head(x)", source)
-        self.assertIn("x_grid = x_linear.view(B * self.num_spatial, self.seq_len, self.embed_dims)", source)
+        self.assertIn("x_grid = x_linear.view(", source)
         self.assertIn("torch.fft.rfft(", source)
         self.assertNotIn("torch.fft.rfft2", source)
-        self.assertIn("x_token = self.norm(x_linear + x_enhanced)", source)
+        self.assertIn("x_token = self.norm(x_linear + residual_correction)", source)
         self.assertIn("return x_token", source)
-        self.assertIn('"""Doppler-Guided Wi-Fi Input Adapter.', source)
+        for mode in (
+            "linear", "linear_ln", "temporal_residual",
+            "spectral_gate_residual", "spectral",
+        ):
+            self.assertIn(f"'{mode}'", source)
+        self.assertIn('"""Spectrally conditioned temporal residual tokenizer.', source)
         self.assertIn("self.freq_gate = nn.Sequential(", source)
         self.assertIn("self.channel_proj = nn.Linear(embed_dims, embed_dims)", source)
+        self.assertIn("spectral_descriptor", source)
+        self.assertIn("residual_correction", source)
+        self.assertNotIn("doppler_profile", source.lower())
         self.assertNotIn("xavier_uniform_(self.linear_proj.weight)", source)
 
     def test_wifi_input_adapter_has_spatial_mixing_before_temporal_fft(self):
@@ -300,24 +308,55 @@ class WifiArchitectureTests(unittest.TestCase):
         self.assertIn("nn.init.constant_(self.freq_gate[2].bias, 0)", source)
         self.assertIn("nn.init.constant_(self.channel_proj.weight, 0.0)", source)
         self.assertIn("nn.init.constant_(self.channel_proj.bias, 0.0)", source)
-        self.assertIn("x_time = x_grid.permute(0, 2, 1).contiguous()", source)
+        self.assertIn("temporal_channels = x_grid.permute(0, 2, 1).contiguous()", source)
         self.assertIn("x_fft = torch.fft.rfft(x_grid, dim=1, norm='ortho')", source)
-        self.assertIn("doppler_profile = x_fft_mag.mean(dim=-1)", source)
-        self.assertIn("time_gate = self.freq_gate(doppler_profile)", source)
-        self.assertIn("time_gate = torch.sigmoid(time_gate)", source)
-        self.assertIn("time_gate_broadcast = time_gate.unsqueeze(1)", source)
-        self.assertIn("x_enhanced = x_time * time_gate", source)
-        self.assertIn("x_enhanced = self.channel_proj(x_enhanced)", source)
+        self.assertIn("spectral_descriptor = x_fft_magnitude.mean(dim=-1)", source)
+        self.assertIn("temporal_gate = torch.sigmoid(self.freq_gate(spectral_descriptor))", source)
+        self.assertIn("residual_branch = residual_branch * temporal_gate.unsqueeze(-1)", source)
+        self.assertIn("residual_correction_grid = self.channel_proj(residual_branch)", source)
         self.assertNotIn("self.spatial_mixer", source)
         self.assertNotIn("self.complex_weight", source)
 
-        idx_temporal = source.find("x_time = x_grid.permute(0, 2, 1).contiguous()")
+        idx_temporal = source.find("temporal_channels = x_grid.permute(0, 2, 1).contiguous()")
         idx_fft = source.find("x_fft = torch.fft.rfft(")
-        idx_gate = source.find("time_gate = self.freq_gate(")
+        idx_gate = source.find("temporal_gate = torch.sigmoid(")
         idx_fft = source.find("torch.fft.rfft(")
 
         self.assertTrue(idx_temporal < idx_fft)
         self.assertTrue(idx_fft < idx_gate)
+
+    def test_spectral_tokenizer_component_configs_share_the_control_protocol(self):
+        expected_modes = {
+            "t0_linear.py": "linear",
+            "t1_linear_ln.py": "linear_ln",
+            "t2_temporal_residual.py": "temporal_residual",
+            "t3_spectral_gate_residual.py": "spectral_gate_residual",
+            "t4_spectral.py": "spectral",
+        }
+        for filename, mode in expected_modes.items():
+            relative_path = f"configs/wifi/tokenizer_ablation/{filename}"
+            with self.subTest(filename=filename):
+                cfg = _load_config_module(relative_path)
+                source = _read(relative_path)
+                self.assertIn("_base_ = ['../petr_wifi.py']", source)
+                self.assertEqual(cfg.model["backbone"]["mode"], mode)
+                self.assertEqual(cfg.seed, 42)
+                self.assertTrue(cfg.deterministic)
+                self.assertEqual(cfg.runner["max_epochs"], 20)
+
+    def test_spectral_tokenizer_ablation_runner_covers_training_evaluation_and_audit(self):
+        source = _read("tools/analysis/run_spectral_tokenizer_ablation.sh")
+        for run_id in ("T0", "T1", "T2", "T3", "T4"):
+            self.assertIn(run_id, source)
+        for command in (
+            "tools/train.py",
+            "tools/test.py",
+            "tools/analysis/benchmark.py",
+            "audit_tokenizer_ablation.py",
+        ):
+            self.assertIn(command, source)
+        self.assertIn("ENDPOINT_TOLERANCE_MM", source)
+        self.assertIn("--deterministic", source)
 
     def test_wimamba_encoder_is_registered_in_mmcv_transformer_sequence_registry(self):
         source = _read("opera/models/backbones/wimamba.py")
